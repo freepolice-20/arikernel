@@ -16,6 +16,7 @@ export const toolCallRequestSchema = z.object({
 	parameters: z.record(z.unknown()),
 	taintLabels: z.array(taintLabelSchema).optional(),
 	parentCallId: z.string().optional(),
+	grantId: z.string().optional(),
 });
 
 export const toolCallSchema = z.object({
@@ -29,6 +30,7 @@ export const toolCallSchema = z.object({
 	parameters: z.record(z.unknown()),
 	taintLabels: z.array(taintLabelSchema),
 	parentCallId: z.string().optional(),
+	grantId: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({

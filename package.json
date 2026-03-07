@@ -16,6 +16,7 @@
     "lint:fix": "biome check --write .",
     "clean": "turbo clean && rm -rf node_modules",
     "demo": "tsx examples/demo.ts",
+    "demo:capability": "tsx examples/demo-capability.ts",
     "typecheck": "turbo typecheck"
   },
   "devDependencies": {

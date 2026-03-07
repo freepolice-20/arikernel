@@ -31,3 +31,15 @@ export {
 	type AuditEvent,
 	type RunContext,
 } from './audit.js';
+
+export {
+	type CapabilityClass,
+	type CapabilityClassMapping,
+	type CapabilityConstraint,
+	type CapabilityLease,
+	type CapabilityRequest,
+	type CapabilityGrant,
+	type IssuanceDecision,
+	CAPABILITY_CLASSES,
+	CAPABILITY_CLASS_MAP,
+} from './capability.js';

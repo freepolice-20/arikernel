@@ -1,12 +1,26 @@
-import type { AuditEvent, Principal, ToolCallRequest, ToolResult } from '@agent-firewall/core';
-import { generateId } from '@agent-firewall/core';
+import type {
+	AuditEvent,
+	CapabilityClass,
+	CapabilityConstraint,
+	CapabilityGrant,
+	CapabilityRequest,
+	IssuanceDecision,
+	Principal,
+	TaintLabel,
+	ToolCallRequest,
+	ToolResult,
+} from '@agent-firewall/core';
+import { generateId, now } from '@agent-firewall/core';
 import { AuditStore, replayRun, type ReplayResult } from '@agent-firewall/audit-log';
 import { PolicyEngine } from '@agent-firewall/policy-engine';
 import { TaintTracker } from '@agent-firewall/taint-tracker';
 import { ExecutorRegistry } from '@agent-firewall/tool-executors';
 import type { FirewallOptions } from './config.js';
 import { validateOptions } from './config.js';
+import type { FirewallHooks } from './hooks.js';
+import { CapabilityIssuer } from './issuer.js';
 import { Pipeline } from './pipeline.js';
+import { TokenStore } from './token-store.js';
 
 export class Firewall {
 	private principal: Principal;
@@ -15,6 +29,9 @@ export class Firewall {
 	private auditStore: AuditStore;
 	private executorRegistry: ExecutorRegistry;
 	private pipeline: Pipeline;
+	private issuer: CapabilityIssuer;
+	private tokenStore: TokenStore;
+	private _hooks: FirewallHooks;
 	readonly runId: string;
 
 	constructor(options: FirewallOptions) {
@@ -32,6 +49,14 @@ export class Firewall {
 		this.taintTracker = new TaintTracker();
 		this.auditStore = new AuditStore(options.auditLog ?? './audit.db');
 		this.executorRegistry = new ExecutorRegistry();
+		this.tokenStore = new TokenStore();
+		this.issuer = new CapabilityIssuer(
+			this.policyEngine,
+			this.taintTracker,
+			this.tokenStore,
+		);
+
+		this._hooks = options.hooks ?? {};
 
 		this.auditStore.startRun(this.runId, this.principal.id, {
 			principal: options.principal,
@@ -46,7 +71,33 @@ export class Firewall {
 			this.auditStore,
 			this.executorRegistry,
 			options.hooks ?? {},
+			this.tokenStore,
 		);
+	}
+
+	requestCapability(
+		capabilityClass: CapabilityClass,
+		options?: {
+			constraints?: CapabilityConstraint;
+			taintLabels?: TaintLabel[];
+			justification?: string;
+		},
+	): IssuanceDecision {
+		const request: CapabilityRequest = {
+			id: generateId(),
+			principalId: this.principal.id,
+			capabilityClass,
+			constraints: options?.constraints,
+			taintLabels: options?.taintLabels ?? [],
+			justification: options?.justification,
+			timestamp: now(),
+		};
+
+		const decision = this.issuer.evaluate(request, this.principal);
+
+		this._hooks.onIssuance?.(request, decision);
+
+		return decision;
 	}
 
 	async execute(request: ToolCallRequest): Promise<ToolResult> {
@@ -59,6 +110,14 @@ export class Firewall {
 
 	getEvents(runId?: string): AuditEvent[] {
 		return this.auditStore.queryRun(runId ?? this.runId);
+	}
+
+	activeGrants(): CapabilityGrant[] {
+		return this.tokenStore.activeGrants(this.principal.id);
+	}
+
+	revokeGrant(grantId: string): boolean {
+		return this.tokenStore.revoke(grantId);
 	}
 
 	close(): void {

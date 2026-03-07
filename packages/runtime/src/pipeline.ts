@@ -1,5 +1,6 @@
 import type {
 	AuditEvent,
+	CapabilityGrant,
 	Decision,
 	Principal,
 	ToolCall,
@@ -8,6 +9,7 @@ import type {
 } from '@agent-firewall/core';
 import {
 	ApprovalRequiredError,
+	CAPABILITY_CLASS_MAP,
 	ToolCallDeniedError,
 	generateId,
 	now,
@@ -18,6 +20,7 @@ import { PolicyEngine } from '@agent-firewall/policy-engine';
 import { TaintTracker } from '@agent-firewall/taint-tracker';
 import { ExecutorRegistry } from '@agent-firewall/tool-executors';
 import type { FirewallHooks } from './hooks.js';
+import type { TokenStore } from './token-store.js';
 
 export class Pipeline {
 	private sequence = 0;
@@ -30,6 +33,7 @@ export class Pipeline {
 		private readonly auditStore: AuditStore,
 		private readonly executorRegistry: ExecutorRegistry,
 		private readonly hooks: FirewallHooks,
+		private readonly tokenStore?: TokenStore,
 	) {}
 
 	async intercept(request: ToolCallRequest): Promise<ToolResult> {
@@ -47,7 +51,14 @@ export class Pipeline {
 			parameters: request.parameters,
 			taintLabels: request.taintLabels ?? [],
 			parentCallId: request.parentCallId,
+			grantId: request.grantId,
 		};
+
+		// Step 1.5: Validate capability token if provided
+		if (request.grantId && this.tokenStore) {
+			const tokenResult = this.validateToken(toolCall, request.grantId);
+			if (tokenResult) return tokenResult;
+		}
 
 		// Step 2: Collect taint
 		const inputTaints = this.taintTracker.collectInputTaints(toolCall);
@@ -105,6 +116,54 @@ export class Pipeline {
 		this.logEvent(toolCall, decision, result);
 
 		return result;
+	}
+
+	private validateToken(toolCall: ToolCall, grantId: string): Promise<ToolResult> | null {
+		const validation = this.tokenStore!.validate(grantId);
+
+		if (!validation.valid) {
+			const decision: Decision = {
+				verdict: 'deny',
+				matchedRule: null,
+				reason: `Capability token invalid: ${validation.reason}`,
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			this.logEvent(toolCall, decision);
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
+		const grant = this.tokenStore!.get(grantId)!;
+		const mapping = CAPABILITY_CLASS_MAP[grant.capabilityClass];
+
+		if (mapping.toolClass !== toolCall.toolClass) {
+			const decision: Decision = {
+				verdict: 'deny',
+				matchedRule: null,
+				reason: `Token for '${grant.capabilityClass}' cannot be used for tool class '${toolCall.toolClass}'`,
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			this.logEvent(toolCall, decision);
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
+		if (!mapping.actions.includes(toolCall.action)) {
+			const decision: Decision = {
+				verdict: 'deny',
+				matchedRule: null,
+				reason: `Token for '${grant.capabilityClass}' does not permit action '${toolCall.action}'`,
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			this.logEvent(toolCall, decision);
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
+		// Consume one use from the lease
+		this.tokenStore!.consume(grantId);
+
+		return null; // null = validation passed, proceed with normal flow
 	}
 
 	private logEvent(toolCall: ToolCall, decision: Decision, result?: ToolResult): AuditEvent {

@@ -7,6 +7,7 @@ export interface ToolCallRequest {
 	parameters: Record<string, unknown>;
 	taintLabels?: TaintLabel[];
 	parentCallId?: string;
+	grantId?: string;
 }
 
 export interface ToolCall {
@@ -20,6 +21,7 @@ export interface ToolCall {
 	parameters: Record<string, unknown>;
 	taintLabels: TaintLabel[];
 	parentCallId?: string;
+	grantId?: string;
 }
 
 export interface ToolResult {
