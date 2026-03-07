@@ -1,8 +1,29 @@
 # Agent Firewall
 
-A reference monitor for AI agents. Intercepts every tool call at runtime, enforces short-lived capability tokens, tracks data provenance, detects multi-step attack patterns, and produces replayable audit evidence.
+A reference monitor for AI agents. Intercepts every tool call at runtime, enforces short-lived capability tokens, tracks data provenance, detects multi-step attack patterns, and produces tamper-evident audit evidence.
 
 **Core thesis:** AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
+
+```
+┌─────────────┐
+│    Agent     │
+└──────┬──────┘
+       │ tool call
+       ▼
+┌──────────────────────────────────┐
+│        Agent Firewall            │
+│                                  │
+│  ┌─ capability token check       │
+│  ├─ provenance / taint check     │
+│  ├─ behavioral sequence detection│
+│  └─ audit log append             │
+└──────┬───────────────────────────┘
+       │ allowed call
+       ▼
+┌──────────────────────────────────┐
+│  Tools (HTTP / File / Shell / DB)│
+└──────────────────────────────────┘
+```
 
 ## Why This Exists
 
@@ -16,32 +37,26 @@ AI agents are being given direct access to tools: HTTP requests, shell commands,
 
 1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
 2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
-3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level quarantine before threshold counters would.
+3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level behavioral quarantine before threshold counters would.
 4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
-5. **Replayable audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
+5. **Tamper-evident audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
 
-## Quick Start
+## 2-Minute Demo
 
 ```bash
 # Prerequisites: Node.js >= 20, pnpm >= 9
 git clone https://github.com/petermanrique101-sys/Agent-Firewall.git
 cd Agent-Firewall
-pnpm install && pnpm build
-```
 
-### Run the behavioral enforcement demo
-
-```bash
+pnpm install
+pnpm build
 pnpm demo:behavioral
-```
-
-This simulates an agent that receives tainted web content and then attempts to read SSH keys. The behavioral rule `web_taint_sensitive_probe` detects the pattern and quarantines the run — with only 1 denied action, far below the threshold of 10.
-
-### Replay the audit trail
-
-```bash
 pnpm cli replay --latest --verbose --db ./demo-audit.db
 ```
+
+The demo simulates an agent that fetches a webpage containing a prompt injection, then attempts to read SSH keys. The behavioral rule `web_taint_sensitive_probe` detects the pattern and quarantines the run — with only 1 denied action, far below the threshold of 10.
+
+**Expected replay output:**
 
 ```
 ────────────────────────────────────────────────────────
@@ -49,8 +64,6 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 ────────────────────────────────────────────────────────
   Run ID:    01KK3G3W...
   Principal: 01KK3G3W...
-  Started:   2026-03-07T06:35:19.126Z
-  Ended:     2026-03-07T06:35:19.610Z
 ────────────────────────────────────────────────────────
 
   #0 ALLOW http.get  [token:01KK3G3W...]  226ms
@@ -83,8 +96,6 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 ────────────────────────────────────────────────────────
 ```
 
-Every event carries full provenance. The QUARANTINE record shows the trigger type, matched rule, reason, and the pattern of events that fired it. The hash chain is cryptographically verified on replay.
-
 ### All demos
 
 ```bash
@@ -94,6 +105,7 @@ pnpm demo:attack       # Prompt injection: 4-stage attack blocked by 4 defense l
 pnpm demo:escalation   # Privilege escalation: narrow token cannot be widened
 pnpm demo:run-state    # Threshold-based quarantine after repeated denied actions
 pnpm demo:behavioral   # Behavioral sequence enforcement: pattern-based quarantine
+pnpm demo:langchain    # LangChain integration: wrapped tools with firewall enforcement
 ```
 
 ### Tests
@@ -139,6 +151,8 @@ Agent requests action
 
 Quarantine events are recorded as first-class `_system.quarantine` audit entries with trigger type, matched rule ID, reason, counters snapshot, and the pattern of events that triggered the rule.
 
+**Deployment mode:** Agent Firewall currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture § Deployment Modes](ARCHITECTURE.md) for the full trust boundary analysis.
+
 ## Behavioral Sequence Rules
 
 Three built-in rules detect suspicious multi-step patterns:
@@ -170,7 +184,7 @@ agent-firewall/
 ├── python/                # Python client (v1 decision/enforcement adapter)
 ├── policies/              # YAML policy files
 ├── examples/              # Runnable demos
-└── docs/                  # Threat model, benchmarks, architecture
+└── docs/                  # Design docs, threat model, benchmarks
 ```
 
 ## Writing Policies
@@ -235,11 +249,26 @@ with FirewallClient(
 
 See [python/README.md](python/README.md) for full API documentation.
 
+## LangChain Example
+
+LangChain agents can run behind Agent Firewall by wrapping tool execution. The `firewallTool()` wrapper requests a capability token and routes execution through the firewall — the agent never knows about the enforcement boundary.
+
+```bash
+pnpm demo:langchain
+```
+
+The demo simulates a LangChain agent with three tools (http_get, file_read, http_post). The first tool call is allowed with a web taint label. The second triggers the `web_taint_sensitive_probe` behavioral rule and quarantines the run. The third — an exfiltration attempt — is blocked because the run is in restricted mode.
+
+The same wrapping pattern works for any framework that lets you define custom tool functions: CrewAI (`BaseTool._run()`), AutoGen (`function_map`), Vercel AI SDK (`tool.execute()`).
+
+See [examples/langchain-agent-firewall.ts](examples/langchain-agent-firewall.ts) for the full implementation.
+
 ## Documentation
 
-- [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, behavioral quarantine design
+- [Agent Reference Monitor](docs/agent-reference-monitor.md) — the security model: ambient authority, why per-call gateways fail, and how the reference monitor enforces capability + provenance + behavioral quarantine
+- [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, run-level behavioral quarantine design
 - [Threat Model](docs/threat-model.md) — what this mitigates (per-call and behavioral) and what it doesn't
-- [Benchmarks](docs/benchmarks.md) — 4 attack stories: attacker goal, sequence, unguarded outcome vs. Agent Firewall outcome, and what the audit replay proves
+- [Benchmarks](docs/benchmarks.md) — 4 attack stories with attacker goal, sequence, unguarded outcome vs. Agent Firewall outcome, and what the audit replay proves
 
 ## License
 

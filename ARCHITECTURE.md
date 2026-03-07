@@ -699,7 +699,7 @@ Quarantine is recorded as a first-class `_system.quarantine` audit event that pa
 
 Once quarantined, the Pipeline rejects non-safe actions before policy evaluation. The Firewall rejects non-safe capability issuances. Only `http.get/head/options`, `file.read`, and `database.query` pass through.
 
-### Replayable Audit Evidence
+### Tamper-Evident Audit Evidence
 
 The CLI `replay` command renders quarantine events with trigger type, rule ID, reason, counters snapshot, and matched event pattern:
 
@@ -709,7 +709,76 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 
 ---
 
-## 11. MVP Scope vs. Later
+## 11. Deployment Modes and Trust Boundaries
+
+Agent Firewall can be deployed in two modes. The deployment mode determines where the trust boundary sits and what guarantees the system provides.
+
+### Embedded Mode (current)
+
+```
+┌──────────────────────────────────────┐
+│          Agent Process               │
+│                                      │
+│  Agent Code                          │
+│      ↓                               │
+│  createFirewall()  ← trust boundary  │
+│      ↓                               │
+│  Tool Executors                      │
+└──────────────────────────────────────┘
+```
+
+In embedded mode, the firewall runs as a library inside the agent process. The agent framework imports `createFirewall()` and routes tool calls through it. This is **cooperative enforcement**: the agent framework must opt in to the firewall by wrapping tool execution.
+
+**Trust boundary:** The firewall code itself is trusted — it runs in the same process but is not controlled by the LLM. The LLM's tool calls pass through the enforcement pipeline before reaching executors. The LLM cannot modify the firewall's policy, tokens, or audit log, because those are runtime objects outside its control. However, if the agent framework code itself is compromised or misconfigured to bypass the firewall, enforcement is lost.
+
+**When to use:** Development, integration testing, single-process agents, environments where you control the agent framework code. This is the right mode when the agent framework is trusted and the threat is adversarial LLM behavior (prompt injection, jailbreaks), not adversarial framework code.
+
+**Guarantees:**
+- Every tool call routed through the firewall is subject to full enforcement (capability, taint, behavioral, audit)
+- The LLM cannot bypass the firewall — it can only call functions the framework exposes
+- Audit log integrity is protected by the SHA-256 hash chain (tamper-evident, not tamper-proof within the same process)
+
+### Proxy / Sidecar Mode (roadmap)
+
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌───────────┐
+│  Agent Process   │     │  Firewall Proxy      │     │  Tools    │
+│                  │     │                      │     │           │
+│  Agent Code ─────┼────→│  capability check    │────→│  HTTP     │
+│                  │     │  taint check         │     │  File     │
+│  (no direct      │     │  behavioral rules    │     │  Shell    │
+│   tool access)   │     │  audit log           │     │  Database │
+└─────────────────┘     └──────────────────────┘     └───────────┘
+```
+
+In proxy mode, the firewall runs as a separate process (sidecar, reverse proxy, or gateway). Tools are not directly accessible to the agent — all tool calls must pass through the firewall proxy. The agent process has no network path or filesystem access to tools except through the proxy.
+
+**Trust boundary:** The firewall is a separate process with its own memory space. The agent cannot modify firewall state, bypass enforcement, or tamper with the audit log. This is **mandatory enforcement**: there is no code path from the agent to tools that does not pass through the firewall.
+
+**When to use:** Production deployments, multi-tenant environments, untrusted agent code, compliance-sensitive workloads. This is the right mode when you need to guarantee enforcement regardless of what the agent framework does.
+
+**Guarantees:**
+- Complete mediation — no tool call can bypass the proxy
+- Process isolation — agent cannot modify firewall state or audit log
+- Tamper-proof audit — audit log is in a separate process, inaccessible to the agent
+- Supports any language or framework — agent communicates via HTTP, not library imports
+
+### Trust Boundary Comparison
+
+| Property | Embedded Mode | Proxy Mode |
+|----------|--------------|------------|
+| Enforcement type | Cooperative | Mandatory |
+| Agent can bypass? | Only if framework code is modified | No — no direct path to tools |
+| Audit tamper resistance | Tamper-evident (hash chain) | Tamper-proof (separate process) |
+| Language support | TypeScript/JavaScript | Any (HTTP API) |
+| Latency | In-process (microseconds) | Network hop (milliseconds) |
+| Setup complexity | `npm install` + `createFirewall()` | Separate service deployment |
+
+The HTTP decision server (`apps/server/`) is the foundation for proxy mode. It already evaluates capabilities and policies over HTTP — extending it to proxy all tool execution is the primary roadmap item for mandatory enforcement.
+
+---
+
+## 12. MVP Scope vs. Later
 
 ### MVP (build now)
 
@@ -749,7 +818,7 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 
 ---
 
-## 12. 12-Week Implementation Roadmap
+## 13. 12-Week Implementation Roadmap
 
 ### Weeks 1-2: Foundation
 - Monorepo scaffold (pnpm, Turborepo, tsconfig, Biome)
@@ -784,7 +853,7 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 
 ---
 
-## 13. Risks, Tradeoffs, and What NOT to Over-Engineer
+## 14. Risks, Tradeoffs, and What NOT to Over-Engineer
 
 ### Risks
 

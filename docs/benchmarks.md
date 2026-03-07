@@ -1,6 +1,17 @@
 # Agent Firewall Benchmarks
 
-Four concrete attack stories that demonstrate what Agent Firewall detects and contains. Each benchmark describes the attack, what an unguarded agent runtime would do, what Agent Firewall does, and what the audit replay proves.
+These benchmarks simulate real multi-step agent attacks — the kind of sequences that execute successfully on typical agent stacks with no runtime enforcement. Each benchmark walks through the attack step by step, shows what happens without a reference monitor, and demonstrates how Agent Firewall detects the pattern and quarantines the run.
+
+## Summary
+
+| Attack Scenario | Unguarded Agent Runtime | Agent Firewall |
+|----------------|------------------------|----------------|
+| Web taint → sensitive probe | Agent reads SSH keys, POSTs to attacker. No detection. | Behavioral rule quarantines after taint + sensitive read pattern. POST blocked. |
+| Denied capability → escalation | Capabilities evaluated independently. Shell access granted. | Behavioral rule detects risk escalation pattern. Run quarantined. |
+| Sensitive read → egress | Both actions within capability. Data exfiltrated. | Behavioral rule detects read-then-egress sequence. POST blocked. |
+| Repeated denial → unsafe pivot | Agent pivots to a working exfiltration path. | Threshold counter quarantines after N denials. All writes blocked. |
+
+---
 
 ## Benchmark 1: Web Taint to Sensitive Probe
 
@@ -94,15 +105,6 @@ Four concrete attack stories that demonstrate what Agent Firewall detects and co
 **Demo:** `pnpm demo:run-state`
 
 ---
-
-## Summary Matrix
-
-| Attack Scenario | Unguarded Agent Runtime | Agent Firewall |
-|----------------|------------------------|----------------|
-| Web taint -> sensitive probe | Agent reads SSH keys, POSTs to attacker. No detection. | Behavioral rule quarantines after taint + sensitive read pattern. POST blocked. Audit shows full provenance chain. |
-| Denied capability -> escalation | Capabilities evaluated independently. Shell access granted despite HTTP denial. | Behavioral rule detects risk escalation pattern. Run quarantined. Escalation blocked. |
-| Sensitive read -> egress | Both actions within capability. Data exfiltrated. | Behavioral rule detects read-then-egress sequence. POST blocked before execution. |
-| Repeated denial -> unsafe pivot | Agent pivots to a working exfiltration path. | Threshold counter quarantines after N denials. All non-read-only actions blocked. |
 
 ### Key Differentiators
 
