@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/server",
+  "name": "@arikernel/server",
   "version": "0.1.0",
-  "description": "HTTP decision server for Agent Firewall",
+  "description": "HTTP decision server for AriKernel",
   "type": "module",
   "scripts": {
     "build": "tsup src/main.ts --format esm --dts",
@@ -12,8 +12,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
-    "@agent-firewall/runtime": "workspace:*"
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

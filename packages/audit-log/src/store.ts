@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AuditEvent, Decision, RunContext, ToolCall, ToolResult } from '@agent-firewall/core';
-import { generateId, now } from '@agent-firewall/core';
+import type { AuditEvent, Decision, RunContext, ToolCall, ToolResult } from '@arikernel/core';
+import { generateId, now } from '@arikernel/core';
 import Database from 'better-sqlite3';
 import { computeHash, genesisHash } from './hash-chain.js';
 

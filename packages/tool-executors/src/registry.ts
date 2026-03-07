@@ -1,4 +1,4 @@
-import type { ToolClass } from '@agent-firewall/core';
+import type { ToolClass } from '@arikernel/core';
 import type { ToolExecutor } from './base.js';
 import { DatabaseExecutor } from './database.js';
 import { FileExecutor } from './file.js';

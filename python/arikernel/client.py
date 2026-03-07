@@ -1,4 +1,4 @@
-"""Synchronous HTTP client for the Agent Firewall decision server.
+"""Synchronous HTTP client for the AriKernel decision server.
 
 This v1 client is a decision/enforcement API layer over the TypeScript core.
 Actual tool execution still occurs in Python after an allow verdict.
@@ -22,7 +22,7 @@ def _taint_to_dict(label: TaintLabel) -> dict[str, Any]:
 
 
 class FirewallClient:
-    """Client for the Agent Firewall HTTP decision server.
+    """Client for the AriKernel HTTP decision server.
 
     This is a v1 integration layer. It asks the server for allow/deny
     decisions and audits every call, but does NOT execute tools server-side.

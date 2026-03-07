@@ -8,10 +8,10 @@ importers:
 
   .:
     devDependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:packages/core
-      '@agent-firewall/runtime':
+      '@arikernel/runtime':
         specifier: workspace:*
         version: link:packages/runtime
       '@biomejs/biome':
@@ -41,19 +41,19 @@ importers:
 
   apps/cli:
     dependencies:
-      '@agent-firewall/attack-sim':
+      '@arikernel/attack-sim':
         specifier: workspace:*
         version: link:../../packages/attack-sim
-      '@agent-firewall/audit-log':
+      '@arikernel/audit-log':
         specifier: workspace:*
         version: link:../../packages/audit-log
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@agent-firewall/policy-engine':
+      '@arikernel/policy-engine':
         specifier: workspace:*
         version: link:../../packages/policy-engine
-      '@agent-firewall/runtime':
+      '@arikernel/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
       citty:
@@ -66,10 +66,10 @@ importers:
 
   apps/server:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@agent-firewall/runtime':
+      '@arikernel/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
     devDependencies:
@@ -79,10 +79,10 @@ importers:
 
   packages/attack-sim:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
-      '@agent-firewall/runtime':
+      '@arikernel/runtime':
         specifier: workspace:*
         version: link:../runtime
     devDependencies:
@@ -92,7 +92,7 @@ importers:
 
   packages/audit-log:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
       better-sqlite3:
@@ -121,7 +121,7 @@ importers:
 
   packages/policy-engine:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
       yaml:
@@ -134,19 +134,19 @@ importers:
 
   packages/runtime:
     dependencies:
-      '@agent-firewall/audit-log':
+      '@arikernel/audit-log':
         specifier: workspace:*
         version: link:../audit-log
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
-      '@agent-firewall/policy-engine':
+      '@arikernel/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine
-      '@agent-firewall/taint-tracker':
+      '@arikernel/taint-tracker':
         specifier: workspace:*
         version: link:../taint-tracker
-      '@agent-firewall/tool-executors':
+      '@arikernel/tool-executors':
         specifier: workspace:*
         version: link:../tool-executors
     devDependencies:
@@ -159,7 +159,7 @@ importers:
 
   packages/taint-tracker:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -169,7 +169,7 @@ importers:
 
   packages/tool-executors:
     dependencies:
-      '@agent-firewall/core':
+      '@arikernel/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

@@ -33,7 +33,7 @@ rules:
 `;
 
 export function runInit(): void {
-	const policyPath = 'agent-firewall.policy.yaml';
+	const policyPath = 'arikernel.policy.yaml';
 
 	if (existsSync(policyPath)) {
 		console.log(`Policy file already exists: ${policyPath}`);
@@ -42,5 +42,5 @@ export function runInit(): void {
 
 	writeFileSync(policyPath, DEFAULT_POLICY, 'utf-8');
 	console.log(`Created ${policyPath}`);
-	console.log('Edit this file to configure your agent firewall policies.');
+	console.log('Edit this file to configure your arikernel policies.');
 }

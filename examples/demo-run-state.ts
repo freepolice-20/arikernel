@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Run-State Escalation Demo
+ * AriKernel - Run-State Escalation Demo
  *
  * Demonstrates stateful enforcement: the firewall tracks cumulative
  * behavior across an entire agent run. When the agent repeatedly
@@ -17,8 +17,8 @@
  * Run: pnpm demo:run-state
  */
 
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 // ── Terminal formatting ──────────────────────────────────────────────

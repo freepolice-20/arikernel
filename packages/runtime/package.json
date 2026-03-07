@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/runtime",
+  "name": "@arikernel/runtime",
   "version": "0.1.0",
-  "description": "Main runtime orchestrator for Agent Firewall",
+  "description": "Main runtime orchestrator for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,11 +18,11 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
-    "@agent-firewall/policy-engine": "workspace:*",
-    "@agent-firewall/taint-tracker": "workspace:*",
-    "@agent-firewall/audit-log": "workspace:*",
-    "@agent-firewall/tool-executors": "workspace:*"
+    "@arikernel/core": "workspace:*",
+    "@arikernel/policy-engine": "workspace:*",
+    "@arikernel/taint-tracker": "workspace:*",
+    "@arikernel/audit-log": "workspace:*",
+    "@arikernel/tool-executors": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

@@ -1,4 +1,4 @@
-import type { CapabilityGrant } from '@agent-firewall/core';
+import type { CapabilityGrant } from '@arikernel/core';
 
 export interface TokenValidation {
 	valid: boolean;

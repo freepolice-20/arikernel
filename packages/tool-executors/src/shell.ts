@@ -1,5 +1,5 @@
 import { exec } from 'node:child_process';
-import type { ToolCall, ToolResult } from '@agent-firewall/core';
+import type { ToolCall, ToolResult } from '@arikernel/core';
 import type { ToolExecutor } from './base.js';
 import { DEFAULT_TIMEOUT_MS, makeResult } from './base.js';
 

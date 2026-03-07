@@ -1,4 +1,4 @@
-import type { TaintLabel, TaintSource, ToolCall } from '@agent-firewall/core';
+import type { TaintLabel, TaintSource, ToolCall } from '@arikernel/core';
 import { createTaintLabel, hasTaint, mergeTaints } from './labels.js';
 import { propagateTaints } from './propagation.js';
 

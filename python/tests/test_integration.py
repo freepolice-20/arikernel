@@ -1,5 +1,5 @@
 """
-Integration test for the Agent Firewall Python client.
+Integration test for the AriKernel Python client.
 
 Starts the TypeScript server, creates a session, and verifies
 that allowed and denied tool calls produce the correct decisions.
@@ -21,7 +21,7 @@ import pytest
 # Allow importing from the python package in the repo
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from agent_firewall import FirewallClient, ToolCallDenied
+from arikernel import FirewallClient, ToolCallDenied
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SERVER_PORT = 9198  # Use a non-default port to avoid conflicts
@@ -31,7 +31,7 @@ AUDIT_DB = os.path.join(REPO_ROOT, "test-integration-audit.db")
 
 @pytest.fixture(scope="module")
 def server():
-    """Start the Agent Firewall server for the test session."""
+    """Start the AriKernel server for the test session."""
     # Clean up stale audit DB
     if os.path.exists(AUDIT_DB):
         os.remove(AUDIT_DB)

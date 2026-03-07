@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-firewall"
+name = "arikernel"
 version = "0.1.0"
-description = "Python client for Agent Firewall — a runtime security layer for AI agents"
+description = "Python client for AriKernel — a runtime security layer for AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"

@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/tool-executors",
+  "name": "@arikernel/tool-executors",
   "version": "0.1.0",
-  "description": "Tool class executors for Agent Firewall",
+  "description": "Tool class executors for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*"
+    "@arikernel/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

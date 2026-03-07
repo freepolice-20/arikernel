@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Vertical Slice Demo
+ * AriKernel - Vertical Slice Demo
  *
  * Demonstrates the full intercept pipeline:
  * 1. Agent requests capability, then executes HTTP GET
@@ -12,8 +12,8 @@
  * Run: pnpm demo
  */
 
-import { ToolCallDeniedError, type TaintLabel } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import { ToolCallDeniedError, type TaintLabel } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 const BOLD = '\x1b[1m';
@@ -35,7 +35,7 @@ function step(n: number, text: string): void {
 }
 
 async function main() {
-	header('Agent Firewall - Vertical Slice Demo');
+	header('AriKernel - Vertical Slice Demo');
 
 	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
 	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-audit.db');
@@ -156,7 +156,7 @@ async function main() {
 		const result = await firewall.execute({
 			toolClass: 'shell',
 			action: 'exec',
-			parameters: { command: 'echo "Hello from Agent Firewall"' },
+			parameters: { command: 'echo "Hello from AriKernel"' },
 			grantId: shellGrant.grant!.id,
 		});
 		console.log(`  ${GREEN}Executed after approval!${RESET}`);

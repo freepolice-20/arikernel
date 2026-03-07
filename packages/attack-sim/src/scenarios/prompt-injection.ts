@@ -1,4 +1,4 @@
-import type { ToolCallRequest } from '@agent-firewall/core';
+import type { ToolCallRequest } from '@arikernel/core';
 import type { SimScenario } from '../runner.js';
 
 export const promptInjectionScenarios: SimScenario[] = [

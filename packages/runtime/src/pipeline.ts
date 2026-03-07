@@ -5,7 +5,7 @@ import type {
 	ToolCall,
 	ToolCallRequest,
 	ToolResult,
-} from '@agent-firewall/core';
+} from '@arikernel/core';
 import {
 	ApprovalRequiredError,
 	CAPABILITY_CLASS_MAP,
@@ -13,11 +13,11 @@ import {
 	generateId,
 	now,
 	toolCallRequestSchema,
-} from '@agent-firewall/core';
-import type { AuditStore } from '@agent-firewall/audit-log';
-import { PolicyEngine } from '@agent-firewall/policy-engine';
-import { TaintTracker } from '@agent-firewall/taint-tracker';
-import { ExecutorRegistry } from '@agent-firewall/tool-executors';
+} from '@arikernel/core';
+import type { AuditStore } from '@arikernel/audit-log';
+import { PolicyEngine } from '@arikernel/policy-engine';
+import { TaintTracker } from '@arikernel/taint-tracker';
+import { ExecutorRegistry } from '@arikernel/tool-executors';
 import type { FirewallHooks } from './hooks.js';
 import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
 import type { RunStateTracker } from './run-state.js';
@@ -287,7 +287,7 @@ export class Pipeline {
 
 	private checkGrantConstraints(
 		toolCall: ToolCall,
-		constraints: import('@agent-firewall/core').CapabilityConstraint,
+		constraints: import('@arikernel/core').CapabilityConstraint,
 	): string | null {
 		if (constraints.allowedHosts && toolCall.toolClass === 'http') {
 			const url = String(toolCall.parameters.url ?? '');

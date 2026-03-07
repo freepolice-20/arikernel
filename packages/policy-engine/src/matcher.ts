@@ -1,4 +1,4 @@
-import type { PolicyMatch, TaintLabel, ToolCall } from '@agent-firewall/core';
+import type { PolicyMatch, TaintLabel, ToolCall } from '@arikernel/core';
 
 export function matchesRule(match: PolicyMatch, toolCall: ToolCall, taintLabels: TaintLabel[]): boolean {
 	if (!matchesToolClass(match.toolClass, toolCall.toolClass)) return false;

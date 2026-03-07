@@ -1,4 +1,4 @@
-import type { PolicyRule } from '@agent-firewall/core';
+import type { PolicyRule } from '@arikernel/core';
 
 export const DENY_ALL_RULE: PolicyRule = {
 	id: '__builtin_deny_all',

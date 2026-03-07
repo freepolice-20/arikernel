@@ -1,4 +1,4 @@
-# Agent Firewall
+# AriKernel
 
 A reference monitor for AI agents. Intercepts every tool call at runtime, enforces short-lived capability tokens, tracks data provenance, detects multi-step attack patterns, and produces tamper-evident audit evidence.
 
@@ -11,7 +11,7 @@ A reference monitor for AI agents. Intercepts every tool call at runtime, enforc
        │ tool call
        ▼
 ┌──────────────────────────────────┐
-│        Agent Firewall            │
+│        AriKernel            │
 │                                  │
 │  ┌─ capability token check       │
 │  ├─ provenance / taint check     │
@@ -33,7 +33,7 @@ AI agents are being given direct access to tools: HTTP requests, shell commands,
 
 **Static gateways** make binary decisions with no context about where data came from, no token lifecycle, and no behavioral memory across a session.
 
-**Agent Firewall enforces five layers:**
+**AriKernel enforces five layers:**
 
 1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
 2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
@@ -45,8 +45,8 @@ AI agents are being given direct access to tools: HTTP requests, shell commands,
 
 ```bash
 # Prerequisites: Node.js >= 20, pnpm >= 9
-git clone https://github.com/petermanrique101-sys/Agent-Firewall.git
-cd Agent-Firewall
+git clone https://github.com/petermanrique101-sys/AriKernel.git
+cd AriKernel
 
 pnpm install
 pnpm build
@@ -151,7 +151,7 @@ Agent requests action
 
 Quarantine events are recorded as first-class `_system.quarantine` audit entries with trigger type, matched rule ID, reason, counters snapshot, and the pattern of events that triggered the rule.
 
-**Deployment mode:** Agent Firewall currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture § Deployment Modes](ARCHITECTURE.md) for the full trust boundary analysis.
+**Deployment mode:** AriKernel currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture § Deployment Modes](ARCHITECTURE.md) for the full trust boundary analysis.
 
 ## Behavioral Sequence Rules
 
@@ -168,7 +168,7 @@ These rules fire on the recent-event window (last 20 events) and quarantine the 
 ## Project Structure
 
 ```
-agent-firewall/
+arikernel/
 ├── packages/
 │   ├── core/              # Types, Zod schemas, errors, ID generation
 │   ├── policy-engine/     # YAML policy loading, priority-sorted rule evaluation
@@ -230,7 +230,7 @@ pip install -e python/
 ```
 
 ```python
-from agent_firewall import FirewallClient, ToolCallDenied
+from arikernel import FirewallClient, ToolCallDenied
 
 with FirewallClient(
     url="http://localhost:9099",
@@ -251,7 +251,7 @@ See [python/README.md](python/README.md) for full API documentation.
 
 ## LangChain Example
 
-LangChain agents can run behind Agent Firewall by wrapping tool execution. The `firewallTool()` wrapper requests a capability token and routes execution through the firewall — the agent never knows about the enforcement boundary.
+LangChain agents can run behind AriKernel by wrapping tool execution. The `firewallTool()` wrapper requests a capability token and routes execution through the firewall — the agent never knows about the enforcement boundary.
 
 ```bash
 pnpm demo:langchain
@@ -261,14 +261,14 @@ The demo simulates a LangChain agent with three tools (http_get, file_read, http
 
 The same wrapping pattern works for any framework that lets you define custom tool functions: CrewAI (`BaseTool._run()`), AutoGen (`function_map`), Vercel AI SDK (`tool.execute()`).
 
-See [examples/langchain-agent-firewall.ts](examples/langchain-agent-firewall.ts) for the full implementation.
+See [examples/langchain-arikernel.ts](examples/langchain-arikernel.ts) for the full implementation.
 
 ## Documentation
 
 - [Agent Reference Monitor](docs/agent-reference-monitor.md) — the security model: ambient authority, why per-call gateways fail, and how the reference monitor enforces capability + provenance + behavioral quarantine
 - [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, run-level behavioral quarantine design
 - [Threat Model](docs/threat-model.md) — what this mitigates (per-call and behavioral) and what it doesn't
-- [Benchmarks](docs/benchmarks.md) — 4 attack stories with attacker goal, sequence, unguarded outcome vs. Agent Firewall outcome, and what the audit replay proves
+- [Benchmarks](docs/benchmarks.md) — 4 attack stories with attacker goal, sequence, unguarded outcome vs. AriKernel outcome, and what the audit replay proves
 
 ## License
 

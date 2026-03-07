@@ -1,8 +1,8 @@
 """
-Agent Firewall — Python Integration Demo
+AriKernel — Python Integration Demo
 
 Demonstrates using the Python client to request decisions from the
-Agent Firewall server. This v1 adapter is a decision/enforcement API
+AriKernel server. This v1 adapter is a decision/enforcement API
 layer: the server decides allow/deny and audits every call, but the
 actual tool execution happens here in Python.
 
@@ -19,12 +19,12 @@ import os
 # Allow running from repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-from agent_firewall import FirewallClient, TaintLabel, ToolCallDenied
+from arikernel import FirewallClient, TaintLabel, ToolCallDenied
 
 
 def main():
     print("=" * 56)
-    print(" Agent Firewall — Python Integration Demo")
+    print(" AriKernel — Python Integration Demo")
     print("=" * 56)
     print()
     print("  This v1 adapter is a decision layer over the TS core.")

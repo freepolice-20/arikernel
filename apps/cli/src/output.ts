@@ -1,4 +1,4 @@
-import type { AuditEvent, Decision, RunContext, ToolCall } from '@agent-firewall/core';
+import type { AuditEvent, Decision, RunContext, ToolCall } from '@arikernel/core';
 
 const VERDICT_COLORS: Record<string, string> = {
 	allow: '\x1b[32m',    // green

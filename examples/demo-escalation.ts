@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Capability Escalation Demo
+ * AriKernel - Capability Escalation Demo
  *
  * Demonstrates that an AI agent cannot escalate its privileges beyond
  * the capabilities explicitly granted to it.
@@ -17,9 +17,9 @@
  * Run: pnpm demo:escalation
  */
 
-import type { TaintLabel } from '@agent-firewall/core';
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import type { TaintLabel } from '@arikernel/core';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 // ── Terminal formatting ──────────────────────────────────────────────

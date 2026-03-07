@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/audit-log",
+  "name": "@arikernel/audit-log",
   "version": "0.1.0",
-  "description": "Immutable audit logging with hash chain for Agent Firewall",
+  "description": "Immutable audit logging with hash chain for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
+    "@arikernel/core": "workspace:*",
     "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {

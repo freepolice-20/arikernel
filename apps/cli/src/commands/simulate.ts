@@ -1,4 +1,4 @@
-import { runSimulation, generateReport } from '@agent-firewall/attack-sim';
+import { runSimulation, generateReport } from '@arikernel/attack-sim';
 
 export async function runSimulate(policyPath: string): Promise<void> {
 	console.log('Running attack simulation pack...\n');

@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '@agent-firewall/core';
+import type { ToolCall, ToolResult } from '@arikernel/core';
 
 export interface ToolExecutor {
 	readonly toolClass: string;

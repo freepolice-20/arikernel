@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Capability Issuance Demo
+ * AriKernel - Capability Issuance Demo
  *
  * Demonstrates dynamic capability tokens:
  * 1. Agent reads untrusted web content (gets web taint)
@@ -13,9 +13,9 @@
  * Run: pnpm demo:capability
  */
 
-import type { IssuanceDecision, TaintLabel } from '@agent-firewall/core';
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import type { IssuanceDecision, TaintLabel } from '@arikernel/core';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 const BOLD = '\x1b[1m';
@@ -56,7 +56,7 @@ function printIssuance(decision: IssuanceDecision): void {
 }
 
 async function main() {
-	header('Agent Firewall - Capability Issuance Demo');
+	header('AriKernel - Capability Issuance Demo');
 
 	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
 	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-capability-audit.db');
@@ -246,7 +246,7 @@ async function main() {
 	console.log('Key takeaway: the agent was DENIED a database.read token when its');
 	console.log('provenance chain included untrusted web content, but GRANTED one');
 	console.log('when the context was clean. This is dynamic, taint-aware capability');
-	console.log('issuance -- the core of Agent Firewall.\n');
+	console.log('issuance -- the core of AriKernel.\n');
 	console.log(`${DIM}Audit log: ${auditPath}${RESET}`);
 	console.log(`${DIM}Run ID: ${firewall.runId}${RESET}\n`);
 }

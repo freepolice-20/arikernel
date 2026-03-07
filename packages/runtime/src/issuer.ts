@@ -7,14 +7,14 @@ import type {
 	IssuanceDecision,
 	Principal,
 	TaintLabel,
-} from '@agent-firewall/core';
+} from '@arikernel/core';
 import {
 	CAPABILITY_CLASS_MAP,
 	generateId,
 	now,
-} from '@agent-firewall/core';
-import { PolicyEngine, matchesRule } from '@agent-firewall/policy-engine';
-import { TaintTracker } from '@agent-firewall/taint-tracker';
+} from '@arikernel/core';
+import { PolicyEngine, matchesRule } from '@arikernel/policy-engine';
+import { TaintTracker } from '@arikernel/taint-tracker';
 import { TokenStore } from './token-store.js';
 
 const DEFAULT_LEASE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -184,7 +184,7 @@ export class CapabilityIssuer {
 		request: CapabilityRequest,
 		timestamp: string,
 		reason: string,
-		matchedRule?: import('@agent-firewall/core').PolicyRule,
+		matchedRule?: import('@arikernel/core').PolicyRule,
 	): IssuanceDecision {
 		return {
 			requestId: request.id,

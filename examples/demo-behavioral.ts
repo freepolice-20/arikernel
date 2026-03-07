@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Behavioral Sequence Enforcement Demo
+ * AriKernel - Behavioral Sequence Enforcement Demo
  *
  * Demonstrates the behavioral sequence rules that detect suspicious
  * multi-step patterns and trigger quarantine BEFORE the threshold
@@ -12,8 +12,8 @@
  * Run: pnpm demo:behavioral
  */
 
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 const BOLD = '\x1b[1m';

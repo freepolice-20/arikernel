@@ -1,4 +1,4 @@
-import { loadPolicyFile } from '@agent-firewall/policy-engine';
+import { loadPolicyFile } from '@arikernel/policy-engine';
 
 export function runPolicyValidate(filePath: string): void {
 	try {

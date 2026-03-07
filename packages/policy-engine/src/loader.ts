@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { PolicyValidationError, policySetSchema, type PolicyRule } from '@agent-firewall/core';
+import { PolicyValidationError, policySetSchema, type PolicyRule } from '@arikernel/core';
 import { parse as parseYaml } from 'yaml';
 
 export function loadPolicyFile(filePath: string): PolicyRule[] {

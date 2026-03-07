@@ -1,4 +1,4 @@
-# Agent Firewall — Launch Package
+# AriKernel — Launch Package
 
 Everything needed to announce the project publicly.
 
@@ -14,7 +14,7 @@ Everything needed to announce the project publicly.
 
 ## 2. Short Announcement Post
 
-> Releasing Agent Firewall — a reference monitor for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
+> Releasing AriKernel — a reference monitor for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
 
 (250 characters)
 
@@ -32,9 +32,9 @@ Static gateways make binary per-call decisions with no behavioral memory. They c
 
 AI agents should never execute with ambient authority.
 
-### Post 2: What Agent Firewall Does
+### Post 2: What AriKernel Does
 
-Agent Firewall is a reference monitor that sits between the agent and its tools. Five enforcement layers:
+AriKernel is a reference monitor that sits between the agent and its tools. Five enforcement layers:
 
 1. **Short-lived capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority.
 2. **Provenance-aware enforcement** — data carries taint labels (web, rag, email). Untrusted provenance blocks sensitive operations at the issuance layer.
@@ -145,7 +145,7 @@ System prompts are advisory text processed by the same model that processes adve
 
 **Why not static allowlists?**
 
-Static allowlists evaluate each call independently. They cannot detect that a sequence of individually-legitimate calls (fetch webpage → read SSH keys → POST to attacker) constitutes an attack. They have no concept of data provenance — they don't know the POST payload came from SSH keys fetched after a tainted web request. Agent Firewall adds behavioral sequence detection, taint tracking, and session-level quarantine on top of per-call enforcement.
+Static allowlists evaluate each call independently. They cannot detect that a sequence of individually-legitimate calls (fetch webpage → read SSH keys → POST to attacker) constitutes an attack. They have no concept of data provenance — they don't know the POST payload came from SSH keys fetched after a tainted web request. AriKernel adds behavioral sequence detection, taint tracking, and session-level quarantine on top of per-call enforcement.
 
 **What does proxy/sidecar mode change?**
 

@@ -1,8 +1,8 @@
 /**
- * LangChain + Agent Firewall Integration Example
+ * LangChain + AriKernel Integration Example
  *
  * Demonstrates how to wrap LangChain tool execution so that every tool call
- * passes through Agent Firewall before executing.
+ * passes through AriKernel before executing.
  *
  * Architecture:
  *
@@ -10,7 +10,7 @@
  *        ↓
  *   Tool wrapper (firewallTool)
  *        ↓
- *   Agent Firewall  ← capability check, taint check, behavioral rules, audit
+ *   AriKernel  ← capability check, taint check, behavioral rules, audit
  *        ↓
  *   Actual tool execution
  *
@@ -18,11 +18,11 @@
  * works for CrewAI, AutoGen, Vercel AI SDK, or any framework that lets you
  * define custom tool functions.
  *
- * Run: npx tsx examples/langchain-agent-firewall.ts
+ * Run: npx tsx examples/langchain-arikernel.ts
  */
 
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall, type Firewall } from '@agent-firewall/runtime';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall, type Firewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 // ── Colors ──────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ const RESET = '\x1b[0m';
 // ── Firewall-wrapped tool helper ────────────────────────────────────
 
 /**
- * Creates a tool function that routes execution through Agent Firewall.
+ * Creates a tool function that routes execution through AriKernel.
  *
  * This is the core pattern: instead of executing the tool directly,
  * the wrapper calls firewall.execute() which evaluates capability tokens,
@@ -95,7 +95,7 @@ function firewallTool(
  *   - http_post: send data to a URL
  *
  * Each tool is wrapped with firewallTool() so every call passes through
- * Agent Firewall. The agent doesn't know about the firewall — it just
+ * AriKernel. The agent doesn't know about the firewall — it just
  * calls its tools normally.
  *
  * In a real LangChain integration, these would be DynamicTool instances:
@@ -108,7 +108,7 @@ function firewallTool(
  */
 async function simulateLangChainAgent(firewall: Firewall) {
 	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}`);
-	console.log(`${CYAN}${BOLD}  LangChain + Agent Firewall Integration Demo${RESET}`);
+	console.log(`${CYAN}${BOLD}  LangChain + AriKernel Integration Demo${RESET}`);
 	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}\n`);
 
 	console.log(`${DIM}This simulates a LangChain agent whose tools are wrapped with${RESET}`);

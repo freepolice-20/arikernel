@@ -1,6 +1,6 @@
-# Agent Firewall — Python Client
+# AriKernel — Python Client
 
-Python client for [Agent Firewall](https://github.com/petermanrique101-sys/Agent-Firewall), a runtime security layer for AI agents.
+Python client for [AriKernel](https://github.com/petermanrique101-sys/AriKernel), a runtime security layer for AI agents.
 
 ## v1 Scope — Important
 
@@ -28,7 +28,7 @@ pnpm build && pnpm server
 Use the client:
 
 ```python
-from agent_firewall import FirewallClient, ToolCallDenied
+from arikernel import FirewallClient, ToolCallDenied
 
 with FirewallClient(
     url="http://localhost:9099",

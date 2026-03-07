@@ -1,4 +1,4 @@
-# Agent Firewall - Claude Code Instructions
+# AriKernel - Claude Code Instructions
 
 ## Git Commits
 - NEVER include `Co-Authored-By` lines referencing Claude or Anthropic

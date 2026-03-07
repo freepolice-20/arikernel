@@ -1,6 +1,6 @@
-import type { Capability, TaintLabel } from '@agent-firewall/core';
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall, type Firewall } from '@agent-firewall/runtime';
+import type { Capability, TaintLabel } from '@arikernel/core';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall, type Firewall } from '@arikernel/runtime';
 
 export interface SessionConfig {
 	principal: string;

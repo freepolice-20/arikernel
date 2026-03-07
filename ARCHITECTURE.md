@@ -1,11 +1,11 @@
-# Agent Firewall -- MVP Architecture Spec
+# AriKernel -- MVP Architecture Spec
 
 > A reference monitor for AI agents.
 > A runtime enforcement layer between agents and tools.
 
 ## 1. Technical Architecture
 
-Agent Firewall is a **synchronous intercept runtime**. It sits in the call path between an AI agent and its tools. Every tool call passes through a pipeline:
+AriKernel is a **synchronous intercept runtime**. It sits in the call path between an AI agent and its tools. Every tool call passes through a pipeline:
 
 ```
 Agent --> Firewall Runtime --> Policy Engine --> Tool Executor --> Audit Log
@@ -20,7 +20,7 @@ Agent --> Firewall Runtime --> Policy Engine --> Tool Executor --> Audit Log
 - **Taint-aware** -- every piece of data carries provenance labels, taint propagates forward through tool call chains
 - **Append-only audit** -- every decision is logged with a hash chain for tamper evidence
 
-The runtime is a **library first**, not a server. You `import { createFirewall } from '@agent-firewall/runtime'` and wrap your agent's tool calls. A CLI and (later) a hosted control plane are layered on top.
+The runtime is a **library first**, not a server. You `import { createFirewall } from '@arikernel/runtime'` and wrap your agent's tool calls. A CLI and (later) a hosted control plane are layered on top.
 
 ---
 
@@ -51,7 +51,7 @@ The runtime is a **library first**, not a server. You `import { createFirewall }
 ## 3. Monorepo Structure
 
 ```
-agent-firewall/
+arikernel/
 ├── packages/
 │   ├── core/                          # Shared domain types + utilities
 │   │   ├── src/
@@ -455,7 +455,7 @@ CREATE INDEX idx_events_tool ON events(tool_class, action);
 
 ```
 1. Built-in defaults (deny-all at priority 999, always last)
-2. Project policies (priority 100-899)       -- from agent-firewall.policy.yaml
+2. Project policies (priority 100-899)       -- from arikernel.policy.yaml
 3. Runtime overrides (priority 900-999)      -- passed programmatically
 ```
 
@@ -464,7 +464,7 @@ Lower priority number = evaluated first. First match wins.
 **Policy YAML format:**
 
 ```yaml
-# agent-firewall.policy.yaml
+# arikernel.policy.yaml
 name: my-project-policy
 version: "1.0"
 
@@ -619,7 +619,7 @@ Agent calls: firewall.execute({ toolClass: 'http', action: 'get', parameters: { 
 **Public API surface:**
 
 ```typescript
-import { createFirewall } from '@agent-firewall/runtime';
+import { createFirewall } from '@arikernel/runtime';
 
 const firewall = createFirewall({
   principal: {
@@ -629,7 +629,7 @@ const firewall = createFirewall({
       { toolClass: 'file', actions: ['read'], constraints: { allowedPaths: ['./data/**'] } },
     ],
   },
-  policies: './agent-firewall.policy.yaml',
+  policies: './arikernel.policy.yaml',
   auditLog: './audit.db',
   onApprovalRequired: async (toolCall, decision) => {
     return prompt(`Allow ${toolCall.action} on ${toolCall.toolClass}? (y/n)`);
@@ -711,7 +711,7 @@ pnpm cli replay --latest --verbose --db ./demo-audit.db
 
 ## 11. Deployment Modes and Trust Boundaries
 
-Agent Firewall can be deployed in two modes. The deployment mode determines where the trust boundary sits and what guarantees the system provides.
+AriKernel can be deployed in two modes. The deployment mode determines where the trust boundary sits and what guarantees the system provides.
 
 ### Embedded Mode (current)
 
@@ -822,30 +822,30 @@ The HTTP decision server (`apps/server/`) is the foundation for proxy mode. It a
 
 ### Weeks 1-2: Foundation
 - Monorepo scaffold (pnpm, Turborepo, tsconfig, Biome)
-- `@agent-firewall/core` -- all types, Zod schemas, ID generation, error classes
+- `@arikernel/core` -- all types, Zod schemas, ID generation, error classes
 - CI: GitHub Actions for lint + test + build
 
 ### Weeks 3-4: Policy Engine
-- `@agent-firewall/policy-engine` -- YAML loader, rule validation, matcher, evaluation
+- `@arikernel/policy-engine` -- YAML loader, rule validation, matcher, evaluation
 - Default policy packs (deny-all, safe-defaults)
 - Thorough unit tests for matcher edge cases
 
 ### Weeks 5-6: Taint Tracker + Audit Log
-- `@agent-firewall/taint-tracker` -- label management, propagation, queries
-- `@agent-firewall/audit-log` -- SQLite store, hash chain, migrations, replay
+- `@arikernel/taint-tracker` -- label management, propagation, queries
+- `@arikernel/audit-log` -- SQLite store, hash chain, migrations, replay
 
 ### Weeks 7-8: Tool Executors
-- `@agent-firewall/tool-executors` -- HTTP, File, Shell, Database
+- `@arikernel/tool-executors` -- HTTP, File, Shell, Database
 - Executor registry, base interface, timeout/limit enforcement
 - Integration tests for each executor
 
 ### Weeks 9-10: Runtime + CLI
-- `@agent-firewall/runtime` -- Firewall class, pipeline, config, hooks
-- `@agent-firewall/cli` -- init, run, replay, policy validate
+- `@arikernel/runtime` -- Firewall class, pipeline, config, hooks
+- `@arikernel/cli` -- init, run, replay, policy validate
 - End-to-end integration tests
 
 ### Weeks 11-12: Attack Sim + Polish
-- `@agent-firewall/attack-sim` -- scenario runner, report generator
+- `@arikernel/attack-sim` -- scenario runner, report generator
 - Example agents + policy files
 - Documentation, getting-started guide
 - npm publish dry run, package.json metadata

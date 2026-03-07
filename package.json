@@ -1,5 +1,5 @@
 {
-  "name": "agent-firewall",
+  "name": "arikernel",
   "private": true,
   "version": "0.1.0",
   "description": "A reference monitor for AI agents",
@@ -25,12 +25,12 @@
     "demo:escalation": "tsx examples/demo-escalation.ts",
     "demo:run-state": "tsx examples/demo-run-state.ts",
     "demo:behavioral": "tsx examples/demo-behavioral.ts",
-    "demo:langchain": "tsx examples/langchain-agent-firewall.ts",
+    "demo:langchain": "tsx examples/langchain-arikernel.ts",
     "typecheck": "turbo typecheck"
   },
   "devDependencies": {
-    "@agent-firewall/core": "workspace:*",
-    "@agent-firewall/runtime": "workspace:*",
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*",
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^25.3.5",
     "rimraf": "^6.1.3",

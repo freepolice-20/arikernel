@@ -1,5 +1,5 @@
-import type { Capability, PolicyRule } from '@agent-firewall/core';
-import { firewallConfigSchema } from '@agent-firewall/core';
+import type { Capability, PolicyRule } from '@arikernel/core';
+import { firewallConfigSchema } from '@arikernel/core';
 import type { FirewallHooks } from './hooks.js';
 import type { RunStatePolicy } from './run-state.js';
 

@@ -9,12 +9,12 @@ import type {
 	TaintLabel,
 	ToolCallRequest,
 	ToolResult,
-} from '@agent-firewall/core';
-import { CAPABILITY_CLASS_MAP, generateId, now } from '@agent-firewall/core';
-import { AuditStore, replayRun, type ReplayResult } from '@agent-firewall/audit-log';
-import { PolicyEngine } from '@agent-firewall/policy-engine';
-import { TaintTracker } from '@agent-firewall/taint-tracker';
-import { ExecutorRegistry } from '@agent-firewall/tool-executors';
+} from '@arikernel/core';
+import { CAPABILITY_CLASS_MAP, generateId, now } from '@arikernel/core';
+import { AuditStore, replayRun, type ReplayResult } from '@arikernel/audit-log';
+import { PolicyEngine } from '@arikernel/policy-engine';
+import { TaintTracker } from '@arikernel/taint-tracker';
+import { ExecutorRegistry } from '@arikernel/tool-executors';
 import type { FirewallOptions } from './config.js';
 import { validateOptions } from './config.js';
 import type { FirewallHooks } from './hooks.js';

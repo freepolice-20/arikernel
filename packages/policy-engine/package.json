@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/policy-engine",
+  "name": "@arikernel/policy-engine",
   "version": "0.1.0",
-  "description": "Policy evaluation engine for Agent Firewall",
+  "description": "Policy evaluation engine for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
+    "@arikernel/core": "workspace:*",
     "yaml": "^2.6.1"
   },
   "devDependencies": {

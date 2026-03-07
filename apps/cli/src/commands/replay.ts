@@ -1,4 +1,4 @@
-import { AuditStore, replayRun } from '@agent-firewall/audit-log';
+import { AuditStore, replayRun } from '@arikernel/audit-log';
 import { printAuditEvent, printRunHeader, printReplaySummary } from '../output.js';
 
 export interface ReplayOptions {

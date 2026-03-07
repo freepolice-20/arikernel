@@ -1,4 +1,4 @@
-"""Types for the Agent Firewall Python client."""
+"""Types for the AriKernel Python client."""
 
 from __future__ import annotations
 from dataclasses import dataclass, field

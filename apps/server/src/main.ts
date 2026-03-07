@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
-import { ToolCallDeniedError } from '@agent-firewall/core';
+import { ToolCallDeniedError } from '@arikernel/core';
 import { SessionManager, type SessionConfig } from './sessions.js';
 
 const PORT = Number(process.env.PORT ?? 9099);
@@ -152,7 +152,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-	console.log(`Agent Firewall server listening on http://localhost:${PORT}`);
+	console.log(`AriKernel server listening on http://localhost:${PORT}`);
 	console.log(`  Policy: ${POLICY}`);
 	console.log(`  Audit:  ${AUDIT_DB}`);
 });

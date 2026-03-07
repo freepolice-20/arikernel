@@ -1,4 +1,4 @@
-import { createFirewall } from '@agent-firewall/runtime';
+import { createFirewall } from '@arikernel/runtime';
 import { printDecision } from '../output.js';
 
 export async function runAgent(policyPath: string, auditPath: string): Promise<void> {

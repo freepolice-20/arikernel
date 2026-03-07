@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '@agent-firewall/core';
+import type { ToolCall, ToolResult } from '@arikernel/core';
 import type { ToolExecutor } from './base.js';
 import { makeResult } from './base.js';
 

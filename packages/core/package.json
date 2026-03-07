@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/core",
+  "name": "@arikernel/core",
   "version": "0.1.0",
-  "description": "Core domain types and schemas for Agent Firewall",
+  "description": "Core domain types and schemas for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

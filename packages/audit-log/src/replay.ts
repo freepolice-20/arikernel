@@ -1,4 +1,4 @@
-import type { AuditEvent, RunContext } from '@agent-firewall/core';
+import type { AuditEvent, RunContext } from '@arikernel/core';
 import type { AuditStore } from './store.js';
 import { verifyChain } from './hash-chain.js';
 

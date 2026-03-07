@@ -1,6 +1,6 @@
-import type { DecisionVerdict, ToolCallRequest } from '@agent-firewall/core';
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import type { DecisionVerdict, ToolCallRequest } from '@arikernel/core';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { promptInjectionScenarios } from './scenarios/prompt-injection.js';
 import { toolMisuseScenarios } from './scenarios/tool-misuse.js';
 import { dataExfiltrationScenarios } from './scenarios/data-exfiltration.js';

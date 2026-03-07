@@ -7,7 +7,7 @@ import { runAgent } from './commands/run.js';
 import { runSimulate } from './commands/simulate.js';
 
 const init = defineCommand({
-	meta: { name: 'init', description: 'Initialize agent firewall config' },
+	meta: { name: 'init', description: 'Initialize arikernel config' },
 	run: () => runInit(),
 });
 
@@ -33,7 +33,7 @@ const replay = defineCommand({
 const run = defineCommand({
 	meta: { name: 'run', description: 'Start firewall in run mode' },
 	args: {
-		policy: { type: 'string', description: 'Policy file path', default: './agent-firewall.policy.yaml' },
+		policy: { type: 'string', description: 'Policy file path', default: './arikernel.policy.yaml' },
 		auditLog: { type: 'string', description: 'Audit log path', default: './audit.db' },
 	},
 	run: ({ args }) => runAgent(args.policy, args.auditLog),
@@ -42,13 +42,13 @@ const run = defineCommand({
 const simulate = defineCommand({
 	meta: { name: 'simulate', description: 'Run attack simulations' },
 	args: {
-		policy: { type: 'string', description: 'Policy file path', default: './agent-firewall.policy.yaml' },
+		policy: { type: 'string', description: 'Policy file path', default: './arikernel.policy.yaml' },
 	},
 	run: ({ args }) => runSimulate(args.policy),
 });
 
 const main = defineCommand({
-	meta: { name: 'agent-firewall', version: '0.1.0', description: 'Security runtime for AI agents' },
+	meta: { name: 'arikernel', version: '0.1.0', description: 'Security runtime for AI agents' },
 	subCommands: { init, policy, replay, run, simulate },
 });
 

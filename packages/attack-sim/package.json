@@ -1,7 +1,7 @@
 {
-  "name": "@agent-firewall/attack-sim",
+  "name": "@arikernel/attack-sim",
   "version": "0.1.0",
-  "description": "Attack simulation pack for Agent Firewall",
+  "description": "Attack simulation pack for AriKernel",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,8 +18,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
-    "@agent-firewall/runtime": "workspace:*"
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

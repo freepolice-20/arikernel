@@ -1,5 +1,5 @@
-import type { TaintLabel, TaintSource } from '@agent-firewall/core';
-import { now } from '@agent-firewall/core';
+import type { TaintLabel, TaintSource } from '@arikernel/core';
+import { now } from '@arikernel/core';
 
 export function createTaintLabel(
 	source: TaintSource,

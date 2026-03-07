@@ -1,6 +1,6 @@
 # Threat Model
 
-## What Agent Firewall Mitigates
+## What AriKernel Mitigates
 
 ### Prompt Injection via Tool Calls
 An attacker embeds malicious instructions in content the agent reads (web pages, emails, RAG documents). The agent follows the injected instructions and attempts to exfiltrate data, execute commands, or modify files.
@@ -51,7 +51,7 @@ An attacker or malfunctioning agent attempts to modify the audit log to hide mal
 
 **How it's mitigated:** Events are stored with SHA-256 hash chaining. Each event's hash includes the previous event's hash, forming a tamper-evident chain. Replay verification detects any modification, deletion, or insertion. Quarantine events are first-class audit records with the same hash-chain integrity guarantees.
 
-## What Agent Firewall Does NOT Yet Protect Against
+## What AriKernel Does NOT Yet Protect Against
 
 ### Side-Channel Data Exfiltration
 If an agent is allowed to make HTTP GET requests, it could encode stolen data in URL parameters or headers. The current constraint model checks the hostname but does not inspect query parameters or request bodies for data leakage.
@@ -60,10 +60,10 @@ If an agent is allowed to make HTTP GET requests, it could encode stolen data in
 The system does not enforce rate limits beyond the per-token lease (10 calls). A determined agent could request new tokens repeatedly to perform high-volume operations within policy.
 
 ### Multi-Agent Collusion
-If multiple agents share a runtime, Agent Firewall evaluates each principal independently. It does not detect coordinated attacks where Agent A reads sensitive data (allowed) and Agent B exfiltrates it (different principal, different policy evaluation).
+If multiple agents share a runtime, AriKernel evaluates each principal independently. It does not detect coordinated attacks where Agent A reads sensitive data (allowed) and Agent B exfiltrates it (different principal, different policy evaluation).
 
 ### Model-Level Attacks
-Agent Firewall operates at the tool-call layer. It does not protect against:
+AriKernel operates at the tool-call layer. It does not protect against:
 - Jailbreaking the underlying LLM
 - Adversarial inputs that cause the model to produce harmful text (without tool calls)
 - Training data poisoning
@@ -94,8 +94,8 @@ These are known simplifications in the current implementation:
 
 Prompt filters inspect the text going into and out of an LLM. They fail for three structural reasons:
 
-1. **Semantic gap.** A prompt filter sees text; Agent Firewall sees typed, structured tool calls with provenance metadata. "Read the SSH key" in text is ambiguous. `{ toolClass: "file", action: "read", parameters: { path: "~/.ssh/id_rsa" } }` is not.
+1. **Semantic gap.** A prompt filter sees text; AriKernel sees typed, structured tool calls with provenance metadata. "Read the SSH key" in text is ambiguous. `{ toolClass: "file", action: "read", parameters: { path: "~/.ssh/id_rsa" } }` is not.
 
 2. **No provenance.** A prompt filter cannot distinguish "the user asked to read a file" from "a webpage told the agent to read a file." Taint labels make this distinction explicit and enforceable.
 
-3. **No enforcement boundary.** A prompt filter can suggest the LLM not do something. Agent Firewall sits between the LLM and the tool — it is the enforcement boundary. The LLM cannot execute a tool call without passing through the pipeline. There is no bypass path.
+3. **No enforcement boundary.** A prompt filter can suggest the LLM not do something. AriKernel sits between the LLM and the tool — it is the enforcement boundary. The LLM cannot execute a tool call without passing through the pipeline. There is no bypass path.

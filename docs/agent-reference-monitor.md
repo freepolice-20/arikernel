@@ -1,6 +1,6 @@
 # The Agent Reference Monitor Model
 
-A technical design document describing the security model implemented by Agent Firewall.
+A technical design document describing the security model implemented by AriKernel.
 
 ---
 
@@ -42,7 +42,7 @@ A **reference monitor** is a security concept from operating system design (Ande
 2. **Tamper-proof** — the monitor cannot be modified by the subjects it governs.
 3. **Verifiable** — the monitor is small enough to be subjected to rigorous analysis.
 
-Agent Firewall applies this concept to AI agent runtimes. It is a reference monitor that interposes on every tool call an agent makes, evaluating four dimensions before allowing execution:
+AriKernel applies this concept to AI agent runtimes. It is a reference monitor that interposes on every tool call an agent makes, evaluating four dimensions before allowing execution:
 
 - **Capability tokens** — Does the agent hold a valid, unexpired token that grants permission for this specific operation?
 - **Data provenance** — Does the tool call involve data from untrusted sources? Do taint labels on the call match policy restrictions?
@@ -57,7 +57,7 @@ This is not a prompt filter. It does not inspect the model's text output. It ope
 
 ## 4. Enforcement Layers
 
-Agent Firewall implements five enforcement layers. Each layer operates independently; a tool call must satisfy all of them.
+AriKernel implements five enforcement layers. Each layer operates independently; a tool call must satisfy all of them.
 
 ### Layer 1: Capability Tokens
 
@@ -132,7 +132,7 @@ This produces forensic-grade evidence. After an incident, an operator can recons
      │ tool call
      ▼
 ┌──────────────────────────────────┐
-│       Agent Firewall             │
+│       AriKernel             │
 │                                  │
 │  ┌─ capability token check       │
 │  ├─ taint / provenance check     │
@@ -159,20 +159,20 @@ The firewall is a library, not a proxy. It runs in the same process as the agent
 
 ## 8. Relationship to Existing Security Models
 
-Agent Firewall draws from three established security traditions.
+AriKernel draws from three established security traditions.
 
 ### The OS Reference Monitor (Anderson, 1972)
 
-James Anderson's reference monitor concept defined the requirements for a trusted enforcement boundary in operating systems: complete mediation (every access is checked), isolation (the monitor is tamper-proof), and verifiability (the monitor is small enough to analyze). Agent Firewall applies these requirements to the AI agent context. Every tool call is mediated. The enforcement logic runs outside the model's control. The pipeline is a bounded, auditable code path.
+James Anderson's reference monitor concept defined the requirements for a trusted enforcement boundary in operating systems: complete mediation (every access is checked), isolation (the monitor is tamper-proof), and verifiability (the monitor is small enough to analyze). AriKernel applies these requirements to the AI agent context. Every tool call is mediated. The enforcement logic runs outside the model's control. The pipeline is a bounded, auditable code path.
 
 ### The Browser Sandbox
 
-Web browsers enforce security through origin-based isolation, content security policies, and the same-origin policy. A script from `attacker.com` cannot read cookies from `bank.com` — not because the script chooses not to, but because the browser enforces a boundary. Agent Firewall provides an analogous boundary for AI agents: taint labels function like origins, capability tokens function like permissions, and quarantine functions like revoking a tab's access to privileged APIs.
+Web browsers enforce security through origin-based isolation, content security policies, and the same-origin policy. A script from `attacker.com` cannot read cookies from `bank.com` — not because the script chooses not to, but because the browser enforces a boundary. AriKernel provides an analogous boundary for AI agents: taint labels function like origins, capability tokens function like permissions, and quarantine functions like revoking a tab's access to privileged APIs.
 
 ### Capability-Based Security (Dennis & Van Horn, 1966)
 
-In capability-based systems, subjects hold explicit tokens that grant specific permissions. There is no ambient authority — a process cannot access a resource unless it holds a capability for that resource. Agent Firewall implements this model for AI agents: capability tokens are unforgeable, time-bounded, scope-limited grants. An agent without a valid token for `shell.exec` cannot execute shell commands, regardless of what the language model decides.
+In capability-based systems, subjects hold explicit tokens that grant specific permissions. There is no ambient authority — a process cannot access a resource unless it holds a capability for that resource. AriKernel implements this model for AI agents: capability tokens are unforgeable, time-bounded, scope-limited grants. An agent without a valid token for `shell.exec` cannot execute shell commands, regardless of what the language model decides.
 
 ### Convergence
 
-Agent Firewall is a reference monitor for AI agent runtimes that combines complete mediation with capability-based access control and behavioral sequence detection. The first two are established principles adapted to a new context. The third — detecting adversarial intent through multi-step behavioral patterns and quarantining the session — is specific to the problem of AI agents operating under potentially adversarial control.
+AriKernel is a reference monitor for AI agent runtimes that combines complete mediation with capability-based access control and behavioral sequence detection. The first two are established principles adapted to a new context. The third — detecting adversarial intent through multi-step behavioral patterns and quarantining the session — is specific to the problem of AI agents operating under potentially adversarial control.

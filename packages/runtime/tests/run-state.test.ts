@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { ToolCallDeniedError } from '@agent-firewall/core';
+import { ToolCallDeniedError } from '@arikernel/core';
 import { createFirewall, RunStateTracker, type Firewall } from '../src/index.js';
 import { resolve } from 'node:path';
 import { unlinkSync } from 'node:fs';

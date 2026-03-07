@@ -1,5 +1,5 @@
 /**
- * Agent Firewall - Prompt Injection Attack Simulation
+ * AriKernel - Prompt Injection Attack Simulation
  *
  * Demonstrates a realistic attack scenario:
  * 1. Agent reads a webpage containing a hidden prompt injection
@@ -13,9 +13,9 @@
  * Run: pnpm demo:attack
  */
 
-import type { TaintLabel } from '@agent-firewall/core';
-import { ToolCallDeniedError } from '@agent-firewall/core';
-import { createFirewall } from '@agent-firewall/runtime';
+import type { TaintLabel } from '@arikernel/core';
+import { ToolCallDeniedError } from '@arikernel/core';
+import { createFirewall } from '@arikernel/runtime';
 import { resolve } from 'node:path';
 
 // ── Terminal formatting ──────────────────────────────────────────────
@@ -84,7 +84,7 @@ async function main() {
 	console.log(`${DIM}Scenario: An AI agent browses a webpage that contains a hidden`);
 	console.log(`prompt injection. The malicious payload instructs the agent to`);
 	console.log(`exfiltrate SSH keys, download a backdoor, and send confirmation`);
-	console.log(`to the attacker. Agent Firewall blocks every step.${RESET}\n`);
+	console.log(`to the attacker. AriKernel blocks every step.${RESET}\n`);
 
 	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
 	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-attack-audit.db');
@@ -158,7 +158,7 @@ async function main() {
 
 	phase(2, 'Malicious agent attempts attack sequence');
 	console.log(`${DIM}  The agent, influenced by the injection, now attempts each step.${RESET}`);
-	console.log(`${DIM}  Agent Firewall evaluates every attempt independently.${RESET}\n`);
+	console.log(`${DIM}  AriKernel evaluates every attempt independently.${RESET}\n`);
 
 	let attacksBlocked = 0;
 
@@ -330,7 +330,7 @@ async function main() {
 
 	banner('Simulation Complete');
 	console.log(`${DIM}The attacker injected 4 malicious instructions into a webpage.`);
-	console.log(`The AI agent followed them blindly. Agent Firewall blocked all 4.`);
+	console.log(`The AI agent followed them blindly. AriKernel blocked all 4.`);
 	console.log(`No data was exfiltrated. No code was executed. No damage was done.${RESET}\n`);
 	console.log(`${DIM}Audit log: ${auditPath}${RESET}\n`);
 }

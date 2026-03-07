@@ -4,8 +4,8 @@ import type {
 	PolicyRule,
 	TaintLabel,
 	ToolCall,
-} from '@agent-firewall/core';
-import { now } from '@agent-firewall/core';
+} from '@arikernel/core';
+import { now } from '@arikernel/core';
 import { DEFAULT_RULES } from './defaults.js';
 import { loadPolicies } from './loader.js';
 import { matchesRule } from './matcher.js';

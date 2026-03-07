@@ -1,10 +1,10 @@
 {
-  "name": "@agent-firewall/cli",
+  "name": "@arikernel/cli",
   "version": "0.1.0",
-  "description": "CLI for Agent Firewall",
+  "description": "CLI for AriKernel",
   "type": "module",
   "bin": {
-    "agent-firewall": "dist/main.js"
+    "arikernel": "dist/main.js"
   },
   "scripts": {
     "build": "tsup src/main.ts --format esm --dts",
@@ -13,11 +13,11 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agent-firewall/core": "workspace:*",
-    "@agent-firewall/runtime": "workspace:*",
-    "@agent-firewall/policy-engine": "workspace:*",
-    "@agent-firewall/audit-log": "workspace:*",
-    "@agent-firewall/attack-sim": "workspace:*",
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*",
+    "@arikernel/policy-engine": "workspace:*",
+    "@arikernel/audit-log": "workspace:*",
+    "@arikernel/attack-sim": "workspace:*",
     "citty": "^0.1.6"
   },
   "devDependencies": {
