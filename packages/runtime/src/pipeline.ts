@@ -19,6 +19,7 @@ import { PolicyEngine } from '@agent-firewall/policy-engine';
 import { TaintTracker } from '@agent-firewall/taint-tracker';
 import { ExecutorRegistry } from '@agent-firewall/tool-executors';
 import type { FirewallHooks } from './hooks.js';
+import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
 import type { RunStateTracker } from './run-state.js';
 import type { TokenStore } from './token-store.js';
 
@@ -93,15 +94,43 @@ export class Pipeline {
 			}
 		}
 
-		// Step 1.5b: Track run-state signals
+		// Step 1.5b: Track run-state signals and push security events
 		if (this.runState) {
+			// Track taint from the tool call
+			if (toolCall.taintLabels.length > 0) {
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: 'taint_observed',
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					taintSources: toolCall.taintLabels.map((t) => t.source),
+				});
+				this.checkBehavioralRules(toolCall);
+			}
+
 			if (toolCall.toolClass === 'http' && this.runState.isEgressAction(toolCall.action)) {
 				this.runState.recordEgressAttempt();
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: 'egress_attempt',
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					metadata: { url: toolCall.parameters.url },
+				});
+				this.checkBehavioralRules(toolCall);
 			}
 			if (toolCall.toolClass === 'file') {
 				const path = String(toolCall.parameters.path ?? '');
 				if (this.runState.isSensitivePath(path)) {
 					this.runState.recordSensitiveFileAttempt();
+					this.runState.pushEvent({
+						timestamp: toolCall.timestamp,
+						type: 'sensitive_read_attempt',
+						toolClass: toolCall.toolClass,
+						action: toolCall.action,
+						metadata: { path },
+					});
+					this.checkBehavioralRules(toolCall);
 				}
 			}
 		}
@@ -140,6 +169,16 @@ export class Pipeline {
 		// Step 4: Enforce decision
 		if (decision.verdict === 'deny') {
 			this.runState?.recordDeniedAction();
+			if (this.runState) {
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: 'tool_call_denied',
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					verdict: 'deny',
+				});
+				this.checkBehavioralRules(toolCall);
+			}
 			this.logEvent(toolCall, decision);
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
@@ -179,6 +218,18 @@ export class Pipeline {
 		result.taintLabels = this.taintTracker.propagate(inputTaints, toolCall.id);
 
 		this.hooks.onExecute?.(toolCall, result);
+
+		// Step 6.5: Push tool_call_allowed event for behavioral tracking
+		if (this.runState) {
+			this.runState.pushEvent({
+				timestamp: toolCall.timestamp,
+				type: 'tool_call_allowed',
+				toolClass: toolCall.toolClass,
+				action: toolCall.action,
+				verdict: 'allow',
+			});
+			this.checkBehavioralRules(toolCall);
+		}
 
 		// Step 7: Audit log
 		this.logEvent(toolCall, decision, result);
@@ -280,6 +331,27 @@ export class Pipeline {
 		}
 
 		return null;
+	}
+
+	private checkBehavioralRules(toolCall: ToolCall): void {
+		if (!this.runState?.behavioralRulesEnabled) return;
+		const match = evaluateBehavioralRules(this.runState);
+		if (!match) return;
+		const quarantine = applyBehavioralRule(this.runState, match);
+		if (quarantine) {
+			this.auditStore.appendSystemEvent(
+				toolCall.runId,
+				toolCall.principalId,
+				'quarantine',
+				quarantine.reason,
+				{
+					triggerType: quarantine.triggerType,
+					ruleId: quarantine.ruleId,
+					counters: quarantine.countersSnapshot,
+					matchedEvents: quarantine.matchedEvents,
+				},
+			);
+		}
 	}
 
 	private logEvent(toolCall: ToolCall, decision: Decision, result?: ToolResult): AuditEvent {

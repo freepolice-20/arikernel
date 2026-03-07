@@ -1,6 +1,6 @@
 # Agent Firewall -- MVP Architecture Spec
 
-> The browser security model for AI agents.
+> A reference monitor for AI agents.
 > A runtime enforcement layer between agents and tools.
 
 ## 1. Technical Architecture
@@ -653,7 +653,63 @@ await firewall.close();
 
 ---
 
-## 10. MVP Scope vs. Later
+## 10. Run-State Enforcement and Run-Level Behavioral Quarantine
+
+The pipeline described in section 9 handles per-call enforcement. Run-state enforcement adds a **session-level** layer that tracks cumulative behavior and detects multi-step attack patterns.
+
+### Run-State Counters
+
+The `RunStateTracker` maintains counters across the entire agent run:
+
+| Counter | Tracks |
+|---------|--------|
+| `deniedActions` | Total denied tool calls |
+| `capabilityRequests` | Total capability requests |
+| `deniedCapabilityRequests` | Denied capability requests |
+| `externalEgressAttempts` | HTTP POST/PUT/PATCH/DELETE attempts |
+| `sensitiveFileReadAttempts` | Reads targeting `.ssh`, `.env`, `.aws`, `credentials`, etc. |
+
+When `deniedActions` exceeds a configurable threshold (default: 5), the run enters **restricted mode**. Only safe read-only actions are permitted for the remainder of the session.
+
+### Recent-Event Window
+
+A bounded in-memory buffer (max 20 entries) of normalized `SecurityEvent` objects. Events are pushed by the Pipeline (taint, tool call, egress, sensitive read signals) and Firewall (capability request/grant/deny signals). The window enables behavioral sequence detection without unbounded state.
+
+Event types: `capability_requested`, `capability_denied`, `capability_granted`, `tool_call_allowed`, `tool_call_denied`, `taint_observed`, `sensitive_read_attempt`, `sensitive_read_allowed`, `egress_attempt`, `quarantine_entered`.
+
+### Behavioral Sequence Rules
+
+Three explicit rules evaluated after every security event push. No DSL, no graph engine — direct pattern matching in code.
+
+| Rule | Pattern | Catches |
+|------|---------|---------|
+| `web_taint_sensitive_probe` | Web/rag/email taint → sensitive read, shell exec, or egress | Prompt injection → credential theft |
+| `denied_capability_then_escalation` | Denied capability → request for riskier class (risk: http=1 < database=2 < file=3 < shell=5) | Automated privilege escalation |
+| `sensitive_read_then_egress` | Sensitive file read → outbound POST/PUT/PATCH | Data exfiltration sequences |
+
+First matching rule wins. When a rule matches, the run is quarantined immediately.
+
+### Quarantine
+
+Both threshold-based and behavioral-rule-based triggers produce a `QuarantineInfo` record containing: trigger type, rule ID, reason, counters snapshot, matched events, and timestamp.
+
+Quarantine is recorded as a first-class `_system.quarantine` audit event that participates in the hash chain. The `appendSystemEvent()` method on `AuditStore` creates a synthetic tool call with `toolClass: '_system'` and stores the quarantine metadata in the parameters field.
+
+### Restricted Mode Enforcement
+
+Once quarantined, the Pipeline rejects non-safe actions before policy evaluation. The Firewall rejects non-safe capability issuances. Only `http.get/head/options`, `file.read`, and `database.query` pass through.
+
+### Replayable Audit Evidence
+
+The CLI `replay` command renders quarantine events with trigger type, rule ID, reason, counters snapshot, and matched event pattern:
+
+```bash
+pnpm cli replay --latest --verbose --db ./demo-audit.db
+```
+
+---
+
+## 11. MVP Scope vs. Later
 
 ### MVP (build now)
 
@@ -693,7 +749,7 @@ await firewall.close();
 
 ---
 
-## 11. 12-Week Implementation Roadmap
+## 12. 12-Week Implementation Roadmap
 
 ### Weeks 1-2: Foundation
 - Monorepo scaffold (pnpm, Turborepo, tsconfig, Biome)
@@ -728,7 +784,7 @@ await firewall.close();
 
 ---
 
-## 12. Risks, Tradeoffs, and What NOT to Over-Engineer
+## 13. Risks, Tradeoffs, and What NOT to Over-Engineer
 
 ### Risks
 

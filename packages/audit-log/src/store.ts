@@ -121,6 +121,62 @@ export class AuditStore {
 		};
 	}
 
+	appendSystemEvent(
+		runId: string,
+		principalId: string,
+		action: string,
+		reason: string,
+		metadata: Record<string, unknown>,
+	): AuditEvent {
+		const id = generateId();
+		const timestamp = now();
+
+		const toolCall: ToolCall = {
+			id: generateId(),
+			runId,
+			sequence: 0,
+			timestamp,
+			principalId,
+			toolClass: '_system' as any,
+			action,
+			parameters: metadata,
+			taintLabels: [],
+		};
+
+		const decision: Decision = {
+			verdict: 'deny',
+			matchedRule: null,
+			reason,
+			taintLabels: [],
+			timestamp,
+		};
+
+		const eventData = JSON.stringify({ toolCall, decision });
+		const previousHash = this.lastHash;
+		const hash = computeHash(eventData, previousHash);
+		this.lastHash = hash;
+
+		const sequence = (
+			this.db
+				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
+				.get(runId) as { seq: number }
+		).seq;
+
+		this.insertEvent.run(
+			id, runId, sequence, timestamp, principalId,
+			'_system', action,
+			JSON.stringify(toolCall), JSON.stringify(decision),
+			null, null, '', 'deny',
+			previousHash, hash,
+		);
+
+		return {
+			id, runId, sequence, timestamp, principalId,
+			toolCall, decision,
+			previousHash, hash,
+		};
+	}
+
 	queryRun(runId: string): AuditEvent[] {
 		const rows = this.db
 			.prepare('SELECT * FROM events WHERE run_id = ? ORDER BY sequence')

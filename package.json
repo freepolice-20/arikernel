@@ -24,6 +24,7 @@
     "demo:attack": "tsx examples/demo-attack.ts",
     "demo:escalation": "tsx examples/demo-escalation.ts",
     "demo:run-state": "tsx examples/demo-run-state.ts",
+    "demo:behavioral": "tsx examples/demo-behavioral.ts",
     "typecheck": "turbo typecheck"
   },
   "devDependencies": {

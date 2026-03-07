@@ -10,7 +10,9 @@ const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
+const YELLOW = '\x1b[33m';
 const CYAN = '\x1b[36m';
+const MAGENTA = '\x1b[35m';
 
 export function printDecision(toolCall: ToolCall, decision: Decision): void {
 	const color = VERDICT_COLORS[decision.verdict] ?? '';
@@ -28,6 +30,12 @@ export function printDecision(toolCall: ToolCall, decision: Decision): void {
 }
 
 export function printAuditEvent(event: AuditEvent, verbose = false): void {
+	// Handle quarantine/system events with special formatting
+	if (event.toolCall.toolClass === '_system') {
+		printQuarantineEvent(event, verbose);
+		return;
+	}
+
 	const color = VERDICT_COLORS[event.decision.verdict] ?? '';
 	const verdict = event.decision.verdict.toUpperCase().padEnd(5);
 	const token = event.toolCall.grantId
@@ -61,6 +69,31 @@ export function printAuditEvent(event: AuditEvent, verbose = false): void {
 	console.log('');
 }
 
+function printQuarantineEvent(event: AuditEvent, verbose: boolean): void {
+	const params = event.toolCall.parameters;
+	const triggerType = params.triggerType as string ?? 'unknown';
+	const ruleId = params.ruleId as string | undefined;
+
+	console.log(
+		`  ${DIM}#${event.sequence}${RESET} ${MAGENTA}${BOLD}QUARANTINE${RESET} ` +
+		`${YELLOW}${BOLD}Run entered restricted mode${RESET}`
+	);
+	console.log(`     ${MAGENTA}Trigger: ${triggerType}${ruleId ? ` (${ruleId})` : ''}${RESET}`);
+	console.log(`     ${MAGENTA}Reason:  ${event.decision.reason}${RESET}`);
+
+	if (verbose && params.counters) {
+		const counters = params.counters as Record<string, number>;
+		console.log(`     ${DIM}Counters: denied=${counters.deniedActions}, egress=${counters.externalEgressAttempts}, sensitive=${counters.sensitiveFileReadAttempts}${RESET}`);
+	}
+	if (verbose && params.matchedEvents) {
+		const matched = params.matchedEvents as Array<{ type: string; toolClass?: string }>;
+		const summary = matched.map((e) => `${e.type}${e.toolClass ? `(${e.toolClass})` : ''}`).join(' → ');
+		console.log(`     ${DIM}Pattern: ${summary}${RESET}`);
+	}
+
+	console.log('');
+}
+
 export function printRunHeader(ctx: RunContext): void {
 	console.log(`\n${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
 	console.log(`${CYAN}${BOLD} Audit Replay${RESET}`);
@@ -75,9 +108,13 @@ export function printRunHeader(ctx: RunContext): void {
 }
 
 export function printReplaySummary(events: AuditEvent[], valid: boolean): void {
-	const counts = { allow: 0, deny: 0, 'require-approval': 0 };
+	const counts = { allow: 0, deny: 0, 'require-approval': 0, quarantine: 0 };
 	for (const e of events) {
-		counts[e.decision.verdict]++;
+		if (e.toolCall.toolClass === '_system') {
+			counts.quarantine++;
+		} else {
+			counts[e.decision.verdict]++;
+		}
 	}
 
 	console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
@@ -87,6 +124,9 @@ export function printReplaySummary(events: AuditEvent[], valid: boolean): void {
 	console.log(`  Denied:             ${RED}${counts.deny}${RESET}`);
 	if (counts['require-approval'] > 0) {
 		console.log(`  Approval required:  ${VERDICT_COLORS['require-approval']}${counts['require-approval']}${RESET}`);
+	}
+	if (counts.quarantine > 0) {
+		console.log(`  Quarantine events:  ${MAGENTA}${counts.quarantine}${RESET}`);
 	}
 	console.log('');
 

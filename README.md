@@ -1,29 +1,24 @@
 # Agent Firewall
 
-A runtime security layer for AI agents. Sits between an LLM agent and its tools, enforcing capability-based permissions, taint-aware execution policies, and tamper-evident audit logging.
+A reference monitor for AI agents. Intercepts every tool call at runtime, enforces short-lived capability tokens, tracks data provenance, detects multi-step attack patterns, and produces replayable audit evidence.
 
-**Core thesis:** AI agents should never execute with ambient authority. Every tool call must be explicitly authorized by a short-lived, scope-limited capability token — and every decision must be auditable.
+**Core thesis:** AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
 
-## The Problem
+## Why This Exists
 
-AI agents are being given direct access to tools: HTTP requests, shell commands, file I/O, databases. Most deployments rely on prompt-level instructions ("don't do anything harmful") or static allow/deny lists. Neither is sufficient.
+AI agents are being given direct access to tools: HTTP requests, shell commands, file I/O, databases. Most deployments rely on prompt-level instructions or static allow/deny lists. Neither is sufficient.
 
-**Prompt filters fail because:**
-- Prompt injections bypass them trivially (hidden instructions in web pages, emails, RAG documents)
-- They operate on intent, not on actions — and intent is unverifiable in an LLM
-- They have no concept of data provenance: content from an untrusted webpage is treated the same as user input
+**Prompt filters** operate on text, not on typed actions. They have no concept of data provenance and no enforcement boundary — the LLM can ignore them.
 
-**Static gateways fail because:**
-- They make binary allow/deny decisions with no context about where data came from
-- They cannot distinguish "agent reads a file for the user" from "agent reads ~/.ssh/id_rsa because a webpage told it to"
-- They have no token lifecycle: once access is granted, it persists until manually revoked
+**Static gateways** make binary decisions with no context about where data came from, no token lifecycle, and no behavioral memory across a session.
 
-**Agent Firewall solves this with four enforced layers:**
+**Agent Firewall enforces five layers:**
 
-1. **Capability tokens** — agents must request and receive a short-lived, usage-limited token before executing any protected action
-2. **Taint tracking** — data provenance labels propagate through the tool call chain; untrusted sources block sensitive operations
-3. **Policy enforcement** — YAML-defined rules with priority ordering, first-match-wins, deny-by-default
-4. **Tamper-evident audit** — every decision is logged in a SHA-256 hash-chained event store
+1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
+2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
+3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level quarantine before threshold counters would.
+4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
+5. **Replayable audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
 
 ## Quick Start
 
@@ -31,40 +26,81 @@ AI agents are being given direct access to tools: HTTP requests, shell commands,
 # Prerequisites: Node.js >= 20, pnpm >= 9
 git clone https://github.com/petermanrique101-sys/Agent-Firewall.git
 cd Agent-Firewall
+pnpm install && pnpm build
+```
 
-# Install and build
-pnpm install
-pnpm build
+### Run the behavioral enforcement demo
 
-# Run demos
+```bash
+pnpm demo:behavioral
+```
+
+This simulates an agent that receives tainted web content and then attempts to read SSH keys. The behavioral rule `web_taint_sensitive_probe` detects the pattern and quarantines the run — with only 1 denied action, far below the threshold of 10.
+
+### Replay the audit trail
+
+```bash
+pnpm cli replay --latest --verbose --db ./demo-audit.db
+```
+
+```
+────────────────────────────────────────────────────────
+ Audit Replay
+────────────────────────────────────────────────────────
+  Run ID:    01KK3G3W...
+  Principal: 01KK3G3W...
+  Started:   2026-03-07T06:35:19.126Z
+  Ended:     2026-03-07T06:35:19.610Z
+────────────────────────────────────────────────────────
+
+  #0 ALLOW http.get  [token:01KK3G3W...]  226ms
+     Reason: HTTP GET requests are allowed (read-only)
+
+  #1 ALLOW http.get  [token:01KK3G3W...]  246ms
+     Reason: HTTP GET requests are allowed (read-only)
+     Taint:  web:httpbin.org/html
+
+  #2 QUARANTINE  Run entered restricted mode
+     Trigger: behavioral_rule (web_taint_sensitive_probe)
+     Reason:  Untrusted web input was followed by file.read attempt
+     Pattern: taint_observed(http) → sensitive_read_attempt(file)
+
+  #3 DENY  file.read  [token:01KK3G3W...]
+     Reason: Grant constraint violation: Path '~/.ssh/id_rsa' not in allowed paths
+
+  #4 DENY  http.post  [no token]
+     Reason: Run entered restricted mode [...] 'http.post' is blocked.
+
+────────────────────────────────────────────────────────
+ Summary
+
+  Total events:       5
+  Allowed:            2
+  Denied:             2
+  Quarantine events:  1
+
+  Hash chain:         VALID
+────────────────────────────────────────────────────────
+```
+
+Every event carries full provenance. The QUARANTINE record shows the trigger type, matched rule, reason, and the pattern of events that fired it. The hash chain is cryptographically verified on replay.
+
+### All demos
+
+```bash
 pnpm demo              # Core pipeline: allow, deny, approval, taint, audit replay
 pnpm demo:capability   # Capability issuance: taint-aware token granting and denial
 pnpm demo:attack       # Prompt injection: 4-stage attack blocked by 4 defense layers
 pnpm demo:escalation   # Privilege escalation: narrow token cannot be widened
-
-# Run tests
-pnpm test
-
-# Clean build artifacts (safe, keeps node_modules)
-pnpm clean
-
-# Full reset (removes node_modules — requires pnpm install after)
-pnpm reset
+pnpm demo:run-state    # Threshold-based quarantine after repeated denied actions
+pnpm demo:behavioral   # Behavioral sequence enforcement: pattern-based quarantine
 ```
 
-## Demo Overview
+### Tests
 
-### `pnpm demo` — Core Pipeline
-Exercises the basic intercept flow: HTTP GET allowed, unauthorized host denied, tainted shell command blocked, approval flow, and audit replay with hash chain verification.
-
-### `pnpm demo:capability` — Capability Issuance
-Shows dynamic token issuance. An agent requests `http.read` (granted), then requests `database.read` with web-tainted provenance (denied because untrusted content cannot trigger database access). Demonstrates that capability decisions are context-dependent, not static.
-
-### `pnpm demo:attack` — Prompt Injection Simulation
-A webpage contains a hidden prompt injection instructing the agent to exfiltrate SSH keys, download a backdoor, and send confirmation to an attacker. All 4 attack steps are blocked by different defense layers (constraint enforcement, principal capability check, taint-aware issuance denial, mandatory token enforcement). The audit trail shows exactly 4 DENY events with full provenance.
-
-### `pnpm demo:escalation` — Capability Escalation
-An agent with a narrow HTTP GET token attempts to escalate: POST with a GET-only token (action mismatch), shell exec without any capability (no token), file read outside allowed paths (constraint violation), and reuse of a revoked token (lifecycle enforcement). 1 legitimate action allowed, 4 escalation attempts blocked. 5 audit events total.
+```bash
+pnpm test
+```
 
 ## How It Works
 
@@ -75,83 +111,71 @@ Agent requests action
   [1] Validate request schema
         |
         v
-  [2] Is this a protected action?
-       / Yes            \ No
-      v                  v
-  Token required     (unprotected — rare)
-      |
-      v
+  [2] Track run-state signals
+      - taint observed? -> push to event window
+      - sensitive file? -> push to event window
+      - egress attempt? -> push to event window
+      - behavioral rule match? -> quarantine
+        |
+        v
   [3] Validate capability token
-      - exists?
-      - not expired?
-      - not revoked?
-      - principal matches?
-      - tool class matches?
-      - action permitted?
+      - exists, not expired, not revoked?
+      - principal, tool class, action match?
       - constraints satisfied?
       - lease not exhausted?
         |
         v
-  [4] Evaluate policy rules
-      - taint-source deny rules (priority 10-11)
-      - approval-required rules (priority 100-110)
-      - allow rules (priority 200-230)
-      - implicit deny-all (priority 999)
+  [4] Evaluate policy rules (priority-sorted, first-match-wins)
         |
         v
-  [5] Execute or Deny
-      |           |
-      v           v
-   Execute    Throw ToolCallDeniedError
-      |           |
-      v           v
-  [6] Audit log (SHA-256 hash chain)
+  [5] Enforce: ALLOW / DENY / REQUIRE-APPROVAL
+        |
+        v
+  [6] Execute tool, propagate taint
+        |
+        v
+  [7] Audit log (SHA-256 hash chain)
 ```
 
-**Capability issuance** (step 0, before the above flow):
-1. Agent calls `firewall.requestCapability('http.read', { taintLabels })`
-2. Issuer checks: does the principal have base capability for this tool class?
-3. Issuer checks: are the requested actions within the allowed set?
-4. Issuer checks: does the taint context include untrusted sources for sensitive operations?
-5. Issuer checks: do policy rules deny this issuance?
-6. If all pass: issue a grant with a 5-minute TTL and 10-call lease
+Quarantine events are recorded as first-class `_system.quarantine` audit entries with trigger type, matched rule ID, reason, counters snapshot, and the pattern of events that triggered the rule.
+
+## Behavioral Sequence Rules
+
+Three built-in rules detect suspicious multi-step patterns:
+
+| Rule | Pattern | What it catches |
+|------|---------|-----------------|
+| `web_taint_sensitive_probe` | Untrusted web/rag/email taint followed by sensitive file read, shell exec, or egress | Prompt injection leading to credential theft |
+| `denied_capability_then_escalation` | Denied capability followed by request for a riskier capability class | Automated privilege escalation attempts |
+| `sensitive_read_then_egress` | Sensitive file read followed by outbound POST/PUT/PATCH | Data exfiltration sequences |
+
+These rules fire on the recent-event window (last 20 events) and quarantine the run immediately. No DSL, no graph engine — explicit pattern matching in code.
 
 ## Project Structure
 
 ```
 agent-firewall/
 ├── packages/
-│   ├── core/              # Shared types, Zod schemas, error classes, ID generation
-│   ├── policy-engine/     # YAML policy loading, rule matching, priority-sorted evaluation
-│   ├── taint-tracker/     # Taint label creation, propagation, and querying
-│   ├── audit-log/         # SQLite-backed event store with SHA-256 hash chain
-│   ├── tool-executors/    # Tool implementations (HTTP, file, shell, database)
-│   ├── runtime/           # Main orchestrator: Firewall, Pipeline, CapabilityIssuer, TokenStore
-│   └── attack-sim/        # Attack scenario definitions and simulation runner
+│   ├── core/              # Types, Zod schemas, errors, ID generation
+│   ├── policy-engine/     # YAML policy loading, priority-sorted rule evaluation
+│   ├── taint-tracker/     # Taint label attach, propagate, query
+│   ├── audit-log/         # SQLite store, SHA-256 hash chain, replay, system events
+│   ├── tool-executors/    # HTTP, file, shell, database executors
+│   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
+│   │                      # RunStateTracker, behavioral rules
+│   └── attack-sim/        # Attack scenario runner
 ├── apps/
-│   ├── cli/               # Command-line interface (init, policy validate, replay, simulate)
+│   ├── cli/               # CLI (init, policy validate, replay, simulate)
 │   └── server/            # HTTP decision server for cross-language integration
-├── python/                # Python client package (v1 decision/enforcement adapter)
-├── policies/              # YAML policy files (safe-defaults, deny-all, examples)
-├── examples/              # Runnable demos (TypeScript and Python)
-└── docs/                  # Threat model, roadmap
+├── python/                # Python client (v1 decision/enforcement adapter)
+├── policies/              # YAML policy files
+├── examples/              # Runnable demos
+└── docs/                  # Threat model, benchmarks, architecture
 ```
-
-### Package Responsibilities
-
-| Package | What it does |
-|---------|-------------|
-| `@agent-firewall/core` | Domain types (`ToolCall`, `CapabilityGrant`, `TaintLabel`, `PolicyRule`, etc.), Zod validation schemas, error classes, ULID-based ID generation |
-| `@agent-firewall/policy-engine` | Loads YAML policy files, sorts rules by priority, evaluates first-match-wins against tool calls and taint labels |
-| `@agent-firewall/taint-tracker` | Attaches provenance labels to data, propagates taint through tool call chains, queries taint state |
-| `@agent-firewall/audit-log` | Appends events to SQLite with SHA-256 hash chaining, supports replay and integrity verification |
-| `@agent-firewall/tool-executors` | Concrete implementations for HTTP (fetch), file (fs), shell (child_process), database (stub) |
-| `@agent-firewall/runtime` | `Firewall` class (main entry point), `Pipeline` (intercept flow), `CapabilityIssuer` (token issuance), `TokenStore` (grant lifecycle) |
-| `@agent-firewall/attack-sim` | Predefined attack scenarios (prompt injection, tool misuse, data exfiltration, privilege escalation) |
 
 ## Writing Policies
 
-Policies are YAML files with priority-sorted rules. Lower priority number = higher precedence. First match wins.
+Policies are YAML files with priority-sorted rules. Lower priority = higher precedence. First match wins.
 
 ```yaml
 name: my-policy
@@ -179,76 +203,17 @@ rules:
 
 Built-in deny-all rule at priority 999 ensures anything not explicitly allowed is denied.
 
-## Audit Replay
-
-Every demo writes a tamper-evident audit log. Use the CLI to replay and inspect any run.
-
-```bash
-# Replay the latest run in an audit database
-pnpm cli replay --db ./demo-attack-audit.db --latest
-
-# Replay a specific run by ID
-pnpm cli replay --db ./demo-escalation-audit.db <run-id>
-
-# Verbose mode: show parameters, matched rule, and hash per event
-pnpm cli replay --db ./demo-attack-audit.db --latest --verbose
-```
-
-**Example output (compact):**
-
-```
-────────────────────────────────────────────────────────
- Audit Replay
-────────────────────────────────────────────────────────
-  Run ID:    01JQWX...
-  Principal: attack-demo-agent
-  Started:   2026-03-06T12:00:00Z
-────────────────────────────────────────────────────────
-
-  #0 DENY  http.post  [no token]  -
-     Reason: Capability token required for protected action
-     Taint:  web:evil-page.com
-
-  #1 DENY  shell.exec [no token]  -
-     Reason: Capability token required for protected action
-     Taint:  web:evil-page.com
-
-  #2 DENY  http.post  [no token]  -
-     Reason: Capability token required for protected action
-     Taint:  web:evil-page.com
-
-  #3 DENY  file.read  [no token]  -
-     Reason: Capability token required for protected action
-     Taint:  web:evil-page.com
-
-────────────────────────────────────────────────────────
- Summary
-
-  Total events:       4
-  Allowed:            0
-  Denied:             4
-
-  Hash chain:         VALID
-────────────────────────────────────────────────────────
-```
-
 ## Python Integration (v1)
 
-The v1 Python adapter is a **decision/enforcement API layer** over the TypeScript core. The server decides allow or deny and writes every decision to the audit log. Actual tool execution still happens in your Python code after receiving an allow verdict.
-
-This is a first integration step — not full runtime mediation. A future version may add server-side execution.
-
-### Setup
+The v1 Python adapter is a decision/enforcement API layer over the TypeScript core. The server decides allow or deny and writes every decision to the audit log.
 
 ```bash
-# Start the decision server (from repo root)
+# Start the decision server
 pnpm build && pnpm server
 
-# Install the Python client (in another terminal)
+# Install the Python client
 pip install -e python/
 ```
-
-### Usage
 
 ```python
 from agent_firewall import FirewallClient, ToolCallDenied
@@ -266,28 +231,15 @@ with FirewallClient(
         result = fw.execute("http", "get",
             {"url": "https://api.github.com/repos/example"},
             grant_id=grant.grant_id)
-        # result.verdict == "allow" -> now execute your actual HTTP call
-```
-
-### Run the demo and tests
-
-```bash
-python examples/python-demo.py    # Interactive demo with 4 phases
-python -m pytest python/tests/ -v # Integration tests (starts server automatically)
 ```
 
 See [python/README.md](python/README.md) for full API documentation.
 
-## Current Status
+## Documentation
 
-This is an MVP / proof-of-concept. The core enforcement model works end-to-end:
-- Capability token issuance and validation
-- Taint-aware denial of sensitive operations
-- Constraint enforcement (allowed hosts, paths, commands, databases)
-- Token lifecycle (expiry, usage limits, revocation)
-- Hash-chained audit logging with replay
-
-See [docs/threat-model.md](docs/threat-model.md) for what this does and does not protect against, and [docs/roadmap.md](docs/roadmap.md) for planned work.
+- [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, behavioral quarantine design
+- [Threat Model](docs/threat-model.md) — what this mitigates (per-call and behavioral) and what it doesn't
+- [Benchmarks](docs/benchmarks.md) — 4 attack stories: attacker goal, sequence, unguarded outcome vs. Agent Firewall outcome, and what the audit replay proves
 
 ## License
 

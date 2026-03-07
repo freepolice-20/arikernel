@@ -20,7 +20,8 @@ import { validateOptions } from './config.js';
 import type { FirewallHooks } from './hooks.js';
 import { CapabilityIssuer } from './issuer.js';
 import { Pipeline } from './pipeline.js';
-import { RunStateTracker, type RunStateCounters, type RunStatePolicy } from './run-state.js';
+import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
+import { RunStateTracker, type RunStateCounters, type RunStatePolicy, type QuarantineInfo } from './run-state.js';
 import { TokenStore } from './token-store.js';
 
 export class Firewall {
@@ -105,6 +106,12 @@ export class Firewall {
 			);
 			if (!safeReadOnly) {
 				this._runState.recordCapabilityRequest(false);
+				this._runState.pushEvent({
+					timestamp: request.timestamp,
+					type: 'capability_denied',
+					toolClass: mapping.toolClass,
+					metadata: { capabilityClass, reason: 'restricted_mode' },
+				});
 				const denied: IssuanceDecision = {
 					requestId: request.id,
 					granted: false,
@@ -118,8 +125,28 @@ export class Firewall {
 			}
 		}
 
+		// Push capability_requested event before evaluation
+		const mapping = CAPABILITY_CLASS_MAP[capabilityClass];
+		this._runState.pushEvent({
+			timestamp: request.timestamp,
+			type: 'capability_requested',
+			toolClass: mapping.toolClass,
+			metadata: { capabilityClass },
+		});
+
 		const decision = this.issuer.evaluate(request, this.principal);
 		this._runState.recordCapabilityRequest(decision.granted);
+
+		// Push granted/denied event
+		this._runState.pushEvent({
+			timestamp: decision.timestamp,
+			type: decision.granted ? 'capability_granted' : 'capability_denied',
+			toolClass: mapping.toolClass,
+			metadata: { capabilityClass },
+		});
+
+		// Evaluate behavioral rules after capability events
+		this.checkBehavioralRulesFromCapability(capabilityClass);
 
 		this._hooks.onIssuance?.(request, decision);
 
@@ -159,6 +186,32 @@ export class Firewall {
 	/** Current run-state counters. */
 	get runStateCounters(): RunStateCounters {
 		return { ...this._runState.counters };
+	}
+
+	/** Quarantine metadata if the run has been quarantined. */
+	get quarantineInfo(): QuarantineInfo | null {
+		return this._runState.quarantineInfo;
+	}
+
+	private checkBehavioralRulesFromCapability(capabilityClass: string): void {
+		if (!this._runState.behavioralRulesEnabled) return;
+		const match = evaluateBehavioralRules(this._runState);
+		if (!match) return;
+		const quarantine = applyBehavioralRule(this._runState, match);
+		if (quarantine) {
+			this.auditStore.appendSystemEvent(
+				this.runId,
+				this.principal.id,
+				'quarantine',
+				quarantine.reason,
+				{
+					triggerType: quarantine.triggerType,
+					ruleId: quarantine.ruleId,
+					counters: quarantine.countersSnapshot,
+					matchedEvents: quarantine.matchedEvents,
+				},
+			);
+		}
 	}
 
 	close(): void {
