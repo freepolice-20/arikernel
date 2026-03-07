@@ -55,6 +55,7 @@ export class Pipeline {
 		private readonly executorRegistry: ExecutorRegistry,
 		private readonly hooks: FirewallHooks,
 		private readonly tokenStore?: TokenStore,
+		private readonly runState?: RunStateTracker,
 	) {}
 
 	async intercept(request: ToolCallRequest): Promise<ToolResult> {
@@ -75,7 +76,37 @@ export class Pipeline {
 			grantId: request.grantId,
 		};
 
-		// Step 1.5: Capability enforcement — protected tool calls REQUIRE a valid grant
+		// Step 1.5a: Run-state restriction — if the run is quarantined, only safe read-only actions pass
+		if (this.runState?.restricted) {
+			if (!this.runState.isAllowedInRestrictedMode(toolCall.toolClass, toolCall.action)) {
+				const decision: Decision = {
+					verdict: 'deny',
+					matchedRule: null,
+					reason: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
+						`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`,
+					taintLabels: toolCall.taintLabels,
+					timestamp: now(),
+				};
+				this.runState.recordDeniedAction();
+				this.logEvent(toolCall, decision);
+				throw new ToolCallDeniedError(toolCall, decision);
+			}
+		}
+
+		// Step 1.5b: Track run-state signals
+		if (this.runState) {
+			if (toolCall.toolClass === 'http' && this.runState.isEgressAction(toolCall.action)) {
+				this.runState.recordEgressAttempt();
+			}
+			if (toolCall.toolClass === 'file') {
+				const path = String(toolCall.parameters.path ?? '');
+				if (this.runState.isSensitivePath(path)) {
+					this.runState.recordSensitiveFileAttempt();
+				}
+			}
+		}
+
+		// Step 1.5c: Capability enforcement — protected tool calls REQUIRE a valid grant
 		if (this.tokenStore) {
 			if (request.grantId) {
 				this.validateToken(toolCall, request.grantId);
@@ -88,6 +119,7 @@ export class Pipeline {
 					taintLabels: toolCall.taintLabels,
 					timestamp: now(),
 				};
+				this.runState?.recordDeniedAction();
 				this.logEvent(toolCall, decision);
 				throw new ToolCallDeniedError(toolCall, decision);
 			}
@@ -107,6 +139,7 @@ export class Pipeline {
 
 		// Step 4: Enforce decision
 		if (decision.verdict === 'deny') {
+			this.runState?.recordDeniedAction();
 			this.logEvent(toolCall, decision);
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
@@ -119,6 +152,7 @@ export class Pipeline {
 					verdict: 'deny',
 					reason: `${decision.reason} (approval denied by user)`,
 				};
+				this.runState?.recordDeniedAction();
 				this.logEvent(toolCall, deniedDecision);
 				throw new ApprovalRequiredError(toolCall, deniedDecision);
 			}
@@ -134,6 +168,7 @@ export class Pipeline {
 				taintLabels: inputTaints,
 				timestamp: now(),
 			};
+			this.runState?.recordDeniedAction();
 			this.logEvent(toolCall, noExecDecision);
 			throw new ToolCallDeniedError(toolCall, noExecDecision);
 		}
@@ -155,76 +190,48 @@ export class Pipeline {
 		const validation = this.tokenStore!.validate(grantId);
 
 		if (!validation.valid) {
-			const decision: Decision = {
-				verdict: 'deny',
-				matchedRule: null,
-				reason: `Capability token invalid: ${validation.reason}`,
-				taintLabels: toolCall.taintLabels,
-				timestamp: now(),
-			};
-			this.logEvent(toolCall, decision);
-			throw new ToolCallDeniedError(toolCall, decision);
+			this.denyAndThrow(toolCall, `Capability token invalid: ${validation.reason}`);
 		}
 
 		const grant = this.tokenStore!.get(grantId)!;
 
-		// Principal must match
 		if (grant.principalId !== toolCall.principalId) {
-			const decision: Decision = {
-				verdict: 'deny',
-				matchedRule: null,
-				reason: `Capability token principal '${grant.principalId}' does not match caller '${toolCall.principalId}'`,
-				taintLabels: toolCall.taintLabels,
-				timestamp: now(),
-			};
-			this.logEvent(toolCall, decision);
-			throw new ToolCallDeniedError(toolCall, decision);
+			this.denyAndThrow(toolCall,
+				`Capability token principal '${grant.principalId}' does not match caller '${toolCall.principalId}'`);
 		}
 
 		const mapping = CAPABILITY_CLASS_MAP[grant.capabilityClass];
 
-		// Tool class must match
 		if (mapping.toolClass !== toolCall.toolClass) {
-			const decision: Decision = {
-				verdict: 'deny',
-				matchedRule: null,
-				reason: `Token for '${grant.capabilityClass}' cannot be used for tool class '${toolCall.toolClass}'`,
-				taintLabels: toolCall.taintLabels,
-				timestamp: now(),
-			};
-			this.logEvent(toolCall, decision);
-			throw new ToolCallDeniedError(toolCall, decision);
+			this.denyAndThrow(toolCall,
+				`Token for '${grant.capabilityClass}' cannot be used for tool class '${toolCall.toolClass}'`);
 		}
 
-		// Action must match
 		if (!mapping.actions.includes(toolCall.action)) {
-			const decision: Decision = {
-				verdict: 'deny',
-				matchedRule: null,
-				reason: `Token for '${grant.capabilityClass}' does not permit action '${toolCall.action}'`,
-				taintLabels: toolCall.taintLabels,
-				timestamp: now(),
-			};
-			this.logEvent(toolCall, decision);
-			throw new ToolCallDeniedError(toolCall, decision);
+			this.denyAndThrow(toolCall,
+				`Token for '${grant.capabilityClass}' does not permit action '${toolCall.action}'`);
 		}
 
-		// Constraint enforcement
 		const constraintViolation = this.checkGrantConstraints(toolCall, grant.constraints);
 		if (constraintViolation) {
-			const decision: Decision = {
-				verdict: 'deny',
-				matchedRule: null,
-				reason: `Grant constraint violation: ${constraintViolation}`,
-				taintLabels: toolCall.taintLabels,
-				timestamp: now(),
-			};
-			this.logEvent(toolCall, decision);
-			throw new ToolCallDeniedError(toolCall, decision);
+			this.denyAndThrow(toolCall, `Grant constraint violation: ${constraintViolation}`);
 		}
 
 		// Consume one use from the lease
 		this.tokenStore!.consume(grantId);
+	}
+
+	private denyAndThrow(toolCall: ToolCall, reason: string): never {
+		const decision: Decision = {
+			verdict: 'deny',
+			matchedRule: null,
+			reason,
+			taintLabels: toolCall.taintLabels,
+			timestamp: now(),
+		};
+		this.runState?.recordDeniedAction();
+		this.logEvent(toolCall, decision);
+		throw new ToolCallDeniedError(toolCall, decision);
 	}
 
 	private checkGrantConstraints(

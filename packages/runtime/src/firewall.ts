@@ -10,7 +10,7 @@ import type {
 	ToolCallRequest,
 	ToolResult,
 } from '@agent-firewall/core';
-import { generateId, now } from '@agent-firewall/core';
+import { CAPABILITY_CLASS_MAP, generateId, now } from '@agent-firewall/core';
 import { AuditStore, replayRun, type ReplayResult } from '@agent-firewall/audit-log';
 import { PolicyEngine } from '@agent-firewall/policy-engine';
 import { TaintTracker } from '@agent-firewall/taint-tracker';
@@ -20,6 +20,7 @@ import { validateOptions } from './config.js';
 import type { FirewallHooks } from './hooks.js';
 import { CapabilityIssuer } from './issuer.js';
 import { Pipeline } from './pipeline.js';
+import { RunStateTracker, type RunStateCounters, type RunStatePolicy } from './run-state.js';
 import { TokenStore } from './token-store.js';
 
 export class Firewall {
@@ -32,6 +33,7 @@ export class Firewall {
 	private issuer: CapabilityIssuer;
 	private tokenStore: TokenStore;
 	private _hooks: FirewallHooks;
+	private _runState: RunStateTracker;
 	readonly runId: string;
 
 	constructor(options: FirewallOptions) {
@@ -57,6 +59,7 @@ export class Firewall {
 		);
 
 		this._hooks = options.hooks ?? {};
+		this._runState = new RunStateTracker(options.runStatePolicy);
 
 		this.auditStore.startRun(this.runId, this.principal.id, {
 			principal: options.principal,
@@ -72,6 +75,7 @@ export class Firewall {
 			this.executorRegistry,
 			options.hooks ?? {},
 			this.tokenStore,
+			this._runState,
 		);
 	}
 
@@ -93,7 +97,29 @@ export class Firewall {
 			timestamp: now(),
 		};
 
+		// Block non-read-only capability issuance in restricted mode
+		if (this._runState.restricted) {
+			const mapping = CAPABILITY_CLASS_MAP[capabilityClass];
+			const safeReadOnly = mapping.actions.every(
+				(a) => this._runState.isAllowedInRestrictedMode(mapping.toolClass, a),
+			);
+			if (!safeReadOnly) {
+				this._runState.recordCapabilityRequest(false);
+				const denied: IssuanceDecision = {
+					requestId: request.id,
+					granted: false,
+					reason: `Run is in restricted mode (entered at ${this._runState.restrictedAt}). ` +
+						`Only read-only capabilities can be issued. '${capabilityClass}' is blocked.`,
+					taintLabels: request.taintLabels,
+					timestamp: now(),
+				};
+				this._hooks.onIssuance?.(request, denied);
+				return denied;
+			}
+		}
+
 		const decision = this.issuer.evaluate(request, this.principal);
+		this._runState.recordCapabilityRequest(decision.granted);
 
 		this._hooks.onIssuance?.(request, decision);
 
@@ -118,6 +144,21 @@ export class Firewall {
 
 	revokeGrant(grantId: string): boolean {
 		return this.tokenStore.revoke(grantId);
+	}
+
+	/** Whether this run has entered restricted mode. */
+	get isRestricted(): boolean {
+		return this._runState.restricted;
+	}
+
+	/** Timestamp when restricted mode was entered, or null. */
+	get restrictedAt(): string | null {
+		return this._runState.restrictedAt;
+	}
+
+	/** Current run-state counters. */
+	get runStateCounters(): RunStateCounters {
+		return { ...this._runState.counters };
 	}
 
 	close(): void {
