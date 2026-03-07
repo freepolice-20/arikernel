@@ -1,22 +1,39 @@
 import { AuditStore, replayRun } from '@agent-firewall/audit-log';
-import { printAuditEvent, printReplaySummary } from '../output.js';
+import { printAuditEvent, printRunHeader, printReplaySummary } from '../output.js';
 
-export function runReplay(dbPath: string, runId: string): void {
+export interface ReplayOptions {
+	latest?: boolean;
+	verbose?: boolean;
+}
+
+export function runReplay(dbPath: string, runId: string | undefined, options: ReplayOptions = {}): void {
 	const store = new AuditStore(dbPath);
 
 	try {
-		const result = replayRun(store, runId);
+		let resolvedRunId = runId;
+
+		if (options.latest || !resolvedRunId) {
+			const runs = store.listRuns();
+			if (runs.length === 0) {
+				console.error('No runs found in database.');
+				process.exit(1);
+			}
+			resolvedRunId = runs[0].runId;
+			if (!runId) {
+				console.log(`Using latest run: ${resolvedRunId}\n`);
+			}
+		}
+
+		const result = replayRun(store, resolvedRunId!);
 		if (!result) {
-			console.error(`Run not found: ${runId}`);
+			console.error(`Run not found: ${resolvedRunId}`);
 			process.exit(1);
 		}
 
-		console.log(`Replaying run: ${runId}`);
-		console.log(`Principal: ${result.runContext.principalId}`);
-		console.log(`Started: ${result.runContext.startedAt}\n`);
+		printRunHeader(result.runContext);
 
 		for (const event of result.events) {
-			printAuditEvent(event);
+			printAuditEvent(event, options.verbose);
 		}
 
 		printReplaySummary(result.events, result.integrity.valid);

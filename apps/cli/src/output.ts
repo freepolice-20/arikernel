@@ -1,4 +1,4 @@
-import type { AuditEvent, Decision, ToolCall } from '@agent-firewall/core';
+import type { AuditEvent, Decision, RunContext, ToolCall } from '@agent-firewall/core';
 
 const VERDICT_COLORS: Record<string, string> = {
 	allow: '\x1b[32m',    // green
@@ -8,6 +8,9 @@ const VERDICT_COLORS: Record<string, string> = {
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
+const GREEN = '\x1b[32m';
+const RED = '\x1b[31m';
+const CYAN = '\x1b[36m';
 
 export function printDecision(toolCall: ToolCall, decision: Decision): void {
 	const color = VERDICT_COLORS[decision.verdict] ?? '';
@@ -24,14 +27,51 @@ export function printDecision(toolCall: ToolCall, decision: Decision): void {
 	}
 }
 
-export function printAuditEvent(event: AuditEvent): void {
+export function printAuditEvent(event: AuditEvent, verbose = false): void {
 	const color = VERDICT_COLORS[event.decision.verdict] ?? '';
-	const verdict = `${color}${event.decision.verdict.toUpperCase()}${RESET}`;
+	const verdict = event.decision.verdict.toUpperCase().padEnd(5);
+	const token = event.toolCall.grantId
+		? `[token:${event.toolCall.grantId.slice(0, 8)}...]`
+		: '[no token]';
+	const duration = event.result?.durationMs != null ? `${event.result.durationMs}ms` : '-';
 
 	console.log(
-		`${DIM}#${event.sequence}${RESET} ${verdict} ${event.toolCall.toolClass}.${event.toolCall.action} ` +
-		`${DIM}(${event.result?.durationMs ?? 0}ms)${RESET}`
+		`  ${DIM}#${event.sequence}${RESET} ${color}${BOLD}${verdict}${RESET} ` +
+		`${event.toolCall.toolClass}.${event.toolCall.action} ` +
+		`${DIM}${token}  ${duration}${RESET}`
 	);
+	console.log(`     ${DIM}Reason: ${event.decision.reason}${RESET}`);
+
+	if (event.toolCall.taintLabels.length > 0) {
+		const sources = event.toolCall.taintLabels.map((t) => `${t.source}:${t.origin}`).join(', ');
+		console.log(`     ${DIM}Taint:  ${sources}${RESET}`);
+	}
+
+	if (verbose) {
+		const rule = event.decision.matchedRule?.name ?? 'implicit deny';
+		console.log(`     ${DIM}Rule:   ${rule}${RESET}`);
+		console.log(`     ${DIM}Hash:   ${event.hash.slice(0, 16)}...${RESET}`);
+		if (event.toolCall.parameters) {
+			const params = JSON.stringify(event.toolCall.parameters);
+			const display = params.length > 80 ? `${params.slice(0, 80)}...` : params;
+			console.log(`     ${DIM}Params: ${display}${RESET}`);
+		}
+	}
+
+	console.log('');
+}
+
+export function printRunHeader(ctx: RunContext): void {
+	console.log(`\n${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
+	console.log(`${CYAN}${BOLD} Audit Replay${RESET}`);
+	console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
+	console.log(`  ${DIM}Run ID:${RESET}    ${ctx.runId}`);
+	console.log(`  ${DIM}Principal:${RESET} ${ctx.principalId}`);
+	console.log(`  ${DIM}Started:${RESET}   ${ctx.startedAt}`);
+	if (ctx.endedAt) {
+		console.log(`  ${DIM}Ended:${RESET}     ${ctx.endedAt}`);
+	}
+	console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}\n`);
 }
 
 export function printReplaySummary(events: AuditEvent[], valid: boolean): void {
@@ -40,10 +80,18 @@ export function printReplaySummary(events: AuditEvent[], valid: boolean): void {
 		counts[e.decision.verdict]++;
 	}
 
-	console.log(`\n${BOLD}Run Summary${RESET}`);
-	console.log(`  Total events: ${events.length}`);
-	console.log(`  Allowed: ${VERDICT_COLORS.allow}${counts.allow}${RESET}`);
-	console.log(`  Denied: ${VERDICT_COLORS.deny}${counts.deny}${RESET}`);
-	console.log(`  Approval required: ${VERDICT_COLORS['require-approval']}${counts['require-approval']}${RESET}`);
-	console.log(`  Hash chain integrity: ${valid ? '\x1b[32mVALID\x1b[0m' : '\x1b[31mBROKEN\x1b[0m'}`);
+	console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
+	console.log(`${BOLD} Summary${RESET}\n`);
+	console.log(`  Total events:       ${BOLD}${events.length}${RESET}`);
+	console.log(`  Allowed:            ${GREEN}${counts.allow}${RESET}`);
+	console.log(`  Denied:             ${RED}${counts.deny}${RESET}`);
+	if (counts['require-approval'] > 0) {
+		console.log(`  Approval required:  ${VERDICT_COLORS['require-approval']}${counts['require-approval']}${RESET}`);
+	}
+	console.log('');
+
+	const integrityColor = valid ? GREEN : RED;
+	const integrityLabel = valid ? 'VALID' : 'BROKEN';
+	console.log(`  Hash chain:         ${integrityColor}${BOLD}${integrityLabel}${RESET}`);
+	console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}\n`);
 }

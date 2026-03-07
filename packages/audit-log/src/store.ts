@@ -145,6 +145,20 @@ export class AuditStore {
 		};
 	}
 
+	listRuns(): RunContext[] {
+		const rows = this.db
+			.prepare('SELECT * FROM runs ORDER BY started_at DESC')
+			.all() as Array<Record<string, unknown>>;
+
+		return rows.map((row) => ({
+			runId: row.run_id as string,
+			principalId: row.principal_id as string,
+			startedAt: row.started_at as string,
+			endedAt: (row.ended_at as string) ?? undefined,
+			eventCount: (row.event_count as number) ?? 0,
+		}));
+	}
+
 	close(): void {
 		this.db.close();
 	}

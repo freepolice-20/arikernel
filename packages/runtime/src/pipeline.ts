@@ -1,6 +1,5 @@
 import type {
 	AuditEvent,
-	CapabilityGrant,
 	Decision,
 	Principal,
 	ToolCall,
@@ -20,7 +19,29 @@ import { PolicyEngine } from '@agent-firewall/policy-engine';
 import { TaintTracker } from '@agent-firewall/taint-tracker';
 import { ExecutorRegistry } from '@agent-firewall/tool-executors';
 import type { FirewallHooks } from './hooks.js';
+import type { RunStateTracker } from './run-state.js';
 import type { TokenStore } from './token-store.js';
+
+/**
+ * Precompute a lookup: toolClass -> Set of actions that are covered by
+ * at least one CapabilityClass. Any tool call matching this map is
+ * "protected" and MUST present a valid grant token.
+ */
+const PROTECTED_ACTIONS = new Map<string, Set<string>>();
+for (const mapping of Object.values(CAPABILITY_CLASS_MAP)) {
+	let actions = PROTECTED_ACTIONS.get(mapping.toolClass);
+	if (!actions) {
+		actions = new Set();
+		PROTECTED_ACTIONS.set(mapping.toolClass, actions);
+	}
+	for (const action of mapping.actions) {
+		actions.add(action);
+	}
+}
+
+function isProtected(toolClass: string, action: string): boolean {
+	return PROTECTED_ACTIONS.get(toolClass)?.has(action) ?? false;
+}
 
 export class Pipeline {
 	private sequence = 0;
@@ -54,10 +75,22 @@ export class Pipeline {
 			grantId: request.grantId,
 		};
 
-		// Step 1.5: Validate capability token if provided
-		if (request.grantId && this.tokenStore) {
-			const tokenResult = this.validateToken(toolCall, request.grantId);
-			if (tokenResult) return tokenResult;
+		// Step 1.5: Capability enforcement — protected tool calls REQUIRE a valid grant
+		if (this.tokenStore) {
+			if (request.grantId) {
+				this.validateToken(toolCall, request.grantId);
+			} else if (isProtected(toolCall.toolClass, toolCall.action)) {
+				const decision: Decision = {
+					verdict: 'deny',
+					matchedRule: null,
+					reason: `Capability token required for protected action '${toolCall.toolClass}.${toolCall.action}'. ` +
+						'Request a capability grant before executing this tool call.',
+					taintLabels: toolCall.taintLabels,
+					timestamp: now(),
+				};
+				this.logEvent(toolCall, decision);
+				throw new ToolCallDeniedError(toolCall, decision);
+			}
 		}
 
 		// Step 2: Collect taint
@@ -118,7 +151,7 @@ export class Pipeline {
 		return result;
 	}
 
-	private validateToken(toolCall: ToolCall, grantId: string): Promise<ToolResult> | null {
+	private validateToken(toolCall: ToolCall, grantId: string): void {
 		const validation = this.tokenStore!.validate(grantId);
 
 		if (!validation.valid) {
@@ -134,8 +167,23 @@ export class Pipeline {
 		}
 
 		const grant = this.tokenStore!.get(grantId)!;
+
+		// Principal must match
+		if (grant.principalId !== toolCall.principalId) {
+			const decision: Decision = {
+				verdict: 'deny',
+				matchedRule: null,
+				reason: `Capability token principal '${grant.principalId}' does not match caller '${toolCall.principalId}'`,
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			this.logEvent(toolCall, decision);
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
 		const mapping = CAPABILITY_CLASS_MAP[grant.capabilityClass];
 
+		// Tool class must match
 		if (mapping.toolClass !== toolCall.toolClass) {
 			const decision: Decision = {
 				verdict: 'deny',
@@ -148,6 +196,7 @@ export class Pipeline {
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
 
+		// Action must match
 		if (!mapping.actions.includes(toolCall.action)) {
 			const decision: Decision = {
 				verdict: 'deny',
@@ -160,10 +209,70 @@ export class Pipeline {
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
 
+		// Constraint enforcement
+		const constraintViolation = this.checkGrantConstraints(toolCall, grant.constraints);
+		if (constraintViolation) {
+			const decision: Decision = {
+				verdict: 'deny',
+				matchedRule: null,
+				reason: `Grant constraint violation: ${constraintViolation}`,
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			this.logEvent(toolCall, decision);
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
 		// Consume one use from the lease
 		this.tokenStore!.consume(grantId);
+	}
 
-		return null; // null = validation passed, proceed with normal flow
+	private checkGrantConstraints(
+		toolCall: ToolCall,
+		constraints: import('@agent-firewall/core').CapabilityConstraint,
+	): string | null {
+		if (constraints.allowedHosts && toolCall.toolClass === 'http') {
+			const url = String(toolCall.parameters.url ?? '');
+			try {
+				const hostname = new URL(url).hostname;
+				if (!constraints.allowedHosts.includes(hostname)) {
+					return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(', ')}`;
+				}
+			} catch {
+				return `Invalid URL: ${url}`;
+			}
+		}
+
+		if (constraints.allowedCommands && toolCall.toolClass === 'shell') {
+			const command = String(toolCall.parameters.command ?? '');
+			const binary = command.split(/\s+/)[0];
+			if (!constraints.allowedCommands.includes(binary)) {
+				return `Command '${binary}' not in allowed commands: ${constraints.allowedCommands.join(', ')}`;
+			}
+		}
+
+		if (constraints.allowedPaths && toolCall.toolClass === 'file') {
+			const path = String(toolCall.parameters.path ?? '');
+			const allowed = constraints.allowedPaths.some((pattern) => {
+				if (pattern.endsWith('/**')) {
+					return path.startsWith(pattern.slice(0, -3));
+				}
+				return path === pattern;
+			});
+			if (!allowed) {
+				return `Path '${path}' not in allowed paths: ${constraints.allowedPaths.join(', ')}`;
+			}
+		}
+
+		if (constraints.allowedDatabases && toolCall.toolClass === 'database') {
+			const query = String(toolCall.parameters.query ?? '');
+			const dbMatch = constraints.allowedDatabases.some((db) => query.includes(db));
+			if (!dbMatch) {
+				return `Query does not reference any allowed database: ${constraints.allowedDatabases.join(', ')}`;
+			}
+		}
+
+		return null;
 	}
 
 	private logEvent(toolCall: ToolCall, decision: Decision, result?: ToolResult): AuditEvent {

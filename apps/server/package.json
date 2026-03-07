@@ -1,18 +1,12 @@
 {
-  "name": "@agent-firewall/attack-sim",
+  "name": "@agent-firewall/server",
   "version": "0.1.0",
-  "description": "Attack simulation pack for Agent Firewall",
+  "description": "HTTP decision server for Agent Firewall",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup src/main.ts --format esm --dts",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"

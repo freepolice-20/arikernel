@@ -167,8 +167,9 @@ async function main() {
 
 	// ----------------------------------------------------------
 	// Step 5: Try to execute database query WITHOUT a token
+	//         Must be DENIED — protected actions require a grant
 	// ----------------------------------------------------------
-	step(5, 'Try database query without capability token');
+	step(5, 'Try database query without capability token (should DENY)');
 
 	try {
 		await firewall.execute({
@@ -177,10 +178,10 @@ async function main() {
 			parameters: { query: 'SELECT * FROM analytics.pageviews' },
 			taintLabels: webTaint,
 		});
-		console.log(`  ${RED}ERROR: Should have been denied by policy!${RESET}`);
+		console.log(`  ${RED}ERROR: Executed without a capability token — enforcement is broken!${RESET}`);
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			console.log(`  ${GREEN}Correctly denied by policy!${RESET}`);
+			console.log(`  ${GREEN}Correctly denied! No capability token = no execution.${RESET}`);
 			console.log(`  ${DIM}Reason: ${err.decision.reason}${RESET}`);
 		}
 	}

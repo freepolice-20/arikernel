@@ -2,9 +2,16 @@ node_modules/
 dist/
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 .turbo/
 .DS_Store
 *.log
 coverage/
 .env
 .env.local
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+*.egg-link

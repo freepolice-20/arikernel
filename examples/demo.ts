@@ -2,12 +2,12 @@
  * Agent Firewall - Vertical Slice Demo
  *
  * Demonstrates the full intercept pipeline:
- * 1. Agent sends a tool call request
- * 2. Firewall checks capabilities
- * 3. Policy engine evaluates rules
- * 4. Taint labels are tracked
- * 5. Decision is enforced
- * 6. Audit event is logged with hash chain
+ * 1. Agent requests capability, then executes HTTP GET
+ * 2. HTTP GET to unauthorized host denied (constraint violation)
+ * 3. Shell command with web-tainted input denied (taint policy)
+ * 4. Agent requests shell capability, then executes with approval
+ * 5. Database query without capability denied (no token)
+ * 6. Audit replay with hash chain verification
  *
  * Run: pnpm demo
  */
@@ -83,14 +83,19 @@ async function main() {
 	console.log(`${DIM}Audit: ${auditPath}${RESET}`);
 
 	// -------------------------------------------------------
-	// Step 1: ALLOWED - HTTP GET to an allowed host
+	// Step 1: ALLOWED - HTTP GET to an allowed host (with token)
 	// -------------------------------------------------------
 	step(1, 'HTTP GET to allowed host (should ALLOW)');
+
+	const httpGrant = firewall.requestCapability('http.read');
+	console.log(`  ${DIM}Capability: ${httpGrant.granted ? `${GREEN}GRANTED` : `${RED}DENIED`}${RESET}`);
+
 	try {
 		const result = await firewall.execute({
 			toolClass: 'http',
 			action: 'get',
 			parameters: { url: 'https://httpbin.org/get' },
+			grantId: httpGrant.grant!.id,
 		});
 		console.log(`  ${GREEN}Success!${RESET} Status: ${(result.data as any)?.status ?? 'ok'}`);
 		console.log(`  ${DIM}Duration: ${result.durationMs}ms${RESET}`);
@@ -107,11 +112,13 @@ async function main() {
 			toolClass: 'http',
 			action: 'get',
 			parameters: { url: 'https://evil.com/steal-data' },
+			grantId: httpGrant.grant!.id,
 		});
 		console.log(`  ${RED}ERROR: Should have been denied!${RESET}`);
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
 			console.log(`  ${GREEN}Correctly denied!${RESET}`);
+			console.log(`  ${DIM}Reason: ${err.decision.reason}${RESET}`);
 		}
 	}
 
@@ -133,6 +140,7 @@ async function main() {
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
 			console.log(`  ${GREEN}Correctly denied! Taint-aware policy caught it.${RESET}`);
+			console.log(`  ${DIM}Reason: ${err.decision.reason}${RESET}`);
 		}
 	}
 
@@ -140,11 +148,16 @@ async function main() {
 	// Step 4: REQUIRE-APPROVAL - Shell command without taint
 	// -------------------------------------------------------
 	step(4, 'Shell command without taint (should REQUIRE-APPROVAL, auto-approved)');
+
+	const shellGrant = firewall.requestCapability('shell.exec');
+	console.log(`  ${DIM}Capability: ${shellGrant.granted ? `${GREEN}GRANTED` : `${RED}DENIED`}${RESET}`);
+
 	try {
 		const result = await firewall.execute({
 			toolClass: 'shell',
 			action: 'exec',
 			parameters: { command: 'echo "Hello from Agent Firewall"' },
+			grantId: shellGrant.grant!.id,
 		});
 		console.log(`  ${GREEN}Executed after approval!${RESET}`);
 		console.log(`  ${DIM}Output: ${JSON.stringify((result.data as any)?.stdout?.trim())}${RESET}`);
@@ -153,9 +166,9 @@ async function main() {
 	}
 
 	// -------------------------------------------------------
-	// Step 5: DENIED - No capability for database
+	// Step 5: DENIED - No capability token for database
 	// -------------------------------------------------------
-	step(5, 'Database query without capability (should DENY)');
+	step(5, 'Database query without capability token (should DENY)');
 	try {
 		await firewall.execute({
 			toolClass: 'database',
@@ -165,7 +178,8 @@ async function main() {
 		console.log(`  ${RED}ERROR: Should have been denied!${RESET}`);
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			console.log(`  ${GREEN}Correctly denied! No capability for database.${RESET}`);
+			console.log(`  ${GREEN}Correctly denied! No capability token.${RESET}`);
+			console.log(`  ${DIM}Reason: ${err.decision.reason}${RESET}`);
 		}
 	}
 

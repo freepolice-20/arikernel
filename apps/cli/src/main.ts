@@ -23,9 +23,11 @@ const replay = defineCommand({
 	meta: { name: 'replay', description: 'Replay a run from audit log' },
 	args: {
 		db: { type: 'string', description: 'Audit database path', default: './audit.db' },
-		runId: { type: 'positional', description: 'Run ID to replay', required: true },
+		latest: { type: 'boolean', description: 'Replay the most recent run', default: false },
+		verbose: { type: 'boolean', description: 'Show params, rule, and hash for each event', default: false },
+		runId: { type: 'positional', description: 'Run ID to replay (omit with --latest)', required: false },
 	},
-	run: ({ args }) => runReplay(args.db, args.runId),
+	run: ({ args }) => runReplay(args.db, args.runId, { latest: args.latest, verbose: args.verbose }),
 });
 
 const run = defineCommand({
