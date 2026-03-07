@@ -1,0 +1,32 @@
+{
+  "name": "agent-firewall",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The browser security model for AI agents",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "clean": "turbo clean && rm -rf node_modules",
+    "demo": "tsx examples/demo.ts",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "@agent-firewall/core": "workspace:*",
+    "@agent-firewall/runtime": "workspace:*",
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^25.3.5",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

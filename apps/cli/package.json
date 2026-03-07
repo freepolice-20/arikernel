@@ -1,0 +1,26 @@
+{
+  "name": "@agent-firewall/cli",
+  "version": "0.1.0",
+  "description": "CLI for Agent Firewall",
+  "type": "module",
+  "bin": {
+    "agent-firewall": "dist/main.js"
+  },
+  "scripts": {
+    "build": "tsup src/main.ts --format esm --dts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agent-firewall/core": "workspace:*",
+    "@agent-firewall/runtime": "workspace:*",
+    "@agent-firewall/policy-engine": "workspace:*",
+    "@agent-firewall/audit-log": "workspace:*",
+    "@agent-firewall/attack-sim": "workspace:*",
+    "citty": "^0.1.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

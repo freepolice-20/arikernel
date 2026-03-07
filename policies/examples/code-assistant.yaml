@@ -1,0 +1,44 @@
+name: code-assistant
+version: "1.0"
+
+rules:
+  - id: deny-tainted-shell
+    name: Deny shell with untrusted input
+    priority: 10
+    match:
+      toolClass: shell
+      taintSources: [web, rag, email]
+    decision: deny
+    reason: "Shell commands with untrusted input are forbidden"
+
+  - id: allow-file-read
+    name: Allow reading project files
+    priority: 100
+    match:
+      toolClass: file
+      action: read
+      parameters:
+        path:
+          pattern: "^\\./src/"
+    decision: allow
+    reason: "Code assistant can read source files"
+
+  - id: approve-file-write
+    name: Require approval for file writes
+    priority: 110
+    match:
+      toolClass: file
+      action: write
+    decision: require-approval
+    reason: "File writes require developer approval"
+
+  - id: allow-safe-shell
+    name: Allow safe shell commands
+    priority: 120
+    match:
+      toolClass: shell
+      parameters:
+        command:
+          pattern: "^(npm test|npm run lint|tsc --noEmit)"
+    decision: allow
+    reason: "Safe build/test commands are allowed"

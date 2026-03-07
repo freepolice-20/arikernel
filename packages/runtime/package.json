@@ -1,0 +1,30 @@
+{
+  "name": "@agent-firewall/runtime",
+  "version": "0.1.0",
+  "description": "Main runtime orchestrator for Agent Firewall",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agent-firewall/core": "workspace:*",
+    "@agent-firewall/policy-engine": "workspace:*",
+    "@agent-firewall/taint-tracker": "workspace:*",
+    "@agent-firewall/audit-log": "workspace:*",
+    "@agent-firewall/tool-executors": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

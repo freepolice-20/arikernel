@@ -1,0 +1,33 @@
+name: web-researcher
+version: "1.0"
+
+rules:
+  - id: allow-http-get
+    name: Allow HTTP GET to any host
+    priority: 100
+    match:
+      toolClass: http
+      action: get
+    decision: allow
+    reason: "Web researcher can fetch any URL"
+
+  - id: deny-http-mutate
+    name: Deny HTTP mutations
+    priority: 50
+    match:
+      toolClass: http
+      action: [post, put, patch, delete]
+    decision: deny
+    reason: "Web researcher is read-only"
+
+  - id: allow-file-write-output
+    name: Allow writing to output directory
+    priority: 110
+    match:
+      toolClass: file
+      action: write
+      parameters:
+        path:
+          pattern: "^\\./output/"
+    decision: allow
+    reason: "Researcher can save results to output directory"

@@ -1,0 +1,6 @@
+name: deny-all
+version: "1.0"
+
+rules: []
+# No rules = everything falls through to the built-in deny-all default.
+# This is the most restrictive policy: nothing is allowed.
