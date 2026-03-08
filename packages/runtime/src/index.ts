@@ -16,5 +16,7 @@ export type { BehavioralRuleMatch } from './behavioral-rules.js';
 export { TokenStore } from './token-store.js';
 export { createKernel, getDefaultKernel, resetDefaultKernel } from './kernel.js';
 export type { Kernel, KernelOptions, KernelAllow } from './kernel.js';
+export { canonicalizePath, isPathAllowed } from './path-security.js';
+export { validateCommand } from './command-security.js';
 export { classifyScope } from './autoscope.js';
 export type { ScopeResult } from './autoscope.js';

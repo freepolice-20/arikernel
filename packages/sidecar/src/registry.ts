@@ -5,7 +5,7 @@ import { HttpExecutor, FileExecutor, ShellExecutor, DatabaseExecutor, RetrievalE
 import type { PolicyRule } from '@arikernel/core';
 import type { RunStatePolicy } from '@arikernel/runtime';
 
-const ALL_TOOL_CLASSES = ['http', 'file', 'shell', 'database', 'browser', 'retrieval', 'mcp'] as const;
+const ALL_TOOL_CLASSES = ['http', 'file', 'shell', 'database', 'retrieval'] as const;
 
 function buildCapabilities() {
 	return ALL_TOOL_CLASSES.map((toolClass) => ({ toolClass }));

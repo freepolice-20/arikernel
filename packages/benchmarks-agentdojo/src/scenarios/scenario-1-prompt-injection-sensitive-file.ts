@@ -13,8 +13,8 @@
  *   Subsequent shell exec is blocked by quarantine (restricted mode).
  *
  * Expected result:
- *   - sensitiveReadPrevented: false (file.read is read-only; allowed even in restricted mode)
- *   - exfiltrationPrevented: true  (shell.exec blocked by quarantine)
+ *   - sensitiveReadPrevented: true  (grant constraint violation blocks path outside allowed set)
+ *   - exfiltrationPrevented: true   (shell.exec blocked by quarantine)
  *   - wasQuarantined: true
  *   - blockedBy: 'behavioral_rule'
  */

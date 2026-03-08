@@ -1,6 +1,6 @@
 # Sidecar / Proxy Enforcement Mode
 
-AriKernel can run as a standalone HTTP proxy — a **sidecar** — that intercepts
+Ari Kernel can run as a standalone HTTP proxy — a **sidecar** — that intercepts
 every tool call from an AI agent and enforces your policy before execution.
 
 In this mode the agent does not link `@arikernel/runtime` directly. Instead it
@@ -25,7 +25,7 @@ arikernel sidecar --policy ./arikernel.policy.yaml --port 8787
 
 Output:
 ```
-AriKernel sidecar listening on port 8787
+Ari Kernel sidecar listening on port 8787
   Policy : ./arikernel.policy.yaml
   Audit  : ./sidecar-audit.db
   POST   : http://localhost:8787/execute
@@ -72,7 +72,7 @@ Response (denied):
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `principalId` | string | yes | Agent identifier. Each principal gets its own run-state and audit log. |
-| `toolClass` | string | yes | One of: `http`, `file`, `shell`, `database`, `browser`, `retrieval`, `mcp` |
+| `toolClass` | string | yes | One of: `http`, `file`, `shell`, `database`, `retrieval` |
 | `action` | string | yes | Tool-specific action (`GET`, `POST`, `read`, `write`, `exec`, `query`, …) |
 | `params` | object | yes | Tool-specific parameters (passed to the executor) |
 | `taint` | string[] | no | Upstream taint labels to attach to this call |
@@ -130,7 +130,7 @@ This means if `agent-A` triggers quarantine, `agent-B` is unaffected.
 
 ## Audit replay
 
-Because the sidecar writes standard AriKernel audit logs, the existing
+Because the sidecar writes standard Ari Kernel audit logs, the existing
 `arikernel replay` command works without modification:
 
 ```bash

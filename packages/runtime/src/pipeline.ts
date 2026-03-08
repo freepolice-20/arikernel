@@ -19,6 +19,8 @@ import { PolicyEngine } from '@arikernel/policy-engine';
 import { TaintTracker } from '@arikernel/taint-tracker';
 import { ExecutorRegistry } from '@arikernel/tool-executors';
 import type { FirewallHooks } from './hooks.js';
+import { isPathAllowed } from './path-security.js';
+import { validateCommand } from './command-security.js';
 import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
 import type { RunStateTracker } from './run-state.js';
 import type { TokenStore } from './token-store.js';
@@ -303,22 +305,17 @@ export class Pipeline {
 
 		if (constraints.allowedCommands && toolCall.toolClass === 'shell') {
 			const command = String(toolCall.parameters.command ?? '');
-			const binary = command.split(/\s+/)[0];
-			if (!constraints.allowedCommands.includes(binary)) {
-				return `Command '${binary}' not in allowed commands: ${constraints.allowedCommands.join(', ')}`;
+			const violation = validateCommand(command, constraints.allowedCommands);
+			if (violation) {
+				return violation;
 			}
 		}
 
 		if (constraints.allowedPaths && toolCall.toolClass === 'file') {
 			const path = String(toolCall.parameters.path ?? '');
-			const allowed = constraints.allowedPaths.some((pattern) => {
-				if (pattern.endsWith('/**')) {
-					return path.startsWith(pattern.slice(0, -3));
-				}
-				return path === pattern;
-			});
+			const { allowed, canonicalPath } = isPathAllowed(path, constraints.allowedPaths);
 			if (!allowed) {
-				return `Path '${path}' not in allowed paths: ${constraints.allowedPaths.join(', ')}`;
+				return `Path '${canonicalPath}' not in allowed paths: ${constraints.allowedPaths.join(', ')}`;
 			}
 		}
 
