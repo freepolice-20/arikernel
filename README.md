@@ -121,19 +121,24 @@ arikernel replay --latest --verbose
 arikernel replay --latest --step    # step-by-step with 800ms delay
 ```
 
-## Real-World Integration Example
+## Model Compatibility
 
-See [examples/langchain-protected-agent/](examples/langchain-protected-agent/) for a self-contained agent that routes all tool calls through AriKernel. It demonstrates:
+AriKernel is model-agnostic. It protects tool execution, not the model.
 
-- Prompt injection detected and blocked in real time
-- Behavioral quarantine triggered by tainted content
-- Full forensic replay of the session
+Regardless of whether an agent uses OpenAI, Claude, Gemini, or any other provider, tool use eventually becomes a function call in the host runtime. AriKernel intercepts that execution boundary — so it works across model ecosystems without model-specific adapters.
 
-```bash
-npx tsx examples/langchain-protected-agent/agent.ts
-arikernel trace --latest
-arikernel replay --latest --step
+```typescript
+// This works with any model's tool-calling output
+const tools = protectTools(firewall, {
+  web_search:  { toolClass: "http", action: "get" },
+  read_file:   { toolClass: "file", action: "read" },
+});
+
+// Model picks a tool → AriKernel enforces → tool executes (or is blocked)
+await tools[modelSelectedTool](modelSelectedArgs);
 ```
+
+See [examples/custom-agent-loop/](examples/custom-agent-loop/) for a complete model-agnostic agent loop example.
 
 ## How It Works
 
@@ -227,83 +232,101 @@ rules:
 
 Built-in deny-all rule at priority 999 ensures anything not explicitly allowed is denied.
 
-## Framework Adapters
+## Supported Integrations
 
-AriKernel provides a lightweight adapter interface so any agent framework can route tool calls through the firewall. The `@arikernel/adapters` package includes:
+AriKernel is the enforcement layer for agent tools — not a single-framework plugin. It works with any agent framework that makes tool calls.
 
-- **`wrapTool()`** — universal primitive that wraps any tool call with capability + enforcement
-- **`LangChainAdapter`** — creates protected tool functions for LangChain DynamicTools
-- **`FrameworkAdapter`** interface — implement for CrewAI, OpenAI Assistants, Vercel AI SDK, etc.
+| Framework / Pattern | Model Compatibility | Status | Integration | Example |
+|---------------------|---------------------|--------|-------------|---------|
+| Generic JS/TS tool map | Any model | Adapter | `protectTools()` | [examples/generic-wrapper/](examples/generic-wrapper/) |
+| Custom agent loop | Any model | Adapter | `protectTools()` | [examples/custom-agent-loop/](examples/custom-agent-loop/) |
+| OpenAI / OpenAI-style | OpenAI, compatible | Adapter | `protectOpenAITools()` | [examples/openai-tool-calling/](examples/openai-tool-calling/) |
+| Claude / Anthropic | Claude, compatible | Universal wrapper | `protectTools()` | [examples/custom-agent-loop/](examples/custom-agent-loop/) |
+| LangChain / LangGraph | Any model | Adapter | `LangChainAdapter` | [examples/langchain-protected-agent/](examples/langchain-protected-agent/) |
+| CrewAI | Any model | Adapter | `CrewAIAdapter` | [examples/crewai-tool-protection/](examples/crewai-tool-protection/) |
+| Vercel AI SDK | Any model | Adapter | `protectVercelTools()` | — |
+| Python | Any model | Decorator + client | `@protect_tool` | [examples/python-protect-decorator.py](examples/python-protect-decorator.py) |
 
-### LangChain
+All adapters are thin wrappers over `wrapTool()`, the universal enforcement primitive. Every call goes through capability checks, taint tracking, policy evaluation, behavioral detection, and audit logging.
+
+### OpenAI / OpenAI-style tool calling
+
+```typescript
+import { createFirewall } from "@arikernel/runtime";
+import { protectOpenAITools } from "@arikernel/adapters/openai";
+
+const firewall = createFirewall({ ... });
+
+const tools = protectOpenAITools(firewall, {
+  web_search:  { toolClass: "http", action: "get" },
+  read_file:   { toolClass: "file", action: "read" },
+  run_command: { toolClass: "shell", action: "exec" },
+});
+
+// When the model requests a tool call:
+const result = await tools.execute("web_search", { url: "https://example.com" });
+```
+
+### LangChain / LangGraph
 
 ```typescript
 import { createFirewall } from "@arikernel/runtime";
 import { LangChainAdapter } from "@arikernel/adapters/langchain";
 
-const firewall = createFirewall({
-  principal: { name: "my-agent", capabilities: [...] },
-  policies: "arikernel.policy.yaml",
-});
-
+const firewall = createFirewall({ ... });
 const adapter = new LangChainAdapter(firewall);
 
-// Create protected tool functions
 const httpGet = adapter.tool("http", "get");
 const fileRead = adapter.tool("file", "read");
 
-// Use with LangChain DynamicTool
 new DynamicTool({ name: "http_get", func: (input) => httpGet({ url: input }) });
 ```
 
-### Generic wrapping (any framework)
+### CrewAI
 
 ```typescript
+import { createFirewall } from "@arikernel/runtime";
+import { CrewAIAdapter } from "@arikernel/adapters/crewai";
+
+const firewall = createFirewall({ ... });
+const adapter = new CrewAIAdapter(firewall);
+
+adapter.register("search_tool", "http", "get");
+adapter.register("file_reader", "file", "read");
+
+const result = await adapter.execute("search_tool", { url: "https://example.com" });
+```
+
+### Generic JS/TS wrapper (any framework)
+
+```typescript
+import { createFirewall } from "@arikernel/runtime";
 import { wrapTool } from "@arikernel/adapters";
 
-const protectedHttpGet = wrapTool(firewall, "http", "get");
-const result = await protectedHttpGet({ url: "https://example.com" });
+const firewall = createFirewall({ ... });
+
+const httpGet = wrapTool(firewall, "http", "get");
+const result = await httpGet({ url: "https://example.com" });
 ```
 
-### Custom adapter
-
-```typescript
-import { FrameworkAdapter } from "@arikernel/adapters";
-
-class MyAdapter implements FrameworkAdapter<MyAgent> {
-  readonly framework = "my-framework";
-  protect(agent: MyAgent): MyAgent { /* wrap tool calls */ }
-}
-```
-
-## Python Integration (v1)
-
-The v1 Python adapter is a decision/enforcement API layer over the TypeScript core. The server decides allow or deny and writes every decision to the audit log.
+### Python
 
 ```bash
-# Start the decision server
-pnpm build && pnpm server
-
-# Install the Python client
+pnpm build && pnpm server   # start decision server
 pip install -e python/
 ```
 
 ```python
-from arikernel import FirewallClient, ToolCallDenied
+from arikernel import FirewallClient
+from arikernel.protect import protect_tool
 
-with FirewallClient(
-    url="http://localhost:9099",
-    principal="my-agent",
-    capabilities=[
-        {"toolClass": "http", "actions": ["get"],
-         "constraints": {"allowedHosts": ["api.github.com"]}},
-    ],
-) as fw:
-    grant = fw.request_capability("http.read")
-    if grant.granted:
-        result = fw.execute("http", "get",
-            {"url": "https://api.github.com/repos/example"},
-            grant_id=grant.grant_id)
+fw = FirewallClient(url="http://localhost:9099", principal="my-agent", capabilities=[...])
+
+@protect_tool(fw, tool_class="http", action="get")
+def fetch_url(url: str) -> str:
+    return httpx.get(url).text
+
+result = fetch_url("https://example.com")  # goes through AriKernel first
 ```
 
 See [python/README.md](python/README.md) for full API documentation.
@@ -321,7 +344,7 @@ arikernel/
 │   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
 │   │                      # RunStateTracker, behavioral rules
 │   ├── attack-sim/        # Attack scenario runner + interactive simulator
-│   └── adapters/          # Framework adapters (LangChain, generic wrapTool)
+│   └── adapters/          # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI, wrapTool)
 ├── apps/
 │   ├── cli/               # CLI (init, policy, replay, simulate, trace)
 │   └── server/            # HTTP decision server for cross-language integration

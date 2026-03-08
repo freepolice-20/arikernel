@@ -90,3 +90,44 @@ export function wrapTool(
 function isReadAction(action: string): boolean {
 	return ['get', 'read', 'query', 'list', 'search', 'fetch'].includes(action);
 }
+
+/**
+ * Tool mapping for protectTools().
+ */
+export interface ToolMapEntry {
+	toolClass: string;
+	action: string;
+	taintLabels?: TaintLabel[];
+}
+
+/**
+ * Wraps an entire tool map so every tool call goes through AriKernel enforcement.
+ *
+ * This is the universal integration primitive. Any agent system that executes
+ * tools as functions can use this to add AriKernel enforcement:
+ *
+ * ```ts
+ * const tools = protectTools(firewall, {
+ *   web_search:  { toolClass: "http", action: "get" },
+ *   read_file:   { toolClass: "file", action: "read" },
+ *   run_command: { toolClass: "shell", action: "exec" },
+ * });
+ *
+ * // Execute by name — same interface regardless of model or framework
+ * await tools.web_search({ url: "https://example.com" });
+ * await tools.read_file({ path: "./data/config.json" });
+ * ```
+ */
+export function protectTools(
+	firewall: Firewall,
+	mappings: Record<string, ToolMapEntry>,
+): Record<string, ProtectedTool> {
+	const result: Record<string, ProtectedTool> = {};
+	for (const [name, entry] of Object.entries(mappings)) {
+		const opts: WrapToolOptions | undefined = entry.taintLabels
+			? { taintLabels: entry.taintLabels }
+			: undefined;
+		result[name] = wrapTool(firewall, entry.toolClass, entry.action, opts);
+	}
+	return result;
+}

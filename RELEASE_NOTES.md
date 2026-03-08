@@ -35,6 +35,27 @@ All forensic commands now accept `--db <path>` to override the default database 
 
 New self-contained example at `examples/langchain-protected-agent/` demonstrating prompt injection blocked in real time with full forensic replay.
 
+### Universal adapter layer
+
+New framework adapters in `@arikernel/adapters` make AriKernel immediately usable across agent ecosystems:
+
+- **`protectTools()`** — universal tool-map wrapper that works with any JS/TS agent loop
+- **`protectOpenAITools()`** — convenience wrapper for OpenAI-style tool calling
+- **`LangChainAdapter`** — polished adapter for LangChain DynamicTools
+- **`CrewAIAdapter`** — adapter for CrewAI tool protection
+- **`protectVercelTools()`** — adapter for Vercel AI SDK
+- **`@protect_tool`** — Python decorator for protecting tool functions via the decision server
+
+AriKernel is model-agnostic. It protects tool execution, not the model — so it works with OpenAI, Claude, Gemini, or any provider.
+
+### New examples
+
+- `examples/openai-tool-calling/` — OpenAI-style tool calling with AriKernel
+- `examples/crewai-tool-protection/` — CrewAI tool protection
+- `examples/generic-wrapper/` — Generic JS/TS wrapTool() pattern
+- `examples/custom-agent-loop/` — Model-agnostic agent loop
+- `examples/python-protect-decorator.py` — Python @protect_tool decorator
+
 ## Package versions
 
 | Package | Version |

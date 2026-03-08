@@ -1,0 +1,9 @@
+{
+  "name": "generic-wrapper-example",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*"
+  }
+}
