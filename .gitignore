@@ -15,15 +15,3 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 *.egg-link
-
-# AI workflow files (keep locally, exclude from repo)
-CLAUDE.md
-CHATGPT.md
-PROMPTS.md
-AI_NOTES.md
-.claude/
-.cursor/
-.llm/
-.dev-ai/
-ai-notes/
-prompts/
