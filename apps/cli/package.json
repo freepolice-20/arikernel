@@ -1,6 +1,6 @@
 {
   "name": "@arikernel/cli",
-  "version": "0.2.2",
+  "version": "0.1.1",
   "description": "Security runtime for AI agents — intercepts tool calls, enforces capability tokens, tracks provenance, and produces tamper-evident audit logs",
   "type": "module",
   "license": "Apache-2.0",
