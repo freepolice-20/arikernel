@@ -41,78 +41,88 @@ AI agents are being given direct access to tools: HTTP requests, shell commands,
 4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
 5. **Tamper-evident audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
 
-## 2-Minute Demo
+## Quick Start
 
 ```bash
-# Prerequisites: Node.js >= 20, pnpm >= 9
+npm install -g arikernel
+
+arikernel simulate prompt-injection
+arikernel trace --latest
+arikernel replay --latest --step
+```
+
+That's it. The simulator runs a multi-step prompt injection attack through the full runtime, writes the audit trail to `./arikernel-audit.db`, and prints the run ID. `trace` and `replay` read from the same DB automatically.
+
+> **Stale DB:** If you've run simulations before, the `--latest` flag picks the most recent run. To start clean: `rm arikernel-audit.db` before simulating.
+
+### From source
+
+```bash
 git clone https://github.com/petermanrique101-sys/AriKernel.git
 cd AriKernel
-
-pnpm install
-pnpm build
-pnpm demo:behavioral
-pnpm cli replay --latest --verbose --db ./demo-audit.db
-```
-
-The demo simulates an agent that fetches a webpage containing a prompt injection, then attempts to read SSH keys. The behavioral rule `web_taint_sensitive_probe` detects the pattern and quarantines the run — with only 1 denied action, far below the threshold of 10.
-
-**Expected replay output:**
-
-```
-────────────────────────────────────────────────────────
- Audit Replay
-────────────────────────────────────────────────────────
-  Run ID:    01KK3G3W...
-  Principal: 01KK3G3W...
-────────────────────────────────────────────────────────
-
-  #0 ALLOW http.get  [token:01KK3G3W...]  226ms
-     Reason: HTTP GET requests are allowed (read-only)
-
-  #1 ALLOW http.get  [token:01KK3G3W...]  246ms
-     Reason: HTTP GET requests are allowed (read-only)
-     Taint:  web:httpbin.org/html
-
-  #2 QUARANTINE  Run entered restricted mode
-     Trigger: behavioral_rule (web_taint_sensitive_probe)
-     Reason:  Untrusted web input was followed by file.read attempt
-     Pattern: taint_observed(http) → sensitive_read_attempt(file)
-
-  #3 DENY  file.read  [token:01KK3G3W...]
-     Reason: Grant constraint violation: Path '~/.ssh/id_rsa' not in allowed paths
-
-  #4 DENY  http.post  [no token]
-     Reason: Run entered restricted mode [...] 'http.post' is blocked.
-
-────────────────────────────────────────────────────────
- Summary
-
-  Total events:       5
-  Allowed:            2
-  Denied:             2
-  Quarantine events:  1
-
-  Hash chain:         VALID
-────────────────────────────────────────────────────────
-```
-
-### All demos
-
-```bash
-pnpm demo              # Core pipeline: allow, deny, approval, taint, audit replay
-pnpm demo:capability   # Capability issuance: taint-aware token granting and denial
-pnpm demo:attack       # Prompt injection: 4-stage attack blocked by 4 defense layers
-pnpm demo:escalation   # Privilege escalation: narrow token cannot be widened
-pnpm demo:run-state    # Threshold-based quarantine after repeated denied actions
-pnpm demo:behavioral   # Behavioral sequence enforcement: pattern-based quarantine
-pnpm demo:langchain    # LangChain integration: wrapped tools with firewall enforcement
-```
-
-### Tests
-
-```bash
+pnpm install && pnpm build
+pnpm demo:behavioral    # behavioral quarantine demo
 pnpm test
 ```
+
+## CLI
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
+| `arikernel trace [runId]` | Display security execution trace from audit log |
+| `arikernel replay [runId]` | Replay a recorded session step by step |
+| `arikernel run` | Start firewall in run mode |
+| `arikernel policy <file>` | Validate a policy YAML file |
+| `arikernel init` | Generate a starter policy file |
+
+All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
+
+### Attack Simulator
+
+Run targeted attack simulations with built-in safe-defaults policy:
+
+```bash
+arikernel simulate prompt-injection
+arikernel simulate data-exfiltration
+arikernel simulate tool-escalation
+```
+
+Use a custom policy with `--policy`:
+
+```bash
+arikernel simulate prompt-injection --policy policies/safe-defaults.yaml
+```
+
+Run all scenarios at once (pass/fail report):
+
+```bash
+arikernel simulate
+```
+
+After each interactive simulation, the CLI prints the audit DB path and run ID for forensic follow-up.
+
+### Security Trace
+
+Display a readable execution chain from the audit log:
+
+```bash
+arikernel trace --latest
+arikernel trace <run-id> --db ./arikernel-audit.db
+```
+
+### Deterministic Replay
+
+Replay a recorded session step by step for forensic debugging:
+
+```bash
+arikernel replay --latest --verbose
+arikernel replay --latest --step    # step-by-step with 800ms delay
+```
+
+Shows every tool call with timestamps, enforcement decisions, quarantine events, and hash chain integrity verification.
 
 ## How It Works
 
@@ -177,9 +187,10 @@ arikernel/
 │   ├── tool-executors/    # HTTP, file, shell, database executors
 │   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
 │   │                      # RunStateTracker, behavioral rules
-│   └── attack-sim/        # Attack scenario runner
+│   ├── attack-sim/        # Attack scenario runner + interactive simulator
+│   └── adapters/          # Framework adapters (LangChain, generic wrapTool)
 ├── apps/
-│   ├── cli/               # CLI (init, policy validate, replay, simulate)
+│   ├── cli/               # CLI (init, policy, replay, simulate, trace)
 │   └── server/            # HTTP decision server for cross-language integration
 ├── python/                # Python client (v1 decision/enforcement adapter)
 ├── policies/              # YAML policy files
@@ -249,19 +260,64 @@ with FirewallClient(
 
 See [python/README.md](python/README.md) for full API documentation.
 
-## LangChain Example
+## Framework Adapters
 
-LangChain agents can run behind AriKernel by wrapping tool execution. The `firewallTool()` wrapper requests a capability token and routes execution through the firewall — the agent never knows about the enforcement boundary.
+AriKernel provides a lightweight adapter interface so any agent framework can route tool calls through the firewall. The `@arikernel/adapters` package includes:
 
-```bash
-pnpm demo:langchain
+- **`wrapTool()`** — universal primitive that wraps any tool call with capability + enforcement
+- **`LangChainAdapter`** — creates protected tool functions for LangChain DynamicTools
+- **`FrameworkAdapter`** interface — implement for CrewAI, OpenAI Assistants, Vercel AI SDK, etc.
+
+### LangChain
+
+```typescript
+import { createFirewall } from "@arikernel/runtime";
+import { LangChainAdapter } from "@arikernel/adapters/langchain";
+
+const firewall = createFirewall({
+  principal: { name: "my-agent", capabilities: [...] },
+  policies: "arikernel.policy.yaml",
+});
+
+const adapter = new LangChainAdapter(firewall);
+
+// Create protected tool functions
+const httpGet = adapter.tool("http", "get");
+const fileRead = adapter.tool("file", "read");
+
+// Use with LangChain DynamicTool
+new DynamicTool({ name: "http_get", func: (input) => httpGet({ url: input }) });
 ```
 
-The demo simulates a LangChain agent with three tools (http_get, file_read, http_post). The first tool call is allowed with a web taint label. The second triggers the `web_taint_sensitive_probe` behavioral rule and quarantines the run. The third — an exfiltration attempt — is blocked because the run is in restricted mode.
+### Generic wrapping (any framework)
 
-The same wrapping pattern works for any framework that lets you define custom tool functions: CrewAI (`BaseTool._run()`), AutoGen (`function_map`), Vercel AI SDK (`tool.execute()`).
+```typescript
+import { wrapTool } from "@arikernel/adapters";
 
-See [examples/langchain-arikernel.ts](examples/langchain-arikernel.ts) for the full implementation.
+const protectedHttpGet = wrapTool(firewall, "http", "get");
+const result = await protectedHttpGet({ url: "https://example.com" });
+```
+
+### Custom adapter
+
+```typescript
+import { FrameworkAdapter } from "@arikernel/adapters";
+
+class MyAdapter implements FrameworkAdapter<MyAgent> {
+  readonly framework = "my-framework";
+  protect(agent: MyAgent): MyAgent { /* wrap tool calls */ }
+}
+```
+
+### Real-world example
+
+See [examples/langchain-protected-agent/](examples/langchain-protected-agent/) for a complete, self-contained agent that routes all tool calls through AriKernel. It demonstrates prompt injection detection, behavioral quarantine, and full forensic replay — with exact run commands.
+
+```bash
+npx tsx examples/langchain-protected-agent/agent.ts
+arikernel trace --latest
+arikernel replay --latest --step
+```
 
 ## Documentation
 

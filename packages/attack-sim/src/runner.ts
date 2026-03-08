@@ -1,6 +1,7 @@
-import type { DecisionVerdict, ToolCallRequest } from '@arikernel/core';
+import type { DecisionVerdict, PolicyRule, ToolCallRequest } from '@arikernel/core';
 import { ToolCallDeniedError } from '@arikernel/core';
 import { createFirewall } from '@arikernel/runtime';
+import { DEFAULT_POLICY } from './default-policy.js';
 import { promptInjectionScenarios } from './scenarios/prompt-injection.js';
 import { toolMisuseScenarios } from './scenarios/tool-misuse.js';
 import { dataExfiltrationScenarios } from './scenarios/data-exfiltration.js';
@@ -28,7 +29,7 @@ const ALL_SCENARIOS: SimScenario[] = [
 ];
 
 export async function runSimulation(
-	policies: string,
+	policies?: string | PolicyRule[],
 ): Promise<SimResult[]> {
 	const results: SimResult[] = [];
 
@@ -41,7 +42,7 @@ export async function runSimulation(
 					{ toolClass: 'file', actions: ['read'], constraints: { allowedPaths: ['./data/**'] } },
 				],
 			},
-			policies,
+			policies: policies ?? DEFAULT_POLICY,
 			auditLog: ':memory:',
 		});
 

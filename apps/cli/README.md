@@ -12,15 +12,12 @@ Part of the [AriKernel](https://github.com/petermanrique101-sys/AriKernel) proje
 npm install -g arikernel
 ```
 
-Then use it anywhere:
+Then run the full forensic demo:
 
 ```bash
-arikernel --help
-arikernel init
-arikernel policy arikernel.policy.yaml
-arikernel simulate --policy arikernel.policy.yaml
-arikernel run --policy arikernel.policy.yaml
-arikernel replay --latest --verbose --db ./audit.db
+arikernel simulate prompt-injection
+arikernel trace --latest
+arikernel replay --latest --step
 ```
 
 ### npx (no install)
@@ -44,11 +41,16 @@ node apps/cli/dist/main.js --help
 
 | Command | Description |
 |---------|-------------|
-| `arikernel init` | Generate a starter `arikernel.policy.yaml` |
-| `arikernel policy <file>` | Validate a policy YAML file |
+| `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
+| `arikernel trace [runId]` | Display security execution trace from audit log |
+| `arikernel replay [runId]` | Replay a recorded session step by step |
 | `arikernel run` | Start the firewall in run mode |
-| `arikernel simulate` | Run attack simulations against a policy |
-| `arikernel replay [runId]` | Replay a run from the audit log |
+| `arikernel policy <file>` | Validate a policy YAML file |
+| `arikernel init` | Generate a starter `arikernel.policy.yaml` |
+
+All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
+
+> **Tip:** If `--latest` picks a stale run, delete `arikernel-audit.db` and re-simulate.
 
 ## Requirements
 

@@ -4,9 +4,14 @@ import { printAuditEvent, printRunHeader, printReplaySummary } from '../output.j
 export interface ReplayOptions {
 	latest?: boolean;
 	verbose?: boolean;
+	step?: boolean;
 }
 
-export function runReplay(dbPath: string, runId: string | undefined, options: ReplayOptions = {}): void {
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function runReplay(dbPath: string, runId: string | undefined, options: ReplayOptions = {}): Promise<void> {
 	const store = new AuditStore(dbPath);
 
 	try {
@@ -32,8 +37,22 @@ export function runReplay(dbPath: string, runId: string | undefined, options: Re
 
 		printRunHeader(result.runContext);
 
-		for (const event of result.events) {
-			printAuditEvent(event, options.verbose);
+		if (options.step) {
+			const DIM = '\x1b[2m';
+			const RESET = '\x1b[0m';
+
+			for (let i = 0; i < result.events.length; i++) {
+				const event = result.events[i];
+				console.log(`${DIM}[event ${i + 1}/${result.events.length}]${RESET}`);
+				printAuditEvent(event, options.verbose);
+				if (i < result.events.length - 1) {
+					await sleep(800);
+				}
+			}
+		} else {
+			for (const event of result.events) {
+				printAuditEvent(event, options.verbose);
+			}
 		}
 
 		printReplaySummary(result.events, result.integrity.valid);

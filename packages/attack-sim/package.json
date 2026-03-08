@@ -1,6 +1,6 @@
 {
   "name": "@arikernel/attack-sim",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Attack simulation pack for AriKernel",
   "type": "module",
   "main": "dist/index.js",
