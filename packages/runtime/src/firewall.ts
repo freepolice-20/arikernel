@@ -10,6 +10,7 @@ import type {
 	ToolCallRequest,
 	ToolResult,
 } from '@arikernel/core';
+import type { ToolExecutor } from '@arikernel/tool-executors';
 import { CAPABILITY_CLASS_MAP, generateId, now } from '@arikernel/core';
 import { AuditStore, replayRun, type ReplayResult } from '@arikernel/audit-log';
 import { PolicyEngine } from '@arikernel/policy-engine';
@@ -151,6 +152,10 @@ export class Firewall {
 		this._hooks.onIssuance?.(request, decision);
 
 		return decision;
+	}
+
+	registerExecutor(executor: ToolExecutor): void {
+		this.executorRegistry.register(executor);
 	}
 
 	async execute(request: ToolCallRequest): Promise<ToolResult> {

@@ -1,4 +1,4 @@
-export const TOOL_CLASSES = ['http', 'file', 'shell', 'database', 'browser'] as const;
+export const TOOL_CLASSES = ['http', 'file', 'shell', 'database', 'browser', 'retrieval', 'mcp'] as const;
 export type ToolClass = (typeof TOOL_CLASSES)[number];
 
 export interface CapabilityConstraints {

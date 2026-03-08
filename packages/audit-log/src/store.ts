@@ -95,16 +95,18 @@ export class AuditStore {
 		const timestamp = now();
 		const taintSources = decision.taintLabels.map((t) => t.source).join(',');
 
-		const eventData = JSON.stringify({ toolCall, decision, result });
-		const previousHash = this.lastHash;
-		const hash = computeHash(eventData, previousHash);
-		this.lastHash = hash;
-
 		const sequence = (
 			this.db
 				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
 				.get(toolCall.runId) as { seq: number }
 		).seq;
+
+		toolCall.sequence = sequence;
+
+		const eventData = JSON.stringify({ toolCall, decision, result });
+		const previousHash = this.lastHash;
+		const hash = computeHash(eventData, previousHash);
+		this.lastHash = hash;
 
 		this.insertEvent.run(
 			id,
@@ -148,10 +150,16 @@ export class AuditStore {
 		const id = generateId();
 		const timestamp = now();
 
+		const sequence = (
+			this.db
+				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
+				.get(runId) as { seq: number }
+		).seq;
+
 		const toolCall: ToolCall = {
 			id: generateId(),
 			runId,
-			sequence: 0,
+			sequence,
 			timestamp,
 			principalId,
 			toolClass: '_system' as any,
@@ -172,12 +180,6 @@ export class AuditStore {
 		const previousHash = this.lastHash;
 		const hash = computeHash(eventData, previousHash);
 		this.lastHash = hash;
-
-		const sequence = (
-			this.db
-				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
-				.get(runId) as { seq: number }
-		).seq;
 
 		this.insertEvent.run(
 			id, runId, sequence, timestamp, principalId,

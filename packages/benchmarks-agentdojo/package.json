@@ -1,0 +1,23 @@
+{
+  "name": "@arikernel/benchmarks-agentdojo",
+  "version": "0.1.0",
+  "description": "AgentDojo-aligned attack benchmark harness for AriKernel",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "bench": "npx tsx src/index.ts"
+  },
+  "dependencies": {
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*",
+    "@arikernel/audit-log": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

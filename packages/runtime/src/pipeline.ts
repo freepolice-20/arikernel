@@ -45,8 +45,6 @@ function isProtected(toolClass: string, action: string): boolean {
 }
 
 export class Pipeline {
-	private sequence = 0;
-
 	constructor(
 		private readonly runId: string,
 		private readonly principal: Principal,
@@ -66,7 +64,7 @@ export class Pipeline {
 		const toolCall: ToolCall = {
 			id: generateId(),
 			runId: this.runId,
-			sequence: this.sequence++,
+			sequence: 0,
 			timestamp: now(),
 			principalId: this.principal.id,
 			toolClass: request.toolClass,
@@ -214,8 +212,10 @@ export class Pipeline {
 
 		const result = await executor.execute(toolCall);
 
-		// Step 6: Propagate taint
-		result.taintLabels = this.taintTracker.propagate(inputTaints, toolCall.id);
+		// Step 6: Propagate taint — merge executor auto-taints with propagated input taints
+		const autoTaints = result.taintLabels;
+		const propagated = this.taintTracker.propagate(inputTaints, toolCall.id);
+		result.taintLabels = this.taintTracker.merge(autoTaints, propagated);
 
 		this.hooks.onExecute?.(toolCall, result);
 

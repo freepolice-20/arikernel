@@ -6,6 +6,8 @@ import { runReplay } from './commands/replay.js';
 import { runAgent } from './commands/run.js';
 import { runSimulate } from './commands/simulate.js';
 import { runTrace } from './commands/trace.js';
+import { runSidecar } from './commands/sidecar.js';
+import { DEFAULT_PORT } from '@arikernel/sidecar';
 
 const init = defineCommand({
 	meta: { name: 'init', description: 'Initialize arikernel config' },
@@ -69,9 +71,23 @@ const trace = defineCommand({
 	run: ({ args }) => runTrace(args.db, args.runId, { latest: args.latest }),
 });
 
+const sidecar = defineCommand({
+	meta: { name: 'sidecar', description: 'Start AriKernel as a sidecar enforcement proxy' },
+	args: {
+		policy: { type: 'string', description: 'Policy file path', default: './arikernel.policy.yaml' },
+		port: { type: 'string', description: 'TCP port to listen on (default: 8787)', default: String(DEFAULT_PORT) },
+		auditLog: { type: 'string', description: 'Audit log path', default: './sidecar-audit.db' },
+	},
+	run: ({ args }) => runSidecar({
+		policy: args.policy,
+		port: Number(args.port),
+		auditLog: args.auditLog,
+	}),
+});
+
 const main = defineCommand({
 	meta: { name: 'arikernel', version: '0.2.2', description: 'Security runtime for AI agents' },
-	subCommands: { init, policy, replay, run, simulate, trace },
+	subCommands: { init, policy, replay, run, simulate, trace, sidecar },
 });
 
 runMain(main);

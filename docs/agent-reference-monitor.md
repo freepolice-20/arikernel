@@ -69,6 +69,13 @@ Tokens are evaluated independently per request. Holding an HTTP token does not i
 
 Every tool call can carry **taint labels** indicating data provenance: `web`, `rag`, `email`, or other source identifiers. Taint propagates forward through tool call chains — if a call's output is used as input to a subsequent call, the downstream call inherits the upstream taint.
 
+**Taint labeling is automatic at tool boundaries.** Developers do not need to manually tag untrusted data:
+
+- **HTTP executor** — every response is automatically labelled `web:<hostname>`. A `GET https://example.com/data` result carries `web:example.com` regardless of response content. This applies to both successful and failed fetches, since even error responses may carry injected content.
+- **Retrieval / RAG executor** — every retrieved document set is automatically labelled `rag:<source>`. A vector search over `customer_docs` returns `rag:customer_docs`.
+
+Manual taint labels are still supported and are merged with any auto-applied labels on the result.
+
 Policies can condition on taint. A taint-aware rule can deny file writes when the call carries a `web` taint label, or block capability issuance for `shell` when the requesting context includes data from an untrusted source. This is provenance-aware enforcement: the decision depends not just on what the agent is doing, but on where the data came from.
 
 ### Layer 3: Behavioral Sequence Detection

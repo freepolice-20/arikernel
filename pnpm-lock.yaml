@@ -8,12 +8,21 @@ importers:
 
   .:
     devDependencies:
+      '@arikernel/audit-log':
+        specifier: workspace:*
+        version: link:packages/audit-log
       '@arikernel/core':
         specifier: workspace:*
         version: link:packages/core
+      '@arikernel/mcp-adapter':
+        specifier: workspace:*
+        version: link:packages/mcp-adapter
       '@arikernel/runtime':
         specifier: workspace:*
         version: link:packages/runtime
+      '@arikernel/sidecar':
+        specifier: workspace:*
+        version: link:packages/sidecar
       '@biomejs/biome':
         specifier: ^1.9.4
         version: 1.9.4
@@ -56,6 +65,9 @@ importers:
       '@arikernel/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@arikernel/sidecar':
+        specifier: workspace:*
+        version: link:../../packages/sidecar
       citty:
         specifier: ^0.1.6
         version: 0.1.6
@@ -119,6 +131,25 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/benchmarks-agentdojo:
+    dependencies:
+      '@arikernel/audit-log':
+        specifier: workspace:*
+        version: link:../audit-log
+      '@arikernel/core':
+        specifier: workspace:*
+        version: link:../core
+      '@arikernel/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@25.3.5)
+
   packages/core:
     dependencies:
       ulid:
@@ -131,6 +162,25 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/mcp-adapter:
+    dependencies:
+      '@arikernel/core':
+        specifier: workspace:*
+        version: link:../core
+      '@arikernel/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@arikernel/tool-executors':
+        specifier: workspace:*
+        version: link:../tool-executors
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@25.3.5)
 
   packages/policy-engine:
     dependencies:
@@ -170,6 +220,28 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@25.3.5)
 
+  packages/sidecar:
+    dependencies:
+      '@arikernel/core':
+        specifier: workspace:*
+        version: link:../core
+      '@arikernel/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
+      '@arikernel/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@arikernel/tool-executors':
+        specifier: workspace:*
+        version: link:../tool-executors
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@25.3.5)
+
   packages/taint-tracker:
     dependencies:
       '@arikernel/core':
@@ -189,6 +261,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@25.3.5)
 
 packages:
 

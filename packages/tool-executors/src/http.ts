@@ -1,6 +1,16 @@
-import type { ToolCall, ToolResult } from '@arikernel/core';
+import type { TaintLabel, ToolCall, ToolResult } from '@arikernel/core';
+import { now } from '@arikernel/core';
 import type { ToolExecutor } from './base.js';
 import { DEFAULT_TIMEOUT_MS, makeResult } from './base.js';
+
+function webTaintLabel(url: string): TaintLabel {
+	try {
+		const hostname = new URL(url).hostname;
+		return { source: 'web', origin: hostname, confidence: 1.0, addedAt: now() };
+	} catch {
+		return { source: 'web', origin: url, confidence: 1.0, addedAt: now() };
+	}
+}
 
 export class HttpExecutor implements ToolExecutor {
 	readonly toolClass = 'http';
@@ -15,6 +25,7 @@ export class HttpExecutor implements ToolExecutor {
 		};
 
 		const httpMethod = (method ?? toolCall.action).toUpperCase();
+		const taintLabels = [webTaintLabel(url)];
 
 		try {
 			const controller = new AbortController();
@@ -40,11 +51,11 @@ export class HttpExecutor implements ToolExecutor {
 				body: responseData,
 			});
 
-			return { ...result, taintLabels: [] };
+			return { ...result, taintLabels };
 		} catch (err) {
 			const error = err instanceof Error ? err.message : String(err);
 			const result = makeResult(toolCall.id, false, start, undefined, error);
-			return { ...result, taintLabels: [] };
+			return { ...result, taintLabels };
 		}
 	}
 }

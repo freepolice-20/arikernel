@@ -3,6 +3,7 @@ import type { ToolExecutor } from './base.js';
 import { DatabaseExecutor } from './database.js';
 import { FileExecutor } from './file.js';
 import { HttpExecutor } from './http.js';
+import { RetrievalExecutor } from './retrieval.js';
 import { ShellExecutor } from './shell.js';
 
 export class ExecutorRegistry {
@@ -13,6 +14,7 @@ export class ExecutorRegistry {
 		this.register(new FileExecutor());
 		this.register(new ShellExecutor());
 		this.register(new DatabaseExecutor());
+		this.register(new RetrievalExecutor());
 	}
 
 	register(executor: ToolExecutor): void {

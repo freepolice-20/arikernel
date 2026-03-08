@@ -1,21 +1,15 @@
 {
-  "name": "@arikernel/tool-executors",
+  "name": "@arikernel/sidecar",
   "version": "0.1.0",
-  "description": "Tool class executors for AriKernel",
+  "description": "Sidecar proxy enforcement mode for AriKernel — stateless HTTP execution proxy",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
@@ -24,7 +18,10 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@arikernel/core": "workspace:*"
+    "@arikernel/core": "workspace:*",
+    "@arikernel/runtime": "workspace:*",
+    "@arikernel/tool-executors": "workspace:*",
+    "@arikernel/policy-engine": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

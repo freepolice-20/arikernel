@@ -126,6 +126,8 @@ pnpm ari replay --latest --verbose --db ./audit.db
 | **Integration** | CrewAI | Supported | `CrewAIAdapter` wrapper |
 | **Integration** | Custom agent loop | Supported | Model-agnostic — works with any provider |
 | **Integration** | Vercel AI SDK | Supported | `protectVercelTools()` adapter |
+| **Integration** | MCP (Model Context Protocol) | Supported | `protectMCPTools()` — auto-taint from tool arguments |
+| **Deployment** | Sidecar / proxy mode | Supported | `arikernel sidecar` — language-agnostic HTTP enforcement proxy |
 
 Ari Kernel is model-agnostic. It protects tool execution, not the model. Works with OpenAI, Claude, Gemini, or any provider — tool calls eventually become function calls, and Ari Kernel intercepts that boundary.
 
@@ -318,7 +320,10 @@ AriKernel/
 │   ├── tool-executors/    # HTTP, file, shell, database executors
 │   ├── runtime/           # Kernel, Pipeline, CapabilityIssuer, behavioral rules, AutoScope
 │   ├── attack-sim/        # Attack scenario runner
-│   └── adapters/          # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI)
+│   ├── adapters/          # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI)
+│   ├── mcp-adapter/       # MCP tool integration via protectMCPTools()
+│   ├── sidecar/           # HTTP proxy enforcement server (port 8787)
+│   └── benchmarks-agentdojo/ # AgentDojo-style attack benchmark harness
 ├── apps/
 │   ├── cli/               # CLI (simulate, trace, replay, init, policy)
 │   └── server/            # HTTP decision server (legacy cross-language mode)
@@ -336,6 +341,9 @@ AriKernel/
 - [Agent Reference Monitor](docs/agent-reference-monitor.md) — the security model in depth
 - [Threat Model](docs/threat-model.md) — what Ari Kernel mitigates and what it doesn't
 - [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
+- [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
+- [Sidecar Mode](docs/sidecar-mode.md) — language-agnostic HTTP enforcement proxy, API reference
+- [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 5-scenario reproducible attack harness
 
 ## License
 

@@ -4,4 +4,5 @@ export { HttpExecutor } from './http.js';
 export { FileExecutor } from './file.js';
 export { ShellExecutor } from './shell.js';
 export { DatabaseExecutor } from './database.js';
+export { RetrievalExecutor } from './retrieval.js';
 export { ExecutorRegistry } from './registry.js';

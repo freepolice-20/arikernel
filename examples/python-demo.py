@@ -142,7 +142,7 @@ def main():
     print(" Summary")
     print("=" * 56)
     print()
-    print("  The Python client sent 4 tool call decisions to the server.")
+    print("  The Python client sent 5 tool call decisions to the server.")
     print("  The TypeScript core evaluated policies, enforced capability")
     print("  tokens, and wrote every decision to the audit log.")
     print()

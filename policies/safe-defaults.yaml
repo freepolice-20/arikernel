@@ -73,3 +73,19 @@ rules:
       action: query
     decision: allow
     reason: "Database read queries are allowed"
+
+  - id: allow-retrieval
+    name: Allow retrieval / RAG lookups
+    priority: 240
+    match:
+      toolClass: retrieval
+    decision: allow
+    reason: "Retrieval and RAG lookups are allowed (output is auto-tainted as rag:<source>)"
+
+  - id: allow-mcp
+    name: Allow MCP tool calls
+    priority: 250
+    match:
+      toolClass: mcp
+    decision: allow
+    reason: "MCP tool calls are allowed (output is auto-tainted based on arguments)"
