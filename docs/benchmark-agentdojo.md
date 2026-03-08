@@ -1,6 +1,8 @@
 # AgentDojo-Aligned Benchmark
 
-AriKernel includes a reproducible attack benchmark harness aligned with the [AgentDojo](https://github.com/ethz-spylab/agentdojo) attack taxonomy. This is **not** an official AgentDojo implementation — it is an independent harness that tests the same attack classes against AriKernel's enforcement pipeline.
+Ari Kernel includes a reproducible attack benchmark harness aligned with the [AgentDojo](https://github.com/ethz-spylab/agentdojo) attack taxonomy. This is **not** an official AgentDojo implementation — it is an independent harness that tests the same attack classes against Ari Kernel's enforcement pipeline.
+
+> See also: [Benchmarks](benchmarks.md) | [Threat Model](threat-model.md) | [Security Model](security-model.md)
 
 ---
 

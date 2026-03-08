@@ -114,7 +114,7 @@ pnpm demo:behavioral
 # Replay the audit trail — shows QUARANTINE, trigger, pattern, hash chain
 pnpm ari replay --latest --verbose --db ./demo-audit.db
 
-# LangChain integration — wrapped tools with firewall enforcement
+# LangChain integration — wrapped tools with kernel enforcement
 pnpm demo:langchain
 
 # Threshold-based quarantine — repeated denials trigger restricted mode
@@ -133,11 +133,11 @@ pnpm test
 
 **Is this a real security boundary?**
 
-In embedded mode, yes — for the threat model it targets. The LLM cannot modify the firewall's policy, tokens, or audit log. Tool calls pass through a typed enforcement pipeline that the LLM has no mechanism to bypass. The firewall is not a prompt; it is code that runs after the LLM decides to call a tool and before the tool executes. See [Architecture § Deployment Modes](../ARCHITECTURE.md) for the full trust boundary analysis.
+In embedded mode, yes — for the threat model it targets. The LLM cannot modify the kernel's policy, tokens, or audit log. Tool calls pass through a typed enforcement pipeline that the LLM has no mechanism to bypass. The kernel is not a prompt; it is code that runs after the LLM decides to call a tool and before the tool executes. See [Architecture § Deployment Modes](../ARCHITECTURE.md) for the full trust boundary analysis.
 
-**Can the agent bypass the firewall in embedded mode?**
+**Can the agent bypass the kernel in embedded mode?**
 
-The LLM cannot. It can only call functions the framework exposes, and those functions route through the firewall. However, if the agent *framework code* is modified to bypass the firewall (e.g., calling tools directly), enforcement is lost. This is cooperative enforcement. For mandatory enforcement with process isolation, proxy/sidecar mode is on the roadmap.
+The LLM cannot. It can only call functions the framework exposes, and those functions route through the kernel. However, if the agent *framework code* is modified to bypass the kernel (e.g., calling tools directly), enforcement is lost. This is cooperative enforcement. For mandatory enforcement with process isolation, sidecar mode is available (experimental).
 
 **Why not rely on prompt instructions or system prompts?**
 
@@ -149,7 +149,7 @@ Static allowlists evaluate each call independently. They cannot detect that a se
 
 **What does proxy/sidecar mode change?**
 
-In proxy mode, the firewall runs as a separate process. Tools are only accessible through the proxy — the agent has no direct network path or filesystem access to tools. This provides mandatory enforcement (no bypass path), process isolation (agent cannot modify firewall state), and tamper-proof audit (audit log is in a separate process). It also supports any language, not just TypeScript.
+In proxy mode, the kernel runs as a separate process. Tools are only accessible through the proxy — the agent has no direct network path or filesystem access to tools. This provides mandatory enforcement (no bypass path), process isolation (agent cannot modify kernel state), and tamper-proof audit (audit log is in a separate process). It also supports any language, not just TypeScript.
 
 ---
 

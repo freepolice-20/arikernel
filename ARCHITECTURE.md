@@ -1,26 +1,44 @@
-# Ari Kernel -- MVP Architecture Spec
+# Ari Kernel — Architecture
 
-> A reference monitor for AI agents.
-> A runtime enforcement layer between agents and tools.
+> The Runtime Security Layer for AI Agents.
+> A reference monitor and runtime enforcement layer between AI agents and tools.
 
 ## 1. Technical Architecture
 
 Ari Kernel is a **synchronous intercept runtime**. It sits in the call path between an AI agent and its tools. Every tool call passes through a pipeline:
 
 ```
-Agent --> Firewall Runtime --> Policy Engine --> Tool Executor --> Audit Log
-                                  |                                   |
-                            Taint Tracker                        Hash Chain
+        Agent / LLM Runtime
+                │
+                │ tool call
+                ▼
+┌───────────────────────────────────┐
+│  ARI — Agent Runtime Inspector    │
+│  Enforcement Boundary             │
+│                                   │
+│  ┌─ capability token enforcement  │
+│  ├─ taint / provenance tracking   │
+│  ├─ policy engine                 │
+│  ├─ behavioral sequence detection │
+│  ├─ run-level quarantine          │
+│  └─ tamper-evident audit log      │
+└───────────────┬───────────────────┘
+                │ allow / deny / quarantine
+                ▼
+  Protected Tools / Resources
+  files │ http │ shell │ db │ retrieval │ mcp
 ```
 
 **Key architectural properties:**
-- **Synchronous by default** -- the agent blocks until the firewall returns a decision
+- **Synchronous by default** -- the agent blocks until the kernel returns a decision
 - **Deny-by-default** -- if no policy explicitly allows a tool call, it is denied
 - **Capability-scoped** -- agents are principals with explicitly granted capabilities, no ambient authority
 - **Taint-aware** -- every piece of data carries provenance labels, taint propagates forward through tool call chains
 - **Append-only audit** -- every decision is logged with a hash chain for tamper evidence
 
-The runtime is a **library first**, not a server. You `import { createFirewall } from '@arikernel/runtime'` and wrap your agent's tool calls. A CLI and (later) a hosted control plane are layered on top.
+The runtime is a **library first**, not a server. You `import { createKernel } from '@arikernel/runtime'` and wrap your agent's tool calls. A CLI and sidecar proxy are layered on top.
+
+See also: [Security Model](docs/security-model.md) | [Threat Model](docs/threat-model.md)
 
 ---
 
@@ -193,7 +211,7 @@ arikernel/
 ```typescript
 // packages/core/src/types/principal.ts
 
-type ToolClass = 'http' | 'file' | 'shell' | 'database' | 'browser';
+type ToolClass = 'http' | 'file' | 'shell' | 'database' | 'retrieval' | 'mcp';
 
 interface Capability {
   toolClass: ToolClass;
@@ -403,7 +421,7 @@ Responsibilities:
 - Manages lifecycle: init, intercept, shutdown
 - Wires together PolicyEngine, TaintTracker, AuditStore, ToolExecutors
 - Provides hooks for extensibility (onDecision, onExecute, onAudit)
-- Exposes the public API: createFirewall()
+- Exposes the public API: createKernel()
 ```
 
 ---
@@ -570,7 +588,7 @@ class TaintTracker {
 ## 9. Runtime Execution Flow
 
 ```
-Agent calls: firewall.execute({ toolClass: 'http', action: 'get', parameters: { url: '...' } })
+Agent calls: kernel.execute({ toolClass: 'http', action: 'get', parameters: { url: '...' } })
        |
        v
   1. VALIDATE
@@ -619,9 +637,9 @@ Agent calls: firewall.execute({ toolClass: 'http', action: 'get', parameters: { 
 **Public API surface:**
 
 ```typescript
-import { createFirewall } from '@arikernel/runtime';
+import { createKernel } from '@arikernel/runtime';
 
-const firewall = createFirewall({
+const kernel = createKernel({
   principal: {
     name: 'my-agent',
     capabilities: [
@@ -637,7 +655,7 @@ const firewall = createFirewall({
 });
 
 // Intercept a tool call
-const result = await firewall.execute({
+const result = await kernel.execute({
   toolClass: 'http',
   action: 'get',
   parameters: { url: 'https://api.github.com/repos/...' },
@@ -645,10 +663,10 @@ const result = await firewall.execute({
 });
 
 // Replay a run
-const events = await firewall.replay(runId);
+const events = await kernel.replay(runId);
 
 // Shutdown
-await firewall.close();
+await kernel.close();
 ```
 
 ---
@@ -721,24 +739,24 @@ Ari Kernel can be deployed in two modes. The deployment mode determines where th
 │                                      │
 │  Agent Code                          │
 │      ↓                               │
-│  createFirewall()  ← trust boundary  │
+│  createKernel()    ← trust boundary  │
 │      ↓                               │
 │  Tool Executors                      │
 └──────────────────────────────────────┘
 ```
 
-In embedded mode, the firewall runs as a library inside the agent process. The agent framework imports `createFirewall()` and routes tool calls through it. This is **cooperative enforcement**: the agent framework must opt in to the firewall by wrapping tool execution.
+In embedded mode, the kernel runs as a library inside the agent process. The agent framework imports `createKernel()` and routes tool calls through it. This is **cooperative enforcement**: the agent framework must opt in to the kernel by wrapping tool execution.
 
-**Trust boundary:** The firewall code itself is trusted — it runs in the same process but is not controlled by the LLM. The LLM's tool calls pass through the enforcement pipeline before reaching executors. The LLM cannot modify the firewall's policy, tokens, or audit log, because those are runtime objects outside its control. However, if the agent framework code itself is compromised or misconfigured to bypass the firewall, enforcement is lost.
+**Trust boundary:** The kernel code itself is trusted — it runs in the same process but is not controlled by the LLM. The LLM's tool calls pass through the enforcement pipeline before reaching executors. The LLM cannot modify the kernel's policy, tokens, or audit log, because those are runtime objects outside its control. However, if the agent framework code itself is compromised or misconfigured to bypass the kernel, enforcement is lost.
 
 **When to use:** Development, integration testing, single-process agents, environments where you control the agent framework code. This is the right mode when the agent framework is trusted and the threat is adversarial LLM behavior (prompt injection, jailbreaks), not adversarial framework code.
 
 **Guarantees:**
-- Every tool call routed through the firewall is subject to full enforcement (capability, taint, behavioral, audit)
-- The LLM cannot bypass the firewall — it can only call functions the framework exposes
+- Every tool call routed through the kernel is subject to full enforcement (capability, taint, behavioral, audit)
+- The LLM cannot bypass the kernel — it can only call functions the framework exposes
 - Audit log integrity is protected by the SHA-256 hash chain (tamper-evident, not tamper-proof within the same process)
 
-### Proxy / Sidecar Mode (roadmap)
+### Proxy / Sidecar Mode (experimental)
 
 ```
 ┌─────────────────┐     ┌──────────────────────┐     ┌───────────┐
@@ -751,9 +769,9 @@ In embedded mode, the firewall runs as a library inside the agent process. The a
 └─────────────────┘     └──────────────────────┘     └───────────┘
 ```
 
-In proxy mode, the firewall runs as a separate process (sidecar, reverse proxy, or gateway). Tools are not directly accessible to the agent — all tool calls must pass through the firewall proxy. The agent process has no network path or filesystem access to tools except through the proxy.
+In proxy mode, the kernel runs as a separate process (sidecar, reverse proxy, or gateway). Tools are not directly accessible to the agent — all tool calls must pass through the kernel proxy. The agent process has no network path or filesystem access to tools except through the proxy.
 
-**Trust boundary:** The firewall is a separate process with its own memory space. The agent cannot modify firewall state, bypass enforcement, or tamper with the audit log. This is **mandatory enforcement**: there is no code path from the agent to tools that does not pass through the firewall.
+**Trust boundary:** The kernel is a separate process with its own memory space. The agent cannot modify kernel state, bypass enforcement, or tamper with the audit log. This is **mandatory enforcement**: there is no code path from the agent to tools that does not pass through the kernel.
 
 **When to use:** Production deployments, multi-tenant environments, untrusted agent code, compliance-sensitive workloads. This is the right mode when you need to guarantee enforcement regardless of what the agent framework does.
 
@@ -768,13 +786,13 @@ In proxy mode, the firewall runs as a separate process (sidecar, reverse proxy, 
 | Property | Embedded Mode | Proxy Mode |
 |----------|--------------|------------|
 | Enforcement type | Cooperative | Mandatory |
-| Agent can bypass? | Only if framework code is modified | No — no direct path to tools |
+| Agent can bypass? | Only if framework code is modified to skip enforcement | No — no direct path to tools |
 | Audit tamper resistance | Tamper-evident (hash chain) | Tamper-proof (separate process) |
 | Language support | TypeScript/JavaScript | Any (HTTP API) |
 | Latency | In-process (microseconds) | Network hop (milliseconds) |
-| Setup complexity | `npm install` + `createFirewall()` | Separate service deployment |
+| Setup complexity | `npm install` + `createKernel()` | Separate service deployment |
 
-The HTTP decision server (`apps/server/`) is the foundation for proxy mode. It already evaluates capabilities and policies over HTTP — extending it to proxy all tool execution is the primary roadmap item for mandatory enforcement.
+The sidecar server (`packages/sidecar/`) implements proxy mode. It evaluates capabilities and policies over HTTP — the agent sends `POST /execute` requests and receives allow/deny decisions with full audit logging. See [Sidecar Mode](docs/sidecar-mode.md) for API reference.
 
 ---
 
@@ -794,18 +812,25 @@ The HTTP decision server (`apps/server/`) is the foundation for proxy mode. It a
 - Audit log replay from CLI
 - Apache 2.0 license
 
-### Later (post-MVP)
+### Completed (post-MVP)
+
+- SDK wrappers for Python agents (native Python runtime)
+- Framework adapters (LangChain, CrewAI, OpenAI, Vercel AI, MCP)
+- Sidecar / proxy mode for language-agnostic enforcement
+- Behavioral sequence detection and run-level quarantine
+- AutoScope for automatic preset selection
+- AgentDojo-aligned benchmark harness
+
+### Future
 
 - Web dashboard for audit exploration
 - Hosted control plane (SaaS)
 - Enterprise policy management (RBAC, policy versioning, approval workflows)
 - SIEM export (Splunk, Datadog, Sentinel)
-- Browser tool executor (Playwright-based)
-- Multi-agent support (agent-to-agent calls through firewall)
-- Slack/email approval workflows
+- Multi-agent support (agent-to-agent calls through the kernel)
 - Policy-as-code CI integration
-- SDK wrappers for Python agents (LangChain, CrewAI, etc.)
 - Encrypted audit logs
+- Persistent token store (SQLite or Redis-backed)
 
 ### Not recommended
 

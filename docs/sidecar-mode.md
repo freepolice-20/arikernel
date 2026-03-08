@@ -1,7 +1,8 @@
 # Sidecar / Proxy Enforcement Mode
 
-Ari Kernel can run as a standalone HTTP proxy — a **sidecar** — that intercepts
-every tool call from an AI agent and enforces your policy before execution.
+Ari Kernel can run as a standalone HTTP proxy — a **sidecar** — that intercepts every tool call from an AI agent and enforces your policy before execution.
+
+> See also: [Architecture](../ARCHITECTURE.md) | [Security Model](security-model.md)
 
 In this mode the agent does not link `@arikernel/runtime` directly. Instead it
 sends a `POST /execute` request to the sidecar process; the sidecar enforces
@@ -11,7 +12,7 @@ the policy, runs the tool, and returns the result (or a denial).
 
 | Mode | Description |
 |------|-------------|
-| **Library** | `createFirewall()` embedded in the agent process. Zero network overhead, but requires TypeScript/JavaScript. |
+| **Library** | `createKernel()` embedded in the agent process. Zero network overhead, but requires TypeScript/JavaScript. |
 | **Sidecar** | Separate process on port 8787. Language-agnostic — any HTTP client works. Isolation: policy bugs can't crash the agent. |
 | **Decision server** (`apps/server`) | Session-based multi-principal API. Returns decisions only; agent executes tools itself. |
 
@@ -122,7 +123,7 @@ await server.close();
 ## Per-principal isolation
 
 Each unique `principalId` gets its own:
-- Firewall instance with independent run-state
+- Kernel instance with independent run-state
 - Behavioral rule counters (quarantine is per-principal, not global)
 - SQLite audit database at `<auditDir>/<principalId>.db`
 

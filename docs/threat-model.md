@@ -1,5 +1,7 @@
 # Threat Model
 
+> See also: [Security Model](security-model.md) | [Benchmarks](benchmarks.md) | [Agent Reference Monitor](agent-reference-monitor.md)
+
 ## What Ari Kernel Mitigates
 
 ### Prompt Injection via Tool Calls
@@ -85,7 +87,7 @@ These are known simplifications in the current implementation:
 1. **In-memory TokenStore** — grants are lost on process restart. Production use requires persistent storage.
 2. **Single-process** — no distributed token validation. Tokens are only valid within the process that issued them.
 3. **Database executor is a stub** — `database.query` and `database.exec` are not implemented. The executor exists for demonstration only.
-4. **Static principal** — the principal is configured at firewall creation time. There is no dynamic principal resolution or authentication.
+4. **Static principal** — the principal is configured at kernel creation time. There is no dynamic principal resolution or authentication.
 5. **No constraint composition** — constraints from the grant and constraints from the policy are not merged. Grant constraints are checked independently.
 6. **Taint labels are advisory** — the system trusts callers to accurately label taint sources. There is no automatic taint detection for content.
 7. **YAML policies only** — no API for dynamic policy updates at runtime.

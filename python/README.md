@@ -46,7 +46,7 @@ pnpm ari trace --latest --db ./audit.db
 pnpm ari replay --latest --verbose --db ./audit.db
 ```
 
-## Legacy: HTTP Decision Server
+## Alternative: HTTP Decision Server
 
 For environments that need centralized enforcement via the TypeScript server:
 

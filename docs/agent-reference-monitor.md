@@ -1,6 +1,8 @@
 # The Agent Reference Monitor Model
 
-A technical design document describing the security model implemented by Ari Kernel.
+A technical design document describing the security model implemented by Ari Kernel — the runtime security layer for AI agents.
+
+> See also: [Security Model](security-model.md) | [Threat Model](threat-model.md) | [Architecture](../ARCHITECTURE.md)
 
 ---
 
@@ -139,7 +141,7 @@ This produces forensic-grade evidence. After an incident, an operator can recons
      │ tool call
      ▼
 ┌──────────────────────────────────┐
-│       Ari Kernel             │
+│  ARI — Agent Runtime Inspector   │
 │                                  │
 │  ┌─ capability token check       │
 │  ├─ taint / provenance check     │
@@ -158,9 +160,9 @@ This produces forensic-grade evidence. After an incident, an operator can recons
 └─────────┘
 ```
 
-The firewall is a **synchronous intercept**. The agent blocks until the firewall returns a decision. There is no asynchronous path that bypasses enforcement. The tool call is either allowed (and executed), denied (and returned with an error), or quarantined (and all subsequent non-read-only calls denied).
+The kernel is a **synchronous intercept**. The agent blocks until it returns a decision. There is no asynchronous path that bypasses enforcement. The tool call is either allowed (and executed), denied (and returned with an error), or quarantined (and all subsequent non-read-only calls denied).
 
-The firewall is a library, not a proxy. It runs in the same process as the agent, wrapping tool execution functions. This ensures the "always invoked" property: tool calls cannot reach executors without passing through the enforcement pipeline.
+In embedded mode, the kernel runs as a library in the same process as the agent. In sidecar mode, it runs as a separate HTTP proxy. Both modes ensure the "always invoked" property: tool calls cannot reach executors without passing through the enforcement pipeline.
 
 ---
 

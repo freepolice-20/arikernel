@@ -1,14 +1,16 @@
 # MCP Integration
 
-AriKernel provides a first-class adapter for the **Model Context Protocol (MCP)** — the standard Anthropic tool-call interface used by Claude and compatible agent frameworks.
+Ari Kernel provides a first-class adapter for the **Model Context Protocol (MCP)** — the standard tool-call interface used by Claude and compatible agent frameworks.
 
-`protectMCPTools()` wraps a set of MCP tools and routes every `callTool()` invocation through the full AriKernel enforcement pipeline before the tool executes.
+`protectMCPTools()` wraps a set of MCP tools and routes every `callTool()` invocation through the full Ari Kernel enforcement pipeline before the tool executes.
+
+> See also: [Security Model](security-model.md) | [Sidecar Mode](sidecar-mode.md) | [Architecture](../ARCHITECTURE.md)
 
 ---
 
 ## Why this matters
 
-Without enforcement, an MCP tool set has no security boundary. An agent (or injected instruction) can call any registered tool with any arguments. AriKernel interposes at the execution boundary: capability token check → taint/provenance check → policy evaluation → behavioral rule evaluation → audit log append.
+Without enforcement, an MCP tool set has no security boundary. An agent (or injected instruction) can call any registered tool with any arguments. Ari Kernel interposes at the execution boundary: capability token check → taint/provenance check → policy evaluation → behavioral rule evaluation → audit log append.
 
 The MCP adapter does not inspect the model's text output. It operates on typed, schema-validated tool calls. The agent cannot reason its way around enforcement because enforcement happens _after_ reasoning and _before_ execution.
 
@@ -17,7 +19,7 @@ The MCP adapter does not inspect the model's text output. It operates on typed, 
 ## Quick start
 
 ```ts
-import { createFirewall } from '@arikernel/runtime';
+import { createKernel } from '@arikernel/runtime';
 import { protectMCPTools } from '@arikernel/mcp-adapter';
 import type { MCPTool } from '@arikernel/mcp-adapter';
 
@@ -32,15 +34,15 @@ const searchTool: MCPTool = {
   },
 };
 
-// 2. Create an AriKernel firewall
-const firewall = createFirewall({
+// 2. Create an Ari Kernel instance
+const kernel = createKernel({
   principal: { name: 'my-agent', capabilities: [] },
   policies: './policies/safe-defaults.yaml',
   auditLog: './audit.db',
 });
 
 // 3. Protect your tools
-const mcp = protectMCPTools(firewall, [searchTool]);
+const mcp = protectMCPTools(kernel, [searchTool]);
 
 // 4. Call tools through the protected surface
 const result = await mcp.callTool('web_search', { query: 'AI safety' });
@@ -50,11 +52,11 @@ const result = await mcp.callTool('web_search', { query: 'AI safety' });
 
 ## API
 
-### `protectMCPTools(firewall, tools)`
+### `protectMCPTools(kernel, tools)`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `firewall` | `Firewall` | An initialised AriKernel `Firewall` instance. |
+| `kernel` | `Firewall` | An initialised Ari Kernel instance (returned by `createKernel()`). |
 | `tools`    | `MCPTool[]` | MCP tools to register and protect. |
 
 Returns an `MCPAdapter`:
@@ -87,9 +89,9 @@ interface MCPTool {
 
 ## Tool call mapping
 
-Each `callTool(name, args)` invocation is mapped to an AriKernel `ToolCallRequest`:
+Each `callTool(name, args)` invocation is mapped to an Ari Kernel `ToolCallRequest`:
 
-| MCP field | AriKernel field |
+| MCP field | Ari Kernel field |
 |-----------|-----------------|
 | (adapter) | `toolClass: 'mcp'` |
 | `name`    | `action: name` |
@@ -152,7 +154,7 @@ rules:
 
 MCP tool calls participate in the same behavioral rule evaluation as all other tool calls. If the session has entered **restricted mode** (e.g., via the `sensitive_read_then_egress` rule), all non-read-only MCP tool calls are denied for the remainder of the session.
 
-The MCP adapter does not require any special configuration for this — it is automatic, because `callTool` routes through `firewall.execute()`, which passes through the full enforcement pipeline including run-level state.
+The MCP adapter does not require any special configuration for this — it is automatic, because `callTool` routes through `kernel.execute()`, which passes through the full enforcement pipeline including run-level state.
 
 ---
 
@@ -179,7 +181,7 @@ import { McpDispatchExecutor } from '@arikernel/mcp-adapter';
 
 const executor = new McpDispatchExecutor();
 executor.register(myTool);
-firewall.registerExecutor(executor);
+kernel.registerExecutor(executor);
 ```
 
-Note: `protectMCPTools()` calls `firewall.registerExecutor()` internally. Only register one `McpDispatchExecutor` per firewall instance.
+Note: `protectMCPTools()` calls `kernel.registerExecutor()` internally. Only register one `McpDispatchExecutor` per kernel instance.

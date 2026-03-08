@@ -1,6 +1,8 @@
 # Security Model
 
-Ari Kernel enforces security at the tool execution boundary — between an AI agent's decision to invoke a tool and the tool's actual execution. This document describes the four enforcement layers and how they compose.
+Ari Kernel enforces security at the tool execution boundary — between an AI agent's decision to invoke a tool and the tool's actual execution. This document describes the enforcement layers and how they compose.
+
+> See also: [Threat Model](threat-model.md) | [Agent Reference Monitor](agent-reference-monitor.md) | [Architecture](../ARCHITECTURE.md)
 
 ## Capability Tokens
 
