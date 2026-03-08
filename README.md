@@ -1,8 +1,6 @@
 # AriKernel
 
-A reference monitor for AI agents. Intercepts every tool call at runtime, enforces short-lived capability tokens, tracks data provenance, detects multi-step attack patterns, and produces tamper-evident audit evidence.
-
-**Core thesis:** AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
+Runtime firewall for AI agents that blocks prompt injection, tool escalation, and data exfiltration at execution time.
 
 ```
 ┌─────────────┐
@@ -11,7 +9,7 @@ A reference monitor for AI agents. Intercepts every tool call at runtime, enforc
        │ tool call
        ▼
 ┌──────────────────────────────────┐
-│        AriKernel            │
+│          AriKernel               │
 │                                  │
 │  ┌─ capability token check       │
 │  ├─ provenance / taint check     │
@@ -25,22 +23,6 @@ A reference monitor for AI agents. Intercepts every tool call at runtime, enforc
 └──────────────────────────────────┘
 ```
 
-## Why This Exists
-
-AI agents are being given direct access to tools: HTTP requests, shell commands, file I/O, databases. Most deployments rely on prompt-level instructions or static allow/deny lists. Neither is sufficient.
-
-**Prompt filters** operate on text, not on typed actions. They have no concept of data provenance and no enforcement boundary — the LLM can ignore them.
-
-**Static gateways** make binary decisions with no context about where data came from, no token lifecycle, and no behavioral memory across a session.
-
-**AriKernel enforces five layers:**
-
-1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
-2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
-3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level behavioral quarantine before threshold counters would.
-4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
-5. **Tamper-evident audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
-
 ## Quick Start
 
 ```bash
@@ -51,9 +33,20 @@ arikernel trace --latest
 arikernel replay --latest --step
 ```
 
-That's it. The simulator runs a multi-step prompt injection attack through the full runtime, writes the audit trail to `./arikernel-audit.db`, and prints the run ID. `trace` and `replay` read from the same DB automatically.
+`simulate` runs a multi-step prompt injection attack through the full enforcement pipeline and writes the audit trail to `./arikernel-audit.db`.
 
-> **Stale DB:** If you've run simulations before, the `--latest` flag picks the most recent run. To start clean: `rm arikernel-audit.db` before simulating.
+`trace` reads that DB and prints the security execution chain — every tool call, every decision, every taint label.
+
+`replay` walks the same session step by step with timestamps, showing exactly when quarantine fired and why.
+
+**What the output proves:**
+
+- The agent fetched a webpage (allowed), then processed tainted content with a `web` provenance label
+- The behavioral rule `web_taint_sensitive_probe` detected the pattern (web taint followed by sensitive file read) and quarantined the session
+- The `~/.ssh/id_rsa` read was denied by grant constraint enforcement — the agent only had access to `./data/**`
+- Every decision is recorded in a SHA-256 hash-chained audit log that can be independently verified
+
+> **Stale DB:** If you've run simulations before, `--latest` picks the most recent run. To start clean: `rm arikernel-audit.db` before simulating.
 
 ### From source
 
@@ -65,9 +58,23 @@ pnpm demo:behavioral    # behavioral quarantine demo
 pnpm test
 ```
 
-## CLI
+## Why AriKernel Exists
 
-### Commands
+AI agents are being given direct access to tools: HTTP requests, shell commands, file I/O, databases. Most deployments rely on prompt-level instructions or static allow/deny lists. Neither is sufficient.
+
+**Prompt filters** operate on text, not on typed actions. They have no concept of data provenance and no enforcement boundary — the LLM can ignore them.
+
+**Static gateways** make binary decisions with no context about where data came from, no token lifecycle, and no behavioral memory across a session.
+
+**AriKernel enforces five layers:**
+
+1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
+2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
+3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level quarantine.
+4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
+5. **Tamper-evident audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
+
+## CLI
 
 | Command | Description |
 |---------|-------------|
@@ -81,8 +88,6 @@ pnpm test
 All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
 
 ### Attack Simulator
-
-Run targeted attack simulations with built-in safe-defaults policy:
 
 ```bash
 arikernel simulate prompt-injection
@@ -102,11 +107,7 @@ Run all scenarios at once (pass/fail report):
 arikernel simulate
 ```
 
-After each interactive simulation, the CLI prints the audit DB path and run ID for forensic follow-up.
-
 ### Security Trace
-
-Display a readable execution chain from the audit log:
 
 ```bash
 arikernel trace --latest
@@ -115,14 +116,24 @@ arikernel trace <run-id> --db ./arikernel-audit.db
 
 ### Deterministic Replay
 
-Replay a recorded session step by step for forensic debugging:
-
 ```bash
 arikernel replay --latest --verbose
 arikernel replay --latest --step    # step-by-step with 800ms delay
 ```
 
-Shows every tool call with timestamps, enforcement decisions, quarantine events, and hash chain integrity verification.
+## Real-World Integration Example
+
+See [examples/langchain-protected-agent/](examples/langchain-protected-agent/) for a self-contained agent that routes all tool calls through AriKernel. It demonstrates:
+
+- Prompt injection detected and blocked in real time
+- Behavioral quarantine triggered by tainted content
+- Full forensic replay of the session
+
+```bash
+npx tsx examples/langchain-protected-agent/agent.ts
+arikernel trace --latest
+arikernel replay --latest --step
+```
 
 ## How It Works
 
@@ -161,7 +172,7 @@ Agent requests action
 
 Quarantine events are recorded as first-class `_system.quarantine` audit entries with trigger type, matched rule ID, reason, counters snapshot, and the pattern of events that triggered the rule.
 
-**Deployment mode:** AriKernel currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture § Deployment Modes](ARCHITECTURE.md) for the full trust boundary analysis.
+**Deployment mode:** AriKernel currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture](ARCHITECTURE.md) for the full trust boundary analysis.
 
 ## Behavioral Sequence Rules
 
@@ -173,30 +184,18 @@ Three built-in rules detect suspicious multi-step patterns:
 | `denied_capability_then_escalation` | Denied capability followed by request for a riskier capability class | Automated privilege escalation attempts |
 | `sensitive_read_then_egress` | Sensitive file read followed by outbound POST/PUT/PATCH | Data exfiltration sequences |
 
-These rules fire on the recent-event window (last 20 events) and quarantine the run immediately. No DSL, no graph engine — explicit pattern matching in code.
+These rules fire on the recent-event window (last 20 events) and quarantine the run immediately.
 
-## Project Structure
+## Why It Matters
 
-```
-arikernel/
-├── packages/
-│   ├── core/              # Types, Zod schemas, errors, ID generation
-│   ├── policy-engine/     # YAML policy loading, priority-sorted rule evaluation
-│   ├── taint-tracker/     # Taint label attach, propagate, query
-│   ├── audit-log/         # SQLite store, SHA-256 hash chain, replay, system events
-│   ├── tool-executors/    # HTTP, file, shell, database executors
-│   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
-│   │                      # RunStateTracker, behavioral rules
-│   ├── attack-sim/        # Attack scenario runner + interactive simulator
-│   └── adapters/          # Framework adapters (LangChain, generic wrapTool)
-├── apps/
-│   ├── cli/               # CLI (init, policy, replay, simulate, trace)
-│   └── server/            # HTTP decision server for cross-language integration
-├── python/                # Python client (v1 decision/enforcement adapter)
-├── policies/              # YAML policy files
-├── examples/              # Runnable demos
-└── docs/                  # Design docs, threat model, benchmarks
-```
+Every enforcement decision — allow, deny, quarantine — is recorded in a SHA-256 hash-chained audit log. This means:
+
+- **Forensic replay**: reconstruct exactly what an agent did, what was blocked, and why
+- **Tamper evidence**: any modification to the log breaks the hash chain
+- **Compliance**: prove that security controls were active during every tool call
+- **Debugging**: trace behavioral quarantine triggers back to the exact event sequence
+
+The chain from `simulate` to `trace` to `replay` is deterministic. The same audit DB backs all three commands — what you simulate is exactly what you trace and replay.
 
 ## Writing Policies
 
@@ -227,38 +226,6 @@ rules:
 ```
 
 Built-in deny-all rule at priority 999 ensures anything not explicitly allowed is denied.
-
-## Python Integration (v1)
-
-The v1 Python adapter is a decision/enforcement API layer over the TypeScript core. The server decides allow or deny and writes every decision to the audit log.
-
-```bash
-# Start the decision server
-pnpm build && pnpm server
-
-# Install the Python client
-pip install -e python/
-```
-
-```python
-from arikernel import FirewallClient, ToolCallDenied
-
-with FirewallClient(
-    url="http://localhost:9099",
-    principal="my-agent",
-    capabilities=[
-        {"toolClass": "http", "actions": ["get"],
-         "constraints": {"allowedHosts": ["api.github.com"]}},
-    ],
-) as fw:
-    grant = fw.request_capability("http.read")
-    if grant.granted:
-        result = fw.execute("http", "get",
-            {"url": "https://api.github.com/repos/example"},
-            grant_id=grant.grant_id)
-```
-
-See [python/README.md](python/README.md) for full API documentation.
 
 ## Framework Adapters
 
@@ -309,14 +276,59 @@ class MyAdapter implements FrameworkAdapter<MyAgent> {
 }
 ```
 
-### Real-world example
+## Python Integration (v1)
 
-See [examples/langchain-protected-agent/](examples/langchain-protected-agent/) for a complete, self-contained agent that routes all tool calls through AriKernel. It demonstrates prompt injection detection, behavioral quarantine, and full forensic replay — with exact run commands.
+The v1 Python adapter is a decision/enforcement API layer over the TypeScript core. The server decides allow or deny and writes every decision to the audit log.
 
 ```bash
-npx tsx examples/langchain-protected-agent/agent.ts
-arikernel trace --latest
-arikernel replay --latest --step
+# Start the decision server
+pnpm build && pnpm server
+
+# Install the Python client
+pip install -e python/
+```
+
+```python
+from arikernel import FirewallClient, ToolCallDenied
+
+with FirewallClient(
+    url="http://localhost:9099",
+    principal="my-agent",
+    capabilities=[
+        {"toolClass": "http", "actions": ["get"],
+         "constraints": {"allowedHosts": ["api.github.com"]}},
+    ],
+) as fw:
+    grant = fw.request_capability("http.read")
+    if grant.granted:
+        result = fw.execute("http", "get",
+            {"url": "https://api.github.com/repos/example"},
+            grant_id=grant.grant_id)
+```
+
+See [python/README.md](python/README.md) for full API documentation.
+
+## Project Structure
+
+```
+arikernel/
+├── packages/
+│   ├── core/              # Types, Zod schemas, errors, ID generation
+│   ├── policy-engine/     # YAML policy loading, priority-sorted rule evaluation
+│   ├── taint-tracker/     # Taint label attach, propagate, query
+│   ├── audit-log/         # SQLite store, SHA-256 hash chain, replay, system events
+│   ├── tool-executors/    # HTTP, file, shell, database executors
+│   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
+│   │                      # RunStateTracker, behavioral rules
+│   ├── attack-sim/        # Attack scenario runner + interactive simulator
+│   └── adapters/          # Framework adapters (LangChain, generic wrapTool)
+├── apps/
+│   ├── cli/               # CLI (init, policy, replay, simulate, trace)
+│   └── server/            # HTTP decision server for cross-language integration
+├── python/                # Python client (v1 decision/enforcement adapter)
+├── policies/              # YAML policy files
+├── examples/              # Runnable demos
+└── docs/                  # Design docs, threat model, benchmarks
 ```
 
 ## Documentation
