@@ -1,4 +1,4 @@
-# AriKernel v0.2.2 — Deterministic Forensic Demo Flow
+# Ari Kernel v0.2.2 — Deterministic Forensic Demo Flow
 
 ## What changed
 
@@ -7,9 +7,15 @@
 `simulate`, `trace`, and `replay` now share the same default audit database (`./arikernel-audit.db`). Previously, `simulate` wrote to an in-memory database that was discarded after the process exited. Now the full chain works end-to-end:
 
 ```bash
+# Global install
 arikernel simulate prompt-injection   # writes to ./arikernel-audit.db
 arikernel trace --latest              # reads from same DB
 arikernel replay --latest --step      # replays from same DB
+
+# Or from source
+pnpm ari simulate prompt-injection
+pnpm ari:trace
+pnpm ari:replay:step
 ```
 
 The events you see in `trace` and `replay` are exactly the events produced by `simulate`.
@@ -37,7 +43,7 @@ New self-contained example at `examples/langchain-protected-agent/` demonstratin
 
 ### Universal adapter layer
 
-New framework adapters in `@arikernel/adapters` make AriKernel immediately usable across agent ecosystems:
+New framework adapters in `@arikernel/adapters` make Ari Kernel immediately usable across agent ecosystems:
 
 - **`protectTools()`** — universal tool-map wrapper that works with any JS/TS agent loop
 - **`protectOpenAITools()`** — convenience wrapper for OpenAI-style tool calling
@@ -46,11 +52,11 @@ New framework adapters in `@arikernel/adapters` make AriKernel immediately usabl
 - **`protectVercelTools()`** — adapter for Vercel AI SDK
 - **`@protect_tool`** — Python decorator for protecting tool functions via the decision server
 
-AriKernel is model-agnostic. It protects tool execution, not the model — so it works with OpenAI, Claude, Gemini, or any provider.
+Ari Kernel is model-agnostic. It protects tool execution, not the model — so it works with OpenAI, Claude, Gemini, or any provider.
 
 ### New examples
 
-- `examples/openai-tool-calling/` — OpenAI-style tool calling with AriKernel
+- `examples/openai-tool-calling/` — OpenAI-style tool calling with Ari Kernel
 - `examples/crewai-tool-protection/` — CrewAI tool protection
 - `examples/generic-wrapper/` — Generic JS/TS wrapTool() pattern
 - `examples/custom-agent-loop/` — Model-agnostic agent loop
@@ -60,7 +66,7 @@ AriKernel is model-agnostic. It protects tool execution, not the model — so it
 
 | Package | Version |
 |---------|---------|
-| `arikernel` (CLI) | 0.2.2 |
+| `@arikernel/cli` | 0.2.2 |
 | `@arikernel/runtime` | 0.1.2 |
 | `@arikernel/attack-sim` | 0.1.2 |
 | `@arikernel/audit-log` | 0.1.1 |
@@ -68,7 +74,7 @@ AriKernel is model-agnostic. It protects tool execution, not the model — so it
 ## Upgrading
 
 ```bash
-npm install -g arikernel@0.2.2
+npm install -g @arikernel/cli@0.2.2
 ```
 
 If you have a stale `arikernel-audit.db` from a previous version, delete it before running simulations:

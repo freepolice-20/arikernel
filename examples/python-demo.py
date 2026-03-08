@@ -147,7 +147,7 @@ def main():
     print("  tokens, and wrote every decision to the audit log.")
     print()
     print("  Replay the audit trail:")
-    print(f"    pnpm cli replay --db ./audit.db --latest")
+    print(f"    pnpm ari replay --db ./audit.db --latest")
     print()
 
     fw.close()

@@ -88,4 +88,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ConnectionError as e:
+        print(f"\nERROR: {e}")
+        print("The Python adapter requires the AriKernel decision server.")
+        print("Start it with: pnpm build && pnpm server\n")

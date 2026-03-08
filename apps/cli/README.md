@@ -1,15 +1,15 @@
-# arikernel
+# Ari Kernel CLI
 
 Security runtime for AI agents. Intercepts every tool call, enforces capability tokens, tracks data provenance, detects multi-step attack patterns, and produces tamper-evident audit logs.
 
-Part of the [AriKernel](https://github.com/petermanrique101-sys/AriKernel) project.
+Part of the [Ari Kernel](https://github.com/petermanrique101-sys/AriKernel) project.
 
 ## Install
 
 ### Global (recommended)
 
 ```bash
-npm install -g arikernel
+npm install -g @arikernel/cli
 ```
 
 Then run the full forensic demo:
@@ -34,7 +34,7 @@ git clone https://github.com/petermanrique101-sys/AriKernel.git
 cd AriKernel
 pnpm install
 pnpm build
-node apps/cli/dist/main.js --help
+pnpm ari --help
 ```
 
 ## Commands
@@ -56,18 +56,9 @@ All forensic commands default to `./arikernel-audit.db`. Override with `--db <pa
 
 - Node.js >= 20
 
-## Scoped package fallback
+## npm package
 
-If `arikernel` is unavailable on npm, the package can be published as `@arikernel/cli` instead. The `bin` field ensures the command is still `arikernel`:
-
-```json
-{
-  "name": "@arikernel/cli",
-  "bin": { "arikernel": "dist/main.js" }
-}
-```
-
-Users would install with:
+The package is published as `@arikernel/cli`. The `bin` field ensures the command is `arikernel`:
 
 ```bash
 npm install -g @arikernel/cli
@@ -92,7 +83,7 @@ arikernel --help
    ```
 6. Publish the CLI last:
    ```bash
-   pnpm --filter arikernel publish --no-git-checks
+   pnpm --filter @arikernel/cli publish --no-git-checks
    ```
 7. Verify global install works:
    ```bash

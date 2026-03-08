@@ -210,7 +210,7 @@ async function main() {
 	header('Demo Complete');
 	console.log(`Audit log saved to: ${auditPath}`);
 	console.log(`Run ID: ${firewall.runId}`);
-	console.log(`\nReplay with: ${DIM}pnpm exec tsx apps/cli/src/main.ts replay --db ${auditPath} ${firewall.runId}${RESET}`);
+	console.log(`\nReplay with: ${DIM}pnpm ari replay --db ${auditPath} ${firewall.runId}${RESET}`);
 	console.log('');
 }
 

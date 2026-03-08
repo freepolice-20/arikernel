@@ -1,11 +1,11 @@
-# AriKernel -- MVP Architecture Spec
+# Ari Kernel -- MVP Architecture Spec
 
 > A reference monitor for AI agents.
 > A runtime enforcement layer between agents and tools.
 
 ## 1. Technical Architecture
 
-AriKernel is a **synchronous intercept runtime**. It sits in the call path between an AI agent and its tools. Every tool call passes through a pipeline:
+Ari Kernel is a **synchronous intercept runtime**. It sits in the call path between an AI agent and its tools. Every tool call passes through a pipeline:
 
 ```
 Agent --> Firewall Runtime --> Policy Engine --> Tool Executor --> Audit Log
@@ -704,14 +704,14 @@ Once quarantined, the Pipeline rejects non-safe actions before policy evaluation
 The CLI `replay` command renders quarantine events with trigger type, rule ID, reason, counters snapshot, and matched event pattern:
 
 ```bash
-pnpm cli replay --latest --verbose --db ./demo-audit.db
+pnpm ari replay --latest --verbose --db ./demo-audit.db
 ```
 
 ---
 
 ## 11. Deployment Modes and Trust Boundaries
 
-AriKernel can be deployed in two modes. The deployment mode determines where the trust boundary sits and what guarantees the system provides.
+Ari Kernel can be deployed in two modes. The deployment mode determines where the trust boundary sits and what guarantees the system provides.
 
 ### Embedded Mode (current)
 

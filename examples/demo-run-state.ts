@@ -287,7 +287,7 @@ async function main() {
 	console.log(`After 3 denied actions, the run entered restricted mode.`);
 	console.log(`In restricted mode, only read-only actions were allowed —`);
 	console.log(`HTTP POST was blocked, but HTTP GET still worked.${RESET}\n`);
-	console.log(`${DIM}Replay: pnpm cli replay --db ${auditPath} --latest --verbose${RESET}\n`);
+	console.log(`${DIM}Replay: pnpm ari replay --db ${auditPath} --latest --verbose${RESET}\n`);
 }
 
 main().catch(console.error);

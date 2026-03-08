@@ -32,8 +32,8 @@ function protectOpenAITools(
 
 	for (const [name, mapping] of Object.entries(mappings)) {
 		tools.set(name, async (parameters: Record<string, unknown>) => {
-			const isRead = ['get', 'read', 'query', 'list'].includes(mapping.action);
-			const capClass = `${mapping.toolClass}.${isRead ? 'read' : 'write'}`;
+			const capClass = mapping.toolClass === 'shell' ? 'shell.exec'
+				: `${mapping.toolClass}.${['get', 'read', 'query', 'list'].includes(mapping.action) ? 'read' : 'write'}`;
 			const grant = firewall.requestCapability(capClass as any);
 			if (!grant.granted) throw new Error(grant.reason ?? 'Capability denied');
 			return firewall.execute({

@@ -232,7 +232,7 @@ async function main() {
 	console.log(`The run was quarantined after just 2 events — the threshold of 10`);
 	console.log(`was never reached. This is the power of behavioral enforcement:${RESET}`);
 	console.log(`${BOLD}detect suspicious patterns, not just count bad actions.${RESET}\n`);
-	console.log(`${DIM}Replay: pnpm cli replay --latest --verbose --db ${auditPath}${RESET}\n`);
+	console.log(`${DIM}Replay: pnpm ari replay --latest --verbose --db ${auditPath}${RESET}\n`);
 }
 
 main().catch(console.error);

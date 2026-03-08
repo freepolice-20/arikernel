@@ -1,4 +1,4 @@
-# AriKernel — Launch Package
+# Ari Kernel — Launch Package
 
 Everything needed to announce the project publicly.
 
@@ -14,7 +14,7 @@ Everything needed to announce the project publicly.
 
 ## 2. Short Announcement Post
 
-> Releasing AriKernel — a reference monitor for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
+> Releasing Ari Kernel — a reference monitor for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
 
 (250 characters)
 
@@ -32,9 +32,9 @@ Static gateways make binary per-call decisions with no behavioral memory. They c
 
 AI agents should never execute with ambient authority.
 
-### Post 2: What AriKernel Does
+### Post 2: What Ari Kernel Does
 
-AriKernel is a reference monitor that sits between the agent and its tools. Five enforcement layers:
+Ari Kernel is a reference monitor that sits between the agent and its tools. Five enforcement layers:
 
 1. **Short-lived capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority.
 2. **Provenance-aware enforcement** — data carries taint labels (web, rag, email). Untrusted provenance blocks sensitive operations at the issuance layer.
@@ -57,7 +57,7 @@ The exfiltration POST? Blocked. The agent cannot even get a capability token.
 Then replay the audit trail:
 
 ```
-pnpm cli replay --latest --verbose --db ./demo-audit.db
+pnpm ari replay --latest --verbose --db ./demo-audit.db
 ```
 
 Every event, every decision, every quarantine trigger — cryptographically chained and verified.
@@ -76,7 +76,7 @@ But the core thesis is stable: AI agents should never execute with ambient autho
 
 **Per-call capability enforcement.** Tokens are scoped, time-limited (5 min), and usage-limited (10 calls). Path constraints, host allowlists, and taint-aware issuance deny actions before the agent even gets a token. No ambient authority.
 
-**Replayable tamper-evident audit trail.** `pnpm cli replay --latest --verbose` renders every decision: ALLOW, QUARANTINE (with trigger rule, reason, and matched pattern), DENY. The SHA-256 hash chain is verified on every replay. Forensic-grade evidence, not just logging.
+**Replayable tamper-evident audit trail.** `pnpm ari replay --latest --verbose` renders every decision: ALLOW, QUARANTINE (with trigger rule, reason, and matched pattern), DENY. The SHA-256 hash chain is verified on every replay. Forensic-grade evidence, not just logging.
 
 ---
 
@@ -112,7 +112,7 @@ pnpm build
 pnpm demo:behavioral
 
 # Replay the audit trail — shows QUARANTINE, trigger, pattern, hash chain
-pnpm cli replay --latest --verbose --db ./demo-audit.db
+pnpm ari replay --latest --verbose --db ./demo-audit.db
 
 # LangChain integration — wrapped tools with firewall enforcement
 pnpm demo:langchain
@@ -145,7 +145,7 @@ System prompts are advisory text processed by the same model that processes adve
 
 **Why not static allowlists?**
 
-Static allowlists evaluate each call independently. They cannot detect that a sequence of individually-legitimate calls (fetch webpage → read SSH keys → POST to attacker) constitutes an attack. They have no concept of data provenance — they don't know the POST payload came from SSH keys fetched after a tainted web request. AriKernel adds behavioral sequence detection, taint tracking, and session-level quarantine on top of per-call enforcement.
+Static allowlists evaluate each call independently. They cannot detect that a sequence of individually-legitimate calls (fetch webpage → read SSH keys → POST to attacker) constitutes an attack. They have no concept of data provenance — they don't know the POST payload came from SSH keys fetched after a tainted web request. Ari Kernel adds behavioral sequence detection, taint tracking, and session-level quarantine on top of per-call enforcement.
 
 **What does proxy/sidecar mode change?**
 
@@ -158,7 +158,7 @@ In proxy mode, the firewall runs as a separate process. Tools are only accessibl
 - [ ] Push latest commit to `main`
 - [ ] Verify `pnpm install && pnpm build` succeeds on clean clone
 - [ ] Verify `pnpm demo:behavioral` runs and produces audit output
-- [ ] Verify `pnpm cli replay --latest --verbose --db ./demo-audit.db` shows QUARANTINE + VALID hash chain
+- [ ] Verify `pnpm ari replay --latest --verbose --db ./demo-audit.db` shows QUARANTINE + VALID hash chain
 - [ ] Verify `pnpm demo:langchain` runs successfully
 - [ ] Verify `pnpm test` passes all tests
 - [ ] Confirm GitHub repo description matches section 1

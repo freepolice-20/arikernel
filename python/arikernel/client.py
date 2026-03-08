@@ -57,14 +57,21 @@ class FirewallClient:
         self.session_id: str | None = None
         self.run_id: str | None = None
 
-        resp = self._http.post(
-            "/session",
-            json={
-                "principal": principal,
-                "capabilities": capabilities or [],
-            },
-        )
-        resp.raise_for_status()
+        try:
+            resp = self._http.post(
+                "/session",
+                json={
+                    "principal": principal,
+                    "capabilities": capabilities or [],
+                },
+            )
+            resp.raise_for_status()
+        except httpx.ConnectError:
+            self._http.close()
+            raise ConnectionError(
+                f"Cannot connect to AriKernel decision server at {self.base_url}. "
+                "Start it with: pnpm build && pnpm server"
+            ) from None
         data = resp.json()
         self.session_id = data["sessionId"]
         self.run_id = data["runId"]

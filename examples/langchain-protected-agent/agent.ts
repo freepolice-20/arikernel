@@ -28,7 +28,8 @@ function wrapTool(
 	opts?: { taintLabels?: TaintLabel[] },
 ) {
 	return async (parameters: Record<string, unknown>) => {
-		const capClass = `${toolClass}.${['get', 'read', 'query', 'list'].includes(action) ? 'read' : 'write'}`;
+		const capClass = toolClass === 'shell' ? 'shell.exec'
+			: `${toolClass}.${['get', 'read', 'query', 'list'].includes(action) ? 'read' : 'write'}`;
 		const grant = firewall.requestCapability(capClass as any);
 		if (!grant.granted) {
 			throw new Error(grant.reason ?? 'Capability denied');

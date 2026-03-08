@@ -1,7 +1,7 @@
-# LangChain Protected Agent — AriKernel Example
+# LangChain Protected Agent — Ari Kernel Example
 
 A minimal agent with web fetch and file read tools, where all tool calls are
-routed through AriKernel via the adapter layer. Demonstrates a prompt injection
+routed through Ari Kernel via the adapter layer. Demonstrates a prompt injection
 attack being blocked in real time, with full audit trail.
 
 ## What happens
@@ -15,21 +15,14 @@ attack being blocked in real time, with full audit trail.
 ## Run
 
 ```bash
-# From this directory
-npm install
-npx tsx agent.ts
+# From the monorepo root
+pnpm demo:langchain
 
 # View the security trace
-arikernel trace --latest --db ./arikernel-audit.db
+pnpm ari trace --latest --db ./arikernel-audit.db
 
 # Replay step by step
-arikernel replay --latest --step --db ./arikernel-audit.db
-```
-
-Or from the monorepo root:
-
-```bash
-npx tsx examples/langchain-protected-agent/agent.ts
+pnpm ari replay --latest --step --db ./arikernel-audit.db
 ```
 
 ## How it works
@@ -61,8 +54,8 @@ const fileRead = wrapTool(firewall, 'file', 'read');
 For production use, install `@arikernel/adapters` which provides a full
 `wrapTool()` and `LangChainAdapter` class.
 
-Every call to `webFetch()` or `fileRead()` goes through AriKernel's full
+Every call to `webFetch()` or `fileRead()` goes through Ari Kernel's full
 enforcement pipeline: capability tokens, taint tracking, policy evaluation,
 behavioral sequence detection, and audit logging.
 
-The agent code never needs to know about AriKernel.
+The agent code never needs to know about Ari Kernel.

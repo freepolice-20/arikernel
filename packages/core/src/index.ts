@@ -5,3 +5,11 @@ export { toolCallRequestSchema, toolCallSchema, toolResultSchema, taintLabelSche
 export { policyRuleSchema, policySetSchema } from './schemas/policy.schema.js';
 export { firewallConfigSchema, type FirewallConfig } from './schemas/config.schema.js';
 export { capabilityRequestSchema, capabilityGrantSchema } from './schemas/capability.schema.js';
+export {
+	PRESETS,
+	getPreset,
+	DEFAULT_CAPABILITIES,
+	DEFAULT_POLICIES,
+	type Preset,
+	type PresetId,
+} from './presets/index.js';

@@ -40,7 +40,7 @@ These are the most valuable next steps. Not all will be built — this is a prio
 
 These are explicitly not planned for the near term:
 
-- **Web dashboard or UI** — AriKernel is a library, not a SaaS product
+- **Web dashboard or UI** — Ari Kernel is a library, not a SaaS product
 - **Multi-tenant / multi-process** — the current model is single-process; distributed token validation is a future concern
 - **LLM-layer defenses** — prompt hardening, output filtering, and model-level safety are orthogonal to runtime enforcement
 - **Agent framework integrations** — adapters for LangChain, CrewAI, AutoGen, etc. will be built once the core API stabilizes

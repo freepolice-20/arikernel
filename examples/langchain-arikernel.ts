@@ -66,7 +66,7 @@ function firewallTool(
 ) {
 	return async (parameters: Record<string, unknown>) => {
 		// Step 1: Request a capability token
-		const capClass = opts?.capabilityClass ?? `${toolClass}.${action === 'get' || action === 'read' || action === 'query' ? 'read' : 'write'}`;
+		const capClass = opts?.capabilityClass ?? (toolClass === 'shell' ? 'shell.exec' : `${toolClass}.${action === 'get' || action === 'read' || action === 'query' ? 'read' : 'write'}`);
 		const grant = firewall.requestCapability(capClass as any);
 
 		if (!grant.granted) {

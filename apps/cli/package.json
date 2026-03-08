@@ -1,5 +1,5 @@
 {
-  "name": "arikernel",
+  "name": "@arikernel/cli",
   "version": "0.2.2",
   "description": "Security runtime for AI agents — intercepts tool calls, enforces capability tokens, tracks provenance, and produces tamper-evident audit logs",
   "type": "module",

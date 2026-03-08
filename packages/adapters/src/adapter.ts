@@ -1,6 +1,7 @@
 import type { ToolCallRequest, ToolResult, IssuanceDecision, CapabilityClass, TaintLabel } from '@arikernel/core';
 import { ToolCallDeniedError } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
+import type { Firewall, Kernel } from '@arikernel/runtime';
+import { getDefaultKernel } from '@arikernel/runtime';
 
 /**
  * Base adapter interface for framework integrations.
@@ -53,8 +54,7 @@ export function wrapTool(
 	opts?: WrapToolOptions,
 ): ProtectedTool {
 	return async (parameters: Record<string, unknown>) => {
-		const capClass = (opts?.capabilityClass ??
-			`${toolClass}.${isReadAction(action) ? 'read' : 'write'}`) as CapabilityClass;
+		const capClass = (opts?.capabilityClass ?? deriveCapabilityClass(toolClass, action)) as CapabilityClass;
 
 		const grant: IssuanceDecision = firewall.requestCapability(capClass);
 
@@ -87,8 +87,10 @@ export function wrapTool(
 	};
 }
 
-function isReadAction(action: string): boolean {
-	return ['get', 'read', 'query', 'list', 'search', 'fetch'].includes(action);
+function deriveCapabilityClass(toolClass: string, action: string): string {
+	if (toolClass === 'shell') return 'shell.exec';
+	const readActions = ['get', 'read', 'query', 'list', 'search', 'fetch'];
+	return `${toolClass}.${readActions.includes(action) ? 'read' : 'write'}`;
 }
 
 /**
@@ -100,28 +102,54 @@ export interface ToolMapEntry {
 	taintLabels?: TaintLabel[];
 }
 
+export interface ProtectToolsOptions {
+	kernel?: Kernel;
+}
+
 /**
  * Wraps an entire tool map so every tool call goes through AriKernel enforcement.
  *
- * This is the universal integration primitive. Any agent system that executes
- * tools as functions can use this to add AriKernel enforcement:
+ * Accepts either a Firewall instance (original API) or a tool map with options
+ * including a Kernel (new API). If no kernel is provided in the options form,
+ * uses the global default kernel.
  *
  * ```ts
+ * // Original API — pass a Firewall directly
  * const tools = protectTools(firewall, {
- *   web_search:  { toolClass: "http", action: "get" },
- *   read_file:   { toolClass: "file", action: "read" },
- *   run_command: { toolClass: "shell", action: "exec" },
+ *   web_search: { toolClass: "http", action: "get" },
  * });
  *
- * // Execute by name — same interface regardless of model or framework
- * await tools.web_search({ url: "https://example.com" });
- * await tools.read_file({ path: "./data/config.json" });
+ * // New API — pass a Kernel via options
+ * const kernel = createKernel({ preset: "safe-research" });
+ * const tools = protectTools({
+ *   web_search: { toolClass: "http", action: "get" },
+ * }, { kernel });
+ *
+ * // New API — zero-config (uses global default kernel)
+ * const tools = protectTools({
+ *   web_search: { toolClass: "http", action: "get" },
+ * });
  * ```
  */
 export function protectTools(
-	firewall: Firewall,
-	mappings: Record<string, ToolMapEntry>,
+	firewallOrMappings: Firewall | Record<string, ToolMapEntry>,
+	mappingsOrOptions?: Record<string, ToolMapEntry> | ProtectToolsOptions,
 ): Record<string, ProtectedTool> {
+	let firewall: Firewall;
+	let mappings: Record<string, ToolMapEntry>;
+
+	if (isFirewall(firewallOrMappings)) {
+		// Original API: protectTools(firewall, mappings)
+		firewall = firewallOrMappings;
+		mappings = mappingsOrOptions as Record<string, ToolMapEntry>;
+	} else {
+		// New API: protectTools(mappings, options?)
+		mappings = firewallOrMappings;
+		const opts = (mappingsOrOptions as ProtectToolsOptions | undefined) ?? {};
+		const kernel = opts.kernel ?? getDefaultKernel();
+		firewall = kernel.createFirewall();
+	}
+
 	const result: Record<string, ProtectedTool> = {};
 	for (const [name, entry] of Object.entries(mappings)) {
 		const opts: WrapToolOptions | undefined = entry.taintLabels
@@ -130,4 +158,8 @@ export function protectTools(
 		result[name] = wrapTool(firewall, entry.toolClass, entry.action, opts);
 	}
 	return result;
+}
+
+function isFirewall(obj: unknown): obj is Firewall {
+	return obj !== null && typeof obj === 'object' && 'execute' in obj && 'requestCapability' in obj;
 }

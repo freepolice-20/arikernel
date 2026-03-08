@@ -1,15 +1,6 @@
-# AriKernel — Python Client
+# Ari Kernel — Python Runtime
 
-Python client for [AriKernel](https://github.com/petermanrique101-sys/AriKernel), a runtime security layer for AI agents.
-
-## v1 Scope — Important
-
-This v1 Python adapter is a **decision/enforcement API layer** over the TypeScript core:
-
-- The server decides **allow or deny** and writes every decision to a tamper-evident audit log
-- **Actual tool execution still occurs in your Python code** after receiving an allow verdict
-- This is a first integration step, not a full mediation model
-- A future version may add server-side tool execution for full runtime mediation
+Native Python runtime for [Ari Kernel](https://github.com/petermanrique101-sys/AriKernel). Enforces capability tokens, taint-aware policies, behavioral quarantine, and tamper-evident audit logging — all in-process, no TypeScript server required.
 
 ## Install
 
@@ -19,38 +10,54 @@ pip install -e python/
 
 ## Usage
 
-Start the server (from repo root):
-
-```bash
-pnpm build && pnpm server
-```
-
-Use the client:
-
 ```python
-from arikernel import FirewallClient, ToolCallDenied
+from arikernel import create_kernel, protect_tool
 
-with FirewallClient(
-    url="http://localhost:9099",
-    principal="my-agent",
-    capabilities=[
-        {"toolClass": "http", "actions": ["get"],
-         "constraints": {"allowedHosts": ["api.github.com"]}},
-    ],
-) as fw:
-    grant = fw.request_capability("http.read")
-    if grant.granted:
-        result = fw.execute("http", "get",
-            {"url": "https://api.github.com/repos/example"},
-            grant_id=grant.grant_id)
-        # result.verdict == "allow" -> now execute your actual HTTP call
+kernel = create_kernel(preset="safe-research", audit_log="./audit.db")
+
+@protect_tool("file.read", kernel=kernel)
+def read_file(path: str) -> str:
+    return open(path).read()
+
+@protect_tool("http.read", kernel=kernel)
+def fetch_url(url: str) -> str:
+    return httpx.get(url).text
+
+read_file(path="./data/report.csv")    # ALLOWED
+read_file(path="/etc/shadow")          # DENIED (path constraint)
+fetch_url(url="https://example.com")   # ALLOWED
 ```
 
 ## API
 
-- `FirewallClient(url, principal, capabilities)` — create session
-- `.request_capability(class, taint_labels)` — request token
-- `.execute(tool_class, action, parameters, grant_id, taint_labels)` — check decision
-- `.revoke_grant(grant_id)` — revoke a token
-- `.close()` — end session
-- Context manager support (`with` statement)
+- `create_kernel(preset, principal, audit_log, ...)` — create enforcement kernel
+- `@protect_tool("capability.class", kernel=kernel)` — decorator to protect a tool function
+- `kernel.execute_tool(tool_class, action, parameters, ...)` — direct execution with enforcement
+- `kernel.request_capability(capability_class)` — request a capability token
+- `kernel.close()` — end session, finalize audit log
+- Context manager support (`with create_kernel(...) as kernel:`)
+
+## Audit Compatibility
+
+Python audit logs use the same SQLite schema and SHA-256 hash chain as the TypeScript runtime. Trace and replay with the CLI:
+
+```bash
+pnpm ari trace --latest --db ./audit.db
+pnpm ari replay --latest --verbose --db ./audit.db
+```
+
+## Legacy: HTTP Decision Server
+
+For environments that need centralized enforcement via the TypeScript server:
+
+```bash
+pip install -e "python/[server]"
+```
+
+```python
+from arikernel import FirewallClient
+
+fw = FirewallClient(url="http://localhost:9099", principal="my-agent", capabilities=[...])
+```
+
+See the main [README](../README.md) for full documentation.

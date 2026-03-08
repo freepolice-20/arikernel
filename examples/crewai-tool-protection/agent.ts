@@ -24,8 +24,8 @@ function createCrewAIAdapter(firewall: ReturnType<typeof createFirewall>) {
 	return {
 		register(name: string, toolClass: string, action: string) {
 			tools.set(name, async (parameters: Record<string, unknown>) => {
-				const isRead = ['get', 'read', 'query', 'list'].includes(action);
-				const capClass = `${toolClass}.${isRead ? 'read' : 'write'}`;
+				const capClass = toolClass === 'shell' ? 'shell.exec'
+					: `${toolClass}.${['get', 'read', 'query', 'list'].includes(action) ? 'read' : 'write'}`;
 				const grant = firewall.requestCapability(capClass as any);
 				if (!grant.granted) throw new Error(grant.reason ?? 'Capability denied');
 				return firewall.execute({

@@ -1,206 +1,271 @@
-# AriKernel
+# Ari Kernel
 
-Runtime firewall for AI agents that blocks prompt injection, tool escalation, and data exfiltration at execution time.
+Runtime enforcement layer for AI agent tools. Sits between an agent and its tools, enforcing least-privilege capability tokens, taint-aware policies, behavioral quarantine, and tamper-evident forensics.
 
 ```
-┌─────────────┐
-│    Agent     │
-└──────┬──────┘
-       │ tool call
+Agent chooses tool
+       │
        ▼
-┌──────────────────────────────────┐
-│          AriKernel               │
-│                                  │
-│  ┌─ capability token check       │
-│  ├─ provenance / taint check     │
-│  ├─ behavioral sequence detection│
-│  └─ audit log append             │
-└──────┬───────────────────────────┘
-       │ allowed call
+┌──────────────────────────────┐
+│        Ari Kernel            │
+│                              │
+│  capability token check      │
+│  taint / provenance check    │
+│  behavioral sequence check   │
+│  policy evaluation           │
+│                              │
+│  → allow / deny / quarantine │
+│  → SHA-256 audit log         │
+└──────────────────────────────┘
+       │
        ▼
-┌──────────────────────────────────┐
-│  Tools (HTTP / File / Shell / DB)│
-└──────────────────────────────────┘
+Tool executes (or is blocked)
 ```
 
-## Quick Start
+## What It Does
 
-```bash
-npm install -g arikernel
+Ari Kernel intercepts every tool call an AI agent makes — HTTP requests, file reads, shell commands, database queries — and enforces security at the execution boundary. The agent cannot bypass enforcement because tool calls are routed through the kernel before anything executes.
 
-arikernel simulate prompt-injection
-arikernel trace --latest
-arikernel replay --latest --step
-```
+Five enforcement layers:
 
-`simulate` runs a multi-step prompt injection attack through the full enforcement pipeline and writes the audit trail to `./arikernel-audit.db`.
+1. **Capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority.
+2. **Taint tracking** — data carries provenance labels (`web`, `rag`, `email`) that propagate through tool chains. Untrusted provenance blocks sensitive operations.
+3. **Behavioral sequence detection** — a sliding window tracks multi-step patterns across the session. Three built-in rules detect prompt-injection-to-exfiltration sequences.
+4. **Run-level quarantine** — when a behavioral rule matches or denial counters exceed a threshold, the session enters restricted mode. Only read-only actions pass for the remainder of the run.
+5. **Tamper-evident audit** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
 
-`trace` reads that DB and prints the security execution chain — every tool call, every decision, every taint label.
+## 60-Second Quick Start
 
-`replay` walks the same session step by step with timestamps, showing exactly when quarantine fired and why.
-
-**What the output proves:**
-
-- The agent fetched a webpage (allowed), then processed tainted content with a `web` provenance label
-- The behavioral rule `web_taint_sensitive_probe` detected the pattern (web taint followed by sensitive file read) and quarantined the session
-- The `~/.ssh/id_rsa` read was denied by grant constraint enforcement — the agent only had access to `./data/**`
-- Every decision is recorded in a SHA-256 hash-chained audit log that can be independently verified
-
-> **Stale DB:** If you've run simulations before, `--latest` picks the most recent run. To start clean: `rm arikernel-audit.db` before simulating.
-
-### From source
+### TypeScript
 
 ```bash
 git clone https://github.com/petermanrique101-sys/AriKernel.git
 cd AriKernel
 pnpm install && pnpm build
-pnpm demo:behavioral    # behavioral quarantine demo
-pnpm test
+
+pnpm demo:behavioral                                      # run behavioral quarantine demo
+pnpm ari replay --latest --verbose --db ./demo-audit.db    # replay the audit trail
 ```
 
-## Why AriKernel Exists
-
-AI agents are being given direct access to tools: HTTP requests, shell commands, file I/O, databases. Most deployments rely on prompt-level instructions or static allow/deny lists. Neither is sufficient.
-
-**Prompt filters** operate on text, not on typed actions. They have no concept of data provenance and no enforcement boundary — the LLM can ignore them.
-
-**Static gateways** make binary decisions with no context about where data came from, no token lifecycle, and no behavioral memory across a session.
-
-**AriKernel enforces five layers:**
-
-1. **Short-lived capability tokens** — agents must request and receive a scoped, time-limited, usage-limited token before executing any protected action. Tokens expire after 5 minutes or 10 uses.
-2. **Provenance-aware enforcement** — data carries taint labels (`web`, `rag`, `email`) that propagate through tool call chains. Untrusted provenance blocks sensitive operations at the issuance layer.
-3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns across the run. Three built-in rules detect prompt-injection-to-exfiltration sequences and trigger run-level quarantine.
-4. **Run-level behavioral quarantine** — when behavioral rules match or denial counters exceed a threshold, the run enters restricted mode. Only read-only safe actions are allowed for the remainder of the session.
-5. **Tamper-evident audit evidence** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
-
-## CLI
-
-| Command | Description |
-|---------|-------------|
-| `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
-| `arikernel trace [runId]` | Display security execution trace from audit log |
-| `arikernel replay [runId]` | Replay a recorded session step by step |
-| `arikernel run` | Start firewall in run mode |
-| `arikernel policy <file>` | Validate a policy YAML file |
-| `arikernel init` | Generate a starter policy file |
-
-All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
-
-### Attack Simulator
+### Python
 
 ```bash
-arikernel simulate prompt-injection
-arikernel simulate data-exfiltration
-arikernel simulate tool-escalation
+pip install -e python/
+python examples/python-basic-agent.py
+pnpm ari trace --latest --db python-agent-audit.db
 ```
 
-Use a custom policy with `--policy`:
-
-```bash
-arikernel simulate prompt-injection --policy policies/safe-defaults.yaml
-```
-
-Run all scenarios at once (pass/fail report):
-
-```bash
-arikernel simulate
-```
-
-### Security Trace
-
-```bash
-arikernel trace --latest
-arikernel trace <run-id> --db ./arikernel-audit.db
-```
-
-### Deterministic Replay
-
-```bash
-arikernel replay --latest --verbose
-arikernel replay --latest --step    # step-by-step with 800ms delay
-```
-
-## Model Compatibility
-
-AriKernel is model-agnostic. It protects tool execution, not the model.
-
-Regardless of whether an agent uses OpenAI, Claude, Gemini, or any other provider, tool use eventually becomes a function call in the host runtime. AriKernel intercepts that execution boundary — so it works across model ecosystems without model-specific adapters.
+## TypeScript Usage
 
 ```typescript
-// This works with any model's tool-calling output
-const tools = protectTools(firewall, {
-  web_search:  { toolClass: "http", action: "get" },
-  read_file:   { toolClass: "file", action: "read" },
-});
+import { createKernel } from "@arikernel/runtime"
+import { protectTools } from "@arikernel/adapters"
 
-// Model picks a tool → AriKernel enforces → tool executes (or is blocked)
-await tools[modelSelectedTool](modelSelectedArgs);
+// Zero-config: safe defaults, no policy file needed
+const tools = protectTools({
+  web_search: { toolClass: "http", action: "get" },
+  read_file:  { toolClass: "file", action: "read" },
+})
+
+await tools.web_search({ url: "https://example.com" })  // ALLOWED
 ```
 
-See [examples/custom-agent-loop/](examples/custom-agent-loop/) for a complete model-agnostic agent loop example.
+With a named preset:
 
-## How It Works
+```typescript
+const kernel = createKernel({ preset: "safe-research" })
 
-```
-Agent requests action
-        |
-        v
-  [1] Validate request schema
-        |
-        v
-  [2] Track run-state signals
-      - taint observed? -> push to event window
-      - sensitive file? -> push to event window
-      - egress attempt? -> push to event window
-      - behavioral rule match? -> quarantine
-        |
-        v
-  [3] Validate capability token
-      - exists, not expired, not revoked?
-      - principal, tool class, action match?
-      - constraints satisfied?
-      - lease not exhausted?
-        |
-        v
-  [4] Evaluate policy rules (priority-sorted, first-match-wins)
-        |
-        v
-  [5] Enforce: ALLOW / DENY / REQUIRE-APPROVAL
-        |
-        v
-  [6] Execute tool, propagate taint
-        |
-        v
-  [7] Audit log (SHA-256 hash chain)
+const tools = protectTools({
+  web_search: { toolClass: "http", action: "get" },
+  read_file:  { toolClass: "file", action: "read" },
+}, { kernel })
 ```
 
-Quarantine events are recorded as first-class `_system.quarantine` audit entries with trigger type, matched rule ID, reason, counters snapshot, and the pattern of events that triggered the rule.
+## Python Usage
 
-**Deployment mode:** AriKernel currently runs in **embedded mode** — the firewall is a library inside the agent process. The agent framework routes tool calls through `createFirewall()`, and the LLM cannot bypass the enforcement pipeline. For production environments that require mandatory enforcement with process isolation, a **proxy/sidecar mode** is on the roadmap where tools are only accessible through the firewall proxy. See [Architecture](ARCHITECTURE.md) for the full trust boundary analysis.
+The Python runtime runs enforcement locally — no TypeScript server required. Same security model, same audit format.
+
+```bash
+pip install -e python/
+```
+
+```python
+from arikernel import create_kernel, protect_tool
+
+kernel = create_kernel(preset="safe-research", audit_log="./audit.db")
+
+@protect_tool("file.read", kernel=kernel)
+def read_file(path: str) -> str:
+    return open(path).read()
+
+@protect_tool("http.read", kernel=kernel)
+def fetch_url(url: str) -> str:
+    return httpx.get(url).text
+
+read_file(path="./data/report.csv")    # ALLOWED
+read_file(path="/etc/shadow")          # DENIED (path constraint)
+fetch_url(url="https://example.com")   # ALLOWED
+```
+
+Python audit logs are compatible with the TypeScript CLI — same SQLite schema, same hash chain format:
+
+```bash
+pnpm ari trace --latest --db ./audit.db
+pnpm ari replay --latest --verbose --db ./audit.db
+```
+
+## Supported Runtimes and Integrations
+
+| Category | Item | Status | Notes |
+|----------|------|--------|-------|
+| **Runtime** | TypeScript / JavaScript | Native | In-process enforcement, zero-config or preset-based |
+| **Runtime** | Python | Native | In-process enforcement, zero required dependencies |
+| **Integration** | Generic JS/TS wrapper | Supported | `protectTools()` — works with any agent loop |
+| **Integration** | OpenAI-style tool calling | Supported | `protectOpenAITools()` adapter |
+| **Integration** | LangChain / LangGraph | Supported | `LangChainAdapter` wrapper |
+| **Integration** | CrewAI | Supported | `CrewAIAdapter` wrapper |
+| **Integration** | Custom agent loop | Supported | Model-agnostic — works with any provider |
+| **Integration** | Vercel AI SDK | Supported | `protectVercelTools()` adapter |
+
+Ari Kernel is model-agnostic. It protects tool execution, not the model. Works with OpenAI, Claude, Gemini, or any provider — tool calls eventually become function calls, and Ari Kernel intercepts that boundary.
+
+## Security Presets
+
+Built-in profiles for common agent types:
+
+| Preset | Use Case | HTTP | Files | Shell | Database |
+|--------|----------|------|-------|-------|----------|
+| `safe-research` | Web research, summarization | GET only | Read `./data/**`, `./docs/**` | Blocked | — |
+| `rag-reader` | Document retrieval, RAG | — | Read `./docs/**`, `./data/**` | Blocked | Query only |
+| `workspace-assistant` | Coding assistants | GET only | Read + Write `./**` | Approval-gated | — |
+| `automation-agent` | Workflow automation | GET + POST | Blocked | Blocked | Query + Write |
+
+Zero-config mode (no preset specified) applies safe defaults: HTTP GET allowed, file reads restricted to `./data/**`, `./docs/**`, `./workspace/**`, everything else blocked.
+
+## AutoScope
+
+AutoScope maps task descriptions to the least-privilege preset automatically:
+
+```typescript
+const kernel = createKernel({ autoScope: true })
+
+kernel.selectScope("summarize this webpage")        // → safe-research
+kernel.selectScope("analyze this CSV file")          // → rag-reader
+kernel.selectScope("refactor the code in this repo") // → workspace-assistant
+```
+
+AutoScope is deterministic (keyword-based, no LLM). Falls back to `safe-research` when confidence is low. Optional — you can always use a named preset or zero-config defaults.
 
 ## Behavioral Sequence Rules
 
 Three built-in rules detect suspicious multi-step patterns:
 
-| Rule | Pattern | What it catches |
-|------|---------|-----------------|
-| `web_taint_sensitive_probe` | Untrusted web/rag/email taint followed by sensitive file read, shell exec, or egress | Prompt injection leading to credential theft |
-| `denied_capability_then_escalation` | Denied capability followed by request for a riskier capability class | Automated privilege escalation attempts |
-| `sensitive_read_then_egress` | Sensitive file read followed by outbound POST/PUT/PATCH | Data exfiltration sequences |
+| Rule | Pattern | Catches |
+|------|---------|---------|
+| `web_taint_sensitive_probe` | Untrusted taint → sensitive file read or shell exec | Prompt injection → credential theft |
+| `denied_capability_then_escalation` | Denied capability → request for riskier capability | Automated privilege escalation |
+| `sensitive_read_then_egress` | Sensitive file read → outbound POST/PUT/PATCH | Data exfiltration sequences |
 
-These rules fire on the recent-event window (last 20 events) and quarantine the run immediately.
+These rules operate on a sliding window (last 20 events) and quarantine the run immediately on match.
 
-## Why It Matters
+## CLI
 
-Every enforcement decision — allow, deny, quarantine — is recorded in a SHA-256 hash-chained audit log. This means:
+From the repo root, use `pnpm ari <command>`. If installed globally (`npm install -g @arikernel/cli`), use `arikernel <command>` directly.
 
-- **Forensic replay**: reconstruct exactly what an agent did, what was blocked, and why
-- **Tamper evidence**: any modification to the log breaks the hash chain
-- **Compliance**: prove that security controls were active during every tool call
-- **Debugging**: trace behavioral quarantine triggers back to the exact event sequence
+| Command | Shortcut | Description |
+|---------|----------|-------------|
+| `pnpm ari simulate [type]` | `pnpm ari:simulate` | Run attack simulations |
+| `pnpm ari trace [runId]` | `pnpm ari:trace` | Display security execution trace |
+| `pnpm ari replay [runId]` | `pnpm ari:replay` | Replay a recorded session step by step |
+| `pnpm ari init` | `pnpm ari:init` | Interactive setup |
+| `pnpm ari policy <file>` | — | Validate a policy YAML file |
 
-The chain from `simulate` to `trace` to `replay` is deterministic. The same audit DB backs all three commands — what you simulate is exactly what you trace and replay.
+All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
+
+### Attack Simulation
+
+```bash
+pnpm ari simulate prompt-injection
+pnpm ari simulate data-exfiltration
+pnpm ari simulate tool-escalation
+pnpm ari:simulate                      # run all scenarios
+```
+
+### Trace and Replay
+
+```bash
+pnpm ari:trace                         # latest run
+pnpm ari:replay                        # latest run, verbose
+pnpm ari:replay:step                   # step-by-step with delay
+```
+
+## Verified Demo Commands
+
+Every command below has been tested and works from the repo root after `pnpm install && pnpm build`:
+
+```bash
+# TypeScript demos
+pnpm demo:behavioral          # behavioral quarantine (web taint → sensitive read)
+pnpm demo:attack              # 4-stage prompt injection attack, all blocked
+pnpm demo:run-state           # threshold-based quarantine
+pnpm demo:langchain           # LangChain integration
+pnpm demo:generic             # generic JS/TS wrapper
+pnpm demo:openai              # OpenAI-style tool calling
+pnpm demo:crewai              # CrewAI tool protection
+pnpm demo:custom              # custom model-agnostic agent loop
+pnpm demo:capability          # capability issuance and taint
+pnpm demo:escalation          # privilege escalation blocked
+
+# Python demos
+pnpm demo:python              # basic agent with protect_tool decorator
+pnpm demo:python:openai       # simulated OpenAI agent loop
+pnpm demo:python:quarantine   # behavioral quarantine in Python
+
+# Forensics
+pnpm ari replay --latest --verbose --db ./demo-audit.db
+pnpm ari trace --latest --db python-quarantine-audit.db
+pnpm ari replay --latest --verbose --db python-quarantine-audit.db
+
+# Tests
+pnpm test                     # all TypeScript tests
+cd python && python -m pytest tests/ -v    # all Python tests
+```
+
+## How It Works
+
+```
+Agent requests action
+        │
+        ▼
+  [1] Track run-state signals
+      - taint observed? → push to event window
+      - sensitive file? → push to event window
+      - egress attempt? → push to event window
+      - behavioral rule match? → quarantine
+        │
+        ▼
+  [2] Validate capability token
+      - exists, not expired, not revoked?
+      - principal, tool class, action match?
+      - constraints satisfied?
+      - lease not exhausted?
+        │
+        ▼
+  [3] Evaluate policy rules (priority-sorted, first-match-wins)
+        │
+        ▼
+  [4] Enforce: ALLOW / DENY / REQUIRE-APPROVAL
+        │
+        ▼
+  [5] Execute tool, propagate taint
+        │
+        ▼
+  [6] Audit log (SHA-256 hash chain)
+```
+
+**Security model:** Ari Kernel protects tools at the execution boundary. It does not filter prompts or read the model's intent. AutoScope helps translate task descriptions into least-privilege defaults, but enforcement always happens at the tool call layer. The model cannot bypass the enforcement pipeline.
+
+**Deployment mode:** Ari Kernel currently runs in **embedded mode** — the kernel is a library inside the agent process. The agent framework routes tool calls through `createKernel()`, and the LLM has no mechanism to bypass enforcement. For mandatory enforcement with process isolation, a proxy/sidecar mode is on the roadmap.
 
 ## Writing Policies
 
@@ -232,123 +297,34 @@ rules:
 
 Built-in deny-all rule at priority 999 ensures anything not explicitly allowed is denied.
 
-## Supported Integrations
+## Current Limitations
 
-AriKernel is the enforcement layer for agent tools — not a single-framework plugin. It works with any agent framework that makes tool calls.
-
-| Framework / Pattern | Model Compatibility | Status | Integration | Example |
-|---------------------|---------------------|--------|-------------|---------|
-| Generic JS/TS tool map | Any model | Adapter | `protectTools()` | [examples/generic-wrapper/](examples/generic-wrapper/) |
-| Custom agent loop | Any model | Adapter | `protectTools()` | [examples/custom-agent-loop/](examples/custom-agent-loop/) |
-| OpenAI / OpenAI-style | OpenAI, compatible | Adapter | `protectOpenAITools()` | [examples/openai-tool-calling/](examples/openai-tool-calling/) |
-| Claude / Anthropic | Claude, compatible | Universal wrapper | `protectTools()` | [examples/custom-agent-loop/](examples/custom-agent-loop/) |
-| LangChain / LangGraph | Any model | Adapter | `LangChainAdapter` | [examples/langchain-protected-agent/](examples/langchain-protected-agent/) |
-| CrewAI | Any model | Adapter | `CrewAIAdapter` | [examples/crewai-tool-protection/](examples/crewai-tool-protection/) |
-| Vercel AI SDK | Any model | Adapter | `protectVercelTools()` | — |
-| Python | Any model | Decorator + client | `@protect_tool` | [examples/python-protect-decorator.py](examples/python-protect-decorator.py) |
-
-All adapters are thin wrappers over `wrapTool()`, the universal enforcement primitive. Every call goes through capability checks, taint tracking, policy evaluation, behavioral detection, and audit logging.
-
-### OpenAI / OpenAI-style tool calling
-
-```typescript
-import { createFirewall } from "@arikernel/runtime";
-import { protectOpenAITools } from "@arikernel/adapters/openai";
-
-const firewall = createFirewall({ ... });
-
-const tools = protectOpenAITools(firewall, {
-  web_search:  { toolClass: "http", action: "get" },
-  read_file:   { toolClass: "file", action: "read" },
-  run_command: { toolClass: "shell", action: "exec" },
-});
-
-// When the model requests a tool call:
-const result = await tools.execute("web_search", { url: "https://example.com" });
-```
-
-### LangChain / LangGraph
-
-```typescript
-import { createFirewall } from "@arikernel/runtime";
-import { LangChainAdapter } from "@arikernel/adapters/langchain";
-
-const firewall = createFirewall({ ... });
-const adapter = new LangChainAdapter(firewall);
-
-const httpGet = adapter.tool("http", "get");
-const fileRead = adapter.tool("file", "read");
-
-new DynamicTool({ name: "http_get", func: (input) => httpGet({ url: input }) });
-```
-
-### CrewAI
-
-```typescript
-import { createFirewall } from "@arikernel/runtime";
-import { CrewAIAdapter } from "@arikernel/adapters/crewai";
-
-const firewall = createFirewall({ ... });
-const adapter = new CrewAIAdapter(firewall);
-
-adapter.register("search_tool", "http", "get");
-adapter.register("file_reader", "file", "read");
-
-const result = await adapter.execute("search_tool", { url: "https://example.com" });
-```
-
-### Generic JS/TS wrapper (any framework)
-
-```typescript
-import { createFirewall } from "@arikernel/runtime";
-import { wrapTool } from "@arikernel/adapters";
-
-const firewall = createFirewall({ ... });
-
-const httpGet = wrapTool(firewall, "http", "get");
-const result = await httpGet({ url: "https://example.com" });
-```
-
-### Python
-
-```bash
-pnpm build && pnpm server   # start decision server
-pip install -e python/
-```
-
-```python
-from arikernel import FirewallClient
-from arikernel.protect import protect_tool
-
-fw = FirewallClient(url="http://localhost:9099", principal="my-agent", capabilities=[...])
-
-@protect_tool(fw, tool_class="http", action="get")
-def fetch_url(url: str) -> str:
-    return httpx.get(url).text
-
-result = fetch_url("https://example.com")  # goes through AriKernel first
-```
-
-See [python/README.md](python/README.md) for full API documentation.
+- **Early-stage project** — the core enforcement model is stable, but the API surface may evolve
+- **Embedded mode only** — enforcement runs in-process; proxy/sidecar mode for mandatory process isolation is on the roadmap
+- **In-memory token store** — capability tokens are not persisted across process restarts
+- **Advisory taint labels** — taint tracking relies on the framework correctly labeling data sources
+- **AutoScope is heuristic** — keyword-based classification, not semantic understanding
+- **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 
 ## Project Structure
 
 ```
-arikernel/
+AriKernel/
 ├── packages/
-│   ├── core/              # Types, Zod schemas, errors, ID generation
-│   ├── policy-engine/     # YAML policy loading, priority-sorted rule evaluation
+│   ├── core/              # Types, schemas, errors, presets
+│   ├── policy-engine/     # YAML policy loading, rule evaluation
 │   ├── taint-tracker/     # Taint label attach, propagate, query
-│   ├── audit-log/         # SQLite store, SHA-256 hash chain, replay, system events
+│   ├── audit-log/         # SQLite store, SHA-256 hash chain, replay
 │   ├── tool-executors/    # HTTP, file, shell, database executors
-│   ├── runtime/           # Firewall, Pipeline, CapabilityIssuer, TokenStore,
-│   │                      # RunStateTracker, behavioral rules
-│   ├── attack-sim/        # Attack scenario runner + interactive simulator
-│   └── adapters/          # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI, wrapTool)
+│   ├── runtime/           # Kernel, Pipeline, CapabilityIssuer, behavioral rules, AutoScope
+│   ├── attack-sim/        # Attack scenario runner
+│   └── adapters/          # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI)
 ├── apps/
-│   ├── cli/               # CLI (init, policy, replay, simulate, trace)
-│   └── server/            # HTTP decision server for cross-language integration
-├── python/                # Python client (v1 decision/enforcement adapter)
+│   ├── cli/               # CLI (simulate, trace, replay, init, policy)
+│   └── server/            # HTTP decision server (legacy cross-language mode)
+├── python/                # Native Python runtime
+│   └── arikernel/runtime/ # Policy engine, taint tracking, behavioral rules, audit logging
+├── arikernel-policy.json  # Shared policy spec (consumed by both runtimes)
 ├── policies/              # YAML policy files
 ├── examples/              # Runnable demos
 └── docs/                  # Design docs, threat model, benchmarks
@@ -356,10 +332,10 @@ arikernel/
 
 ## Documentation
 
-- [Agent Reference Monitor](docs/agent-reference-monitor.md) — the security model: ambient authority, why per-call gateways fail, and how the reference monitor enforces capability + provenance + behavioral quarantine
-- [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, run-level behavioral quarantine design
-- [Threat Model](docs/threat-model.md) — what this mitigates (per-call and behavioral) and what it doesn't
-- [Benchmarks](docs/benchmarks.md) — 4 attack stories with attacker goal, sequence, unguarded outcome vs. AriKernel outcome, and what the audit replay proves
+- [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, behavioral quarantine design
+- [Agent Reference Monitor](docs/agent-reference-monitor.md) — the security model in depth
+- [Threat Model](docs/threat-model.md) — what Ari Kernel mitigates and what it doesn't
+- [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
 
 ## License
 
