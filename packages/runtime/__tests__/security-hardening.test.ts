@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { RunStateTracker, isSuspiciousGetExfil } from '../src/run-state.js';
 import { canonicalizePath, isPathAllowed } from '../src/path-security.js';
+import { createFirewall, type Firewall } from '../src/index.js';
+import type { CapabilityClass } from '@arikernel/core';
 
 // ── Quarantine: ingress vs egress classification ──────────────────────────────
 
@@ -195,6 +197,53 @@ describe('symlink traversal protection (CWE-59)', () => {
 	it('isPathAllowed allows paths within a glob pattern', () => {
 		const { allowed } = isPathAllowed('./data/report.csv', ['./data/**'], '/project');
 		expect(allowed).toBe(true);
+	});
+});
+
+// ── Unknown capability class: fail closed, not crash ─────────────────────────
+
+describe('requestCapability with unknown capability class', () => {
+	let fw: Firewall;
+
+	afterEach(() => { fw?.close(); });
+
+	it('denies unknown capability class instead of throwing TypeError', () => {
+		fw = createFirewall({
+			principal: { name: 'test', capabilities: [{ toolClass: 'http' }] },
+			policies: [],
+			auditLog: ':memory:',
+		});
+
+		const result = fw.requestCapability('email.write' as CapabilityClass);
+		expect(result.granted).toBe(false);
+		expect(result.reason).toContain('Unknown capability class');
+		expect(result.reason).toContain('email.write');
+	});
+
+	it('denies arbitrary invalid capability class strings', () => {
+		fw = createFirewall({
+			principal: { name: 'test', capabilities: [{ toolClass: 'http' }] },
+			policies: [],
+			auditLog: ':memory:',
+		});
+
+		const result = fw.requestCapability('foo.bar' as CapabilityClass);
+		expect(result.granted).toBe(false);
+		expect(result.reason).toContain('Unknown capability class');
+	});
+
+	it('still grants valid capability classes', () => {
+		fw = createFirewall({
+			principal: { name: 'test', capabilities: [{ toolClass: 'http' }] },
+			policies: [
+				{ id: 'allow-http', name: 'Allow HTTP', priority: 10,
+					match: { toolClass: 'http' as const }, decision: 'allow' as const },
+			],
+			auditLog: ':memory:',
+		});
+
+		const result = fw.requestCapability('http.read');
+		expect(result.granted).toBe(true);
 	});
 });
 

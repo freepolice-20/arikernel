@@ -99,6 +99,21 @@ export class Firewall {
 			timestamp: now(),
 		};
 
+		// Deny unknown capability classes — fail closed instead of crashing
+		if (!(capabilityClass in CAPABILITY_CLASS_MAP)) {
+			this._runState.recordCapabilityRequest(false);
+			const denied: IssuanceDecision = {
+				requestId: request.id,
+				granted: false,
+				reason: `Unknown capability class '${capabilityClass}'. ` +
+					`Valid classes: ${Object.keys(CAPABILITY_CLASS_MAP).join(', ')}`,
+				taintLabels: request.taintLabels,
+				timestamp: now(),
+			};
+			this._hooks.onIssuance?.(request, denied);
+			return denied;
+		}
+
 		// Block non-read-only capability issuance in restricted mode
 		if (this._runState.restricted) {
 			const mapping = CAPABILITY_CLASS_MAP[capabilityClass];

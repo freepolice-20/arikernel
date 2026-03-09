@@ -107,6 +107,63 @@ describe('protectAgentTools', () => {
 		expect(search.function.description).toBe('Search the web');
 	});
 
+	it('denies tool with unknown toolClass cleanly instead of crashing', async () => {
+		fw = makeFirewall('agents-unknown-class');
+		const tools: AgentToolDefinition[] = [
+			{
+				type: 'function',
+				function: {
+					name: 'send_email',
+					description: 'Send an email',
+					parameters: { type: 'object', properties: { to: { type: 'string' } } },
+				},
+				execute: async (args) => `Sent to ${args.to}`,
+			},
+		];
+
+		// 'email' is not a recognized toolClass — must fail closed, not crash
+		const protected_ = protectAgentTools(fw, tools, {
+			send_email: { toolClass: 'email', action: 'send' },
+		});
+
+		const emailTool = protected_[0];
+		await expect(emailTool.execute({ to: 'attacker@evil.com' })).rejects.toThrow(ToolCallDeniedError);
+
+		// Verify the error has a clean message, not a TypeError
+		try {
+			await emailTool.execute({ to: 'test@example.com' });
+		} catch (err: any) {
+			expect(err).toBeInstanceOf(ToolCallDeniedError);
+			expect(err.message).toContain('Unknown capability class');
+			expect(err.message).toContain('email.write');
+			expect(err.toolCall).toBeDefined();
+			expect(err.toolCall.id).toBeTruthy();
+			expect(err.toolCall.toolClass).toBe('email');
+			expect(err.toolCall.action).toBe('send');
+			expect(err.decision).toBeDefined();
+			expect(err.decision.verdict).toBe('deny');
+		}
+	});
+
+	it('never allows execution when toolClass is unknown', async () => {
+		fw = makeFirewall('agents-no-allow');
+		const executeSpy = { called: false };
+		const tools: AgentToolDefinition[] = [
+			{
+				type: 'function',
+				function: { name: 'bad_tool', description: 'Test', parameters: {} },
+				execute: async () => { executeSpy.called = true; return 'should not run'; },
+			},
+		];
+
+		const protected_ = protectAgentTools(fw, tools, {
+			bad_tool: { toolClass: 'nonexistent', action: 'do' },
+		});
+
+		try { await protected_[0].execute({}); } catch {}
+		expect(executeSpy.called).toBe(false);
+	});
+
 	it('triggers quarantine after repeated sensitive denials', async () => {
 		fw = createFirewall({
 			principal: {

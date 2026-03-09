@@ -1,5 +1,5 @@
 import type { ToolCallRequest, ToolResult, IssuanceDecision, CapabilityClass, TaintLabel } from '@arikernel/core';
-import { ToolCallDeniedError } from '@arikernel/core';
+import { ToolCallDeniedError, generateId, now } from '@arikernel/core';
 import type { Firewall, Kernel } from '@arikernel/runtime';
 import { getDefaultKernel } from '@arikernel/runtime';
 
@@ -59,19 +59,26 @@ export function wrapTool(
 		const grant: IssuanceDecision = firewall.requestCapability(capClass);
 
 		if (!grant.granted) {
+			const ts = now();
 			throw new ToolCallDeniedError(
 				{
-					toolClass,
+					id: generateId(),
+					runId: '',
+					sequence: 0,
+					timestamp: ts,
+					principalId: '',
+					toolClass: toolClass as ToolCallRequest['toolClass'],
 					action,
 					parameters,
 					taintLabels: opts?.taintLabels ?? [],
-				} as any,
+				},
 				{
 					verdict: 'deny',
 					reason: grant.reason ?? 'Capability denied',
 					matchedRule: null,
 					taintLabels: grant.taintLabels ?? [],
-				} as any,
+					timestamp: ts,
+				},
 			);
 		}
 
