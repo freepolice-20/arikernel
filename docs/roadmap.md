@@ -19,7 +19,7 @@
 - [x] Run-level quarantine (behavioral + threshold triggers)
 - [x] Security presets (safe-research, rag-reader, workspace-assistant, automation-agent)
 - [x] AutoScope for automatic preset selection
-- [x] Framework adapters: OpenAI, OpenAI Agents SDK, LangChain, LlamaIndex TS, CrewAI, Vercel AI, MCP, AutoGen (Python), AutoGPT (Python)
+- [x] Framework adapters: OpenAI, OpenAI Agents SDK, LangChain, LlamaIndex TS, CrewAI, Vercel AI, MCP, AutoGen (Python), AutoGPT (Python), OpenClaw (experimental)
 - [x] Native Python runtime with same enforcement model
 - [x] Sidecar / proxy mode (experimental)
 - [x] CLI: init, policy validate, simulate, trace, replay

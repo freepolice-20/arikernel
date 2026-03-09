@@ -211,6 +211,7 @@ pnpm ari replay --latest --verbose --db ./audit.db
 | MCP (Model Context Protocol) | `protectMCPTools()` |
 | Microsoft AutoGen (Python) | `protect_autogen_tool()` / `AutoGenToolWrapper` |
 | AutoGPT (Python) | `protect_autogpt_command()` / `AutoGPTCommandWrapper` |
+| OpenClaw (experimental) | `OpenClawAdapter` |
 | Custom agent loop | Model-agnostic — works with any provider |
 
 Ari Kernel is model-agnostic. It protects tool execution, not the model. Works with OpenAI, Claude, Gemini, or any provider.

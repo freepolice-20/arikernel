@@ -46,6 +46,7 @@
     "demo:security": "tsx examples/demo-security-hardening.ts",
     "demo:openai-agents": "tsx examples/openai-agents-sdk/agent.ts",
     "demo:llamaindex": "tsx examples/llamaindex-agent/agent.ts",
+    "demo:openclaw": "tsx examples/openclaw-protected-agent/agent.ts",
     "demo:autogen": "python examples/autogen-agent.py",
     "demo:autogpt": "python examples/autogpt-agent.py",
     "demo:python": "python examples/python-basic-agent.py",
