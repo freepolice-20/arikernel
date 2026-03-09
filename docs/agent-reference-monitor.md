@@ -84,13 +84,16 @@ Policies can condition on taint. A taint-aware rule can deny file writes when th
 
 A **recent-event window** (bounded at 20 events) tracks normalized security events across the session: `capability_requested`, `tool_call_allowed`, `taint_observed`, `sensitive_read_attempt`, `egress_attempt`, and others.
 
-Three built-in behavioral rules evaluate patterns in this window:
+Six built-in behavioral rules evaluate patterns in this window:
 
 | Rule | Pattern | Detects |
 |------|---------|---------|
-| `web_taint_sensitive_probe` | `taint_observed(web)` → `sensitive_read_attempt` | Prompt injection → data access |
+| `web_taint_sensitive_probe` | `taint_observed(web)` → `sensitive_read_attempt` / shell / egress | Prompt injection → data access |
 | `denied_capability_then_escalation` | `capability_denied` → `capability_requested(higher risk)` | Privilege escalation probing |
 | `sensitive_read_then_egress` | `sensitive_read_attempt` → `egress_attempt` | Data staging → exfiltration |
+| `tainted_database_write` | `taint_observed(web)` → `database write/exec/mutate` | Tainted SQL injection |
+| `tainted_shell_with_data` | `taint_observed(web)` → `shell exec (long command)` | Data piping via shell args |
+| `secret_access_then_any_egress` | `secret resource access` → `any egress` | Credential theft |
 
 Rules are evaluated after every security event. The first matching rule triggers immediately — the system does not wait for threshold counters or batch evaluation.
 

@@ -136,6 +136,6 @@ pnpm ari replay --latest --verbose --db ./demo-run-state-audit.db
 pnpm demo:attack
 pnpm ari replay --latest --verbose --db ./demo-attack-audit.db
 
-# All tests (includes 21 behavioral rule tests)
+# All tests
 pnpm test
 ```

@@ -71,11 +71,9 @@ Ari Kernel operates at the tool-call layer. It does not protect against:
 - Training data poisoning
 
 ### Sophisticated Constraint Bypass
-The current constraint model uses exact hostname matching, prefix-based path matching, and binary name matching for commands. It does not handle:
+The current constraint model uses exact hostname matching, prefix-based path matching, and binary name matching for commands. Symlink traversal is mitigated via `realpathSync()` resolution. Shell metacharacter injection is mitigated via command validation. It does not handle:
 - DNS rebinding (attacker controls hostname resolution)
-- Symlink traversal for file paths
-- Shell metacharacter injection within allowed command binaries
-- SQL injection within allowed database queries
+- SQL injection within allowed database queries (database executor is a stub)
 
 ### Denial of Service
 An agent could intentionally trigger thousands of denied requests to fill the audit log or exhaust system resources. The system logs all denials but does not throttle.

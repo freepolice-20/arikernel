@@ -1,10 +1,8 @@
 # Ari Kernel
 
-**The Runtime Security Layer for AI Agents**
+**A Runtime Security Reference Monitor for AI Agents**
 
-> Don't give AI agents root access to the internet.
-
-Ari Kernel introduces runtime enforcement for AI agents by placing an **Agent Runtime Inspector (ARI)** between agents and external tools. It intercepts every tool call at the execution boundary — where decisions become real actions — and enforces least-privilege security before anything executes.
+Ari Kernel enforces security at the execution boundary between AI agents and their tools. It intercepts every tool call, evaluates it against capability tokens, data provenance, policy rules, and behavioral patterns, then allows, denies, or quarantines the session before anything executes.
 
 ```
         Agent / LLM Runtime
@@ -56,7 +54,7 @@ Ari Kernel intercepts every tool call an AI agent makes and enforces security th
 
 **Taint tracking** — data carries provenance labels (`web`, `rag`, `email`) that propagate through tool chains. Untrusted provenance blocks sensitive operations automatically.
 
-**Behavioral sequence detection** — a sliding window (last 20 events) tracks multi-step patterns across the session. Three built-in rules detect prompt-injection-to-exfiltration sequences.
+**Behavioral sequence detection** — a sliding window (last 20 events) tracks multi-step patterns across the session. Six built-in rules detect prompt-injection-to-exfiltration sequences, privilege escalation, tainted database writes, and secret access followed by egress.
 
 **Run-level quarantine** — when a behavioral rule matches or denial counters exceed a threshold, the session enters restricted mode. Only read-only actions pass for the remainder of the run. Immediate, irrecoverable containment.
 
@@ -93,7 +91,7 @@ Without runtime enforcement, all steps execute and the SSH key is exfiltrated. W
 
 ### Behavioral Detection
 - Cross-step attack pattern detection via sliding event window
-- Three built-in rules: taint-to-probe, escalation, read-then-egress
+- Six built-in rules covering taint-to-probe, escalation, read-then-egress, tainted database writes, tainted shell commands, and secret access followed by egress
 - Fires on first match — no threshold delay
 
 ### Containment
@@ -125,12 +123,12 @@ Most tools validate or monitor. Ari Kernel **enforces** — it sits in the execu
 
 ## Deployment Modes
 
-| Mode | Status | Description |
-|------|--------|-------------|
-| **Embedded (library)** | Stable | `createKernel()` integrated into the agent process. Zero network overhead. |
-| **Sidecar (HTTP proxy)** | Experimental | Standalone process on port 8787. Language-agnostic — any HTTP client works. |
+| Mode | Description |
+|------|-------------|
+| **Embedded (library)** | `createKernel()` integrated into the agent process. Zero network overhead. |
+| **Sidecar (HTTP proxy)** | Standalone process on port 8787. Language-agnostic — any HTTP client works. Process-level trust boundary. |
 
-Embedded mode is the primary deployment path. The sidecar is functional and tested but considered experimental for production use.
+Embedded mode is the primary deployment path for TypeScript/JavaScript agents. Sidecar mode provides process-level isolation and works with any language.
 
 ---
 
@@ -141,13 +139,17 @@ git clone https://github.com/petermanrique101-sys/AriKernel.git
 cd AriKernel
 pnpm install && pnpm build
 
+# Run demos
+pnpm demo:real-agent                                      # full agent demo (requires OPENAI_API_KEY)
 pnpm demo:behavioral                                      # behavioral quarantine demo
-pnpm ari replay --latest --verbose --db ./demo-audit.db    # replay the audit trail
+pnpm demo:sidecar                                         # sidecar proxy mode
 
-# Deterministic replay: record → inspect → replay
+# Deterministic replay
 pnpm demo:replay                                           # records trace + replays it
-cat demo-trace.json                                        # inspect the raw trace
 pnpm ari replay-trace demo-trace.json --verbose            # replay via CLI
+
+# Replay audit trail
+pnpm ari replay --latest --verbose --db ./demo-audit.db
 ```
 
 ### TypeScript
@@ -235,13 +237,16 @@ Zero-config mode (no preset) applies safe defaults: HTTP GET allowed, file reads
 
 ## Behavioral Sequence Rules
 
-Three built-in rules detect suspicious multi-step patterns:
+Six built-in rules detect suspicious multi-step patterns:
 
 | Rule | Pattern | Catches |
 |------|---------|---------|
 | `web_taint_sensitive_probe` | Untrusted taint → sensitive file read or shell exec | Prompt injection → credential theft |
 | `denied_capability_then_escalation` | Denied capability → request for riskier capability | Automated privilege escalation |
 | `sensitive_read_then_egress` | Sensitive file read → outbound POST/PUT/PATCH | Data exfiltration sequences |
+| `tainted_database_write` | Untrusted taint → database write/exec/mutate | Tainted SQL injection |
+| `tainted_shell_with_data` | Untrusted taint → shell exec with long command string | Data piping via shell args |
+| `secret_access_then_any_egress` | Secret/credential resource access → any egress | Credential theft sequences |
 
 Rules operate on a sliding window (last 20 events) and quarantine the run immediately on match.
 
@@ -289,6 +294,7 @@ From the repo root, use `pnpm ari <command>`. If installed globally (`npm instal
 | `arikernel trace [runId]` | Display security execution trace |
 | `arikernel replay [runId]` | Replay a recorded session step by step |
 | `arikernel replay-trace <file>` | Replay a JSON trace file through the kernel |
+| `arikernel sidecar` | Start sidecar proxy on port 8787 |
 | `arikernel init` | Interactive project setup |
 | `arikernel policy <file>` | Validate a policy YAML file |
 
@@ -310,6 +316,9 @@ pnpm demo:attack              # 4-stage prompt injection attack, all blocked
 pnpm demo:run-state           # threshold-based quarantine
 pnpm demo:replay              # deterministic attack replay
 
+# Deterministic replay via CLI
+pnpm ari replay-trace examples/demo-real-agent/trace.json --verbose
+
 # Framework integrations
 pnpm demo:langchain           # LangChain integration
 pnpm demo:openai              # OpenAI-style tool calling
@@ -323,7 +332,43 @@ pnpm demo:python:quarantine   # behavioral quarantine in Python
 
 # Tests
 pnpm test                     # all TypeScript tests
+pnpm test:live                # live integration tests (requires OPENAI_API_KEY)
 ```
+
+---
+
+## Sidecar Mode
+
+Ari Kernel can run as a standalone HTTP proxy that enforces policy before any tool executes. The agent sends `POST /execute` requests; the sidecar evaluates capability tokens, taint, policy rules, and behavioral patterns, then returns the result or a denial.
+
+```bash
+arikernel sidecar --policy ./arikernel.policy.yaml --port 8787
+```
+
+The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state.
+
+See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
+
+---
+
+## Deterministic Replay
+
+Record any run as a JSON trace, then replay it through a fresh kernel to verify every security decision is reproducible.
+
+```bash
+# Record a trace during a demo
+pnpm demo:replay
+
+# Replay it
+pnpm ari replay-trace demo-trace.json --verbose
+
+# What-if: replay with a different preset
+pnpm ari replay-trace demo-trace.json --preset workspace-assistant
+```
+
+Replay verifies security decisions only — external side effects (HTTP requests, file I/O) are stubbed. This makes replay safe, fast, and deterministic.
+
+See [Deterministic Replay](docs/replay.md) for details.
 
 ---
 
@@ -332,7 +377,6 @@ pnpm test                     # all TypeScript tests
 - **Early-stage project** — core enforcement model is stable, but the API surface may evolve
 - **In-memory token store** — capability tokens are not persisted across process restarts
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
-- **Sidecar is experimental** — functional and tested, not yet hardened for production
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
 
@@ -347,15 +391,15 @@ AriKernel/
 │   ├── policy-engine/            # YAML policy loading, rule evaluation
 │   ├── taint-tracker/            # Taint label attach, propagate, query
 │   ├── audit-log/                # SQLite store, SHA-256 hash chain, replay
-│   ├── tool-executors/           # HTTP, file, shell, database executors
+│   ├── tool-executors/           # HTTP, file, shell, database, retrieval executors
 │   ├── runtime/                  # Kernel, pipeline, capability issuer, behavioral rules
-│   ├── adapters/                 # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI)
+│   ├── adapters/                 # Framework adapters (OpenAI, LangChain, CrewAI, Vercel AI, etc.)
 │   ├── mcp-adapter/              # MCP tool integration
 │   ├── sidecar/                  # HTTP proxy enforcement server
 │   ├── attack-sim/               # Attack scenario runner
 │   └── benchmarks-agentdojo/     # AgentDojo-style attack benchmark harness
 ├── apps/
-│   └── cli/                      # CLI (simulate, trace, replay, init, policy)
+│   └── cli/                      # CLI (simulate, trace, replay, replay-trace, sidecar, init, policy)
 ├── python/                       # Native Python runtime
 ├── policies/                     # YAML policy files
 ├── examples/                     # Runnable demos
@@ -375,6 +419,7 @@ AriKernel/
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
 - [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
 - [Sidecar Mode](docs/sidecar-mode.md) — language-agnostic HTTP enforcement proxy
+- [Execution Hardening](docs/execution-hardening.md) — OS and container-level security recommendations
 
 ---
 

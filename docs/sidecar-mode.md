@@ -105,7 +105,7 @@ It cannot modify policy, reset quarantine, or bypass capability checks.
 | `toolClass` | string | yes | One of: `http`, `file`, `shell`, `database`, `retrieval` |
 | `action` | string | yes | Tool-specific action (`GET`, `POST`, `read`, `write`, `exec`, `query`, …) |
 | `params` | object | yes | Tool-specific parameters (passed to the executor) |
-| `taint` | string[] | no | Upstream taint labels to attach to this call |
+| `taint` | TaintLabel[] | no | Upstream taint labels to attach to this call (objects with `source`, `origin`, `confidence`, `addedAt`) |
 
 HTTP status codes:
 - `200` — call allowed and executed successfully

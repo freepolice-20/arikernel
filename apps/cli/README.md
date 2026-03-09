@@ -44,11 +44,27 @@ pnpm ari --help
 | `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
 | `arikernel trace [runId]` | Display security execution trace from audit log |
 | `arikernel replay [runId]` | Replay a recorded session step by step |
+| `arikernel replay-trace <file>` | Replay a JSON trace file through a fresh kernel |
+| `arikernel sidecar` | Start sidecar proxy (default port 8787) |
 | `arikernel run` | Start the firewall in run mode |
 | `arikernel policy <file>` | Validate a policy YAML file |
 | `arikernel init` | Generate a starter `arikernel.policy.yaml` |
 
 All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
+
+### Sidecar options
+
+```bash
+arikernel sidecar --policy ./arikernel.policy.yaml --port 8787 --audit-log ./sidecar-audit.db
+```
+
+### Replay-trace options
+
+```bash
+arikernel replay-trace ./trace.json --verbose
+arikernel replay-trace ./trace.json --preset workspace-assistant  # what-if analysis
+arikernel replay-trace ./trace.json --json                        # machine-readable output
+```
 
 > **Tip:** If `--latest` picks a stale run, delete `arikernel-audit.db` and re-simulate.
 
@@ -68,10 +84,9 @@ arikernel --help
 ## Publish checklist
 
 1. Ensure you are logged in to npm: `npm whoami`
-2. Ensure the `arikernel` package name is available: `npm view arikernel` (should 404)
-3. Build all packages from the repo root: `pnpm build`
-4. Run tests: `pnpm test`
-5. Publish workspace packages in dependency order:
+2. Build all packages from the repo root: `pnpm build`
+3. Run tests: `pnpm test`
+4. Publish workspace packages in dependency order:
    ```bash
    pnpm --filter @arikernel/core publish --no-git-checks
    pnpm --filter @arikernel/taint-tracker publish --no-git-checks
@@ -80,14 +95,17 @@ arikernel --help
    pnpm --filter @arikernel/audit-log publish --no-git-checks
    pnpm --filter @arikernel/runtime publish --no-git-checks
    pnpm --filter @arikernel/attack-sim publish --no-git-checks
+   pnpm --filter @arikernel/adapters publish --no-git-checks
+   pnpm --filter @arikernel/mcp-adapter publish --no-git-checks
+   pnpm --filter @arikernel/sidecar publish --no-git-checks
    ```
-6. Publish the CLI last:
+5. Publish the CLI last:
    ```bash
    pnpm --filter @arikernel/cli publish --no-git-checks
    ```
-7. Verify global install works:
+6. Verify global install works:
    ```bash
-   npm install -g arikernel
+   npm install -g @arikernel/cli
    arikernel --help
    ```
 

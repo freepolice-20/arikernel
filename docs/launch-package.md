@@ -38,7 +38,7 @@ Ari Kernel is a reference monitor that sits between the agent and its tools. Fiv
 
 1. **Short-lived capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority.
 2. **Provenance-aware enforcement** — data carries taint labels (web, rag, email). Untrusted provenance blocks sensitive operations at the issuance layer.
-3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns. Three built-in rules detect prompt-injection-to-exfiltration sequences.
+3. **Behavioral sequence detection** — a recent-event window tracks multi-step patterns. Six built-in rules detect prompt-injection-to-exfiltration sequences, privilege escalation, tainted database writes, and credential theft.
 4. **Run-level behavioral quarantine** — when a rule matches, the run enters restricted mode. Only read-only actions pass for the rest of the session.
 5. **Tamper-evident audit evidence** — SHA-256 hash-chained event store. Quarantine events are first-class audit records.
 
@@ -64,9 +64,9 @@ Every event, every decision, every quarantine trigger — cryptographically chai
 
 ### Post 4: Roadmap and Limitations
 
-This is an MVP. Known limitations: in-memory token store, single-process embedded mode, advisory taint labels. The roadmap includes persistent tokens, proxy/sidecar mode for mandatory enforcement, encrypted audit logs, and a hosted control plane.
+Known limitations: in-memory token store, single-process embedded mode, advisory taint labels. Sidecar mode is implemented for mandatory enforcement with process isolation. The roadmap includes persistent tokens, TLS for the sidecar, and encrypted audit logs.
 
-But the core thesis is stable: AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
+The core thesis: AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
 
 ---
 
@@ -123,7 +123,7 @@ pnpm demo:run-state
 # Prompt injection attack — 4-stage attack blocked by 4 defense layers
 pnpm demo:attack
 
-# All tests (includes 21 behavioral rule tests)
+# All tests
 pnpm test
 ```
 
@@ -137,7 +137,7 @@ In embedded mode, yes — for the threat model it targets. The LLM cannot modify
 
 **Can the agent bypass the kernel in embedded mode?**
 
-The LLM cannot. It can only call functions the framework exposes, and those functions route through the kernel. However, if the agent *framework code* is modified to bypass the kernel (e.g., calling tools directly), enforcement is lost. This is cooperative enforcement. For mandatory enforcement with process isolation, sidecar mode is available (experimental).
+The LLM cannot. It can only call functions the framework exposes, and those functions route through the kernel. However, if the agent *framework code* is modified to bypass the kernel (e.g., calling tools directly), enforcement is lost. This is cooperative enforcement. For mandatory enforcement with process isolation, use sidecar mode.
 
 **Why not rely on prompt instructions or system prompts?**
 

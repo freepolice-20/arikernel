@@ -33,13 +33,13 @@ Auto-taint from HTTP and RAG executors is applied automatically. No manual label
 
 ## Behavioral Sequence Detection
 
-A **sliding event window** (last 20 events) tracks normalized security events across the run. Three built-in rules evaluate patterns in real time:
+A **sliding event window** (last 20 events) tracks normalized security events across the run. Six built-in rules evaluate patterns in real time:
 
 ### `web_taint_sensitive_probe`
 
-**Pattern**: `taint_observed(web)` → `sensitive_read_attempt`
+**Pattern**: `taint_observed(web/rag/email)` → `sensitive_read_attempt` / `shell exec` / `egress_attempt`
 
-**Detects**: Prompt injection causing an agent to read secrets after processing untrusted web content.
+**Detects**: Prompt injection causing an agent to access secrets or execute commands after processing untrusted content.
 
 ### `denied_capability_then_escalation`
 
@@ -52,6 +52,24 @@ A **sliding event window** (last 20 events) tracks normalized security events ac
 **Pattern**: `sensitive_read_attempt` → `egress_attempt`
 
 **Detects**: Data staging followed by exfiltration — reading credentials or secrets, then attempting an outbound HTTP write.
+
+### `tainted_database_write`
+
+**Pattern**: `taint_observed(web/rag/email)` → `database write/exec/mutate`
+
+**Detects**: Tainted data being written to a database — prevents SQL injection from untrusted input.
+
+### `tainted_shell_with_data`
+
+**Pattern**: `taint_observed(web/rag/email)` → `shell exec with long command string (>100 chars)`
+
+**Detects**: Data being piped or exfiltrated via shell command arguments after untrusted input.
+
+### `secret_access_then_any_egress`
+
+**Pattern**: `secret/credential resource access` → `any egress attempt`
+
+**Detects**: Credential theft — accessing secrets tables, vault endpoints, or credential files, followed by any outbound communication.
 
 Rules fire on the first match. The system does not wait for threshold counters.
 
