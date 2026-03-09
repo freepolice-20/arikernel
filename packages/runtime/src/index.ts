@@ -20,3 +20,19 @@ export { canonicalizePath, isPathAllowed } from './path-security.js';
 export { validateCommand } from './command-security.js';
 export { classifyScope } from './autoscope.js';
 export type { ScopeResult } from './autoscope.js';
+export { TraceRecorder, writeTrace, readTrace } from './trace-recorder.js';
+export { replayTrace } from './replay-engine.js';
+export type { ReplayEngineOptions } from './replay-engine.js';
+export {
+	TRACE_VERSION,
+	type ReplayTrace,
+	type TraceEvent,
+	type TraceDecision,
+	type TraceQuarantine,
+	type TraceOutcome,
+	type TraceMetadata,
+	type ReplayResult as TraceReplayResult,
+	type ReplayedEvent,
+	type ReplayMismatch,
+	type ReplaySummary,
+} from './trace-types.js';

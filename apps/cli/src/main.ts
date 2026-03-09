@@ -7,6 +7,7 @@ import { runAgent } from './commands/run.js';
 import { runSimulate } from './commands/simulate.js';
 import { runTrace } from './commands/trace.js';
 import { runSidecar } from './commands/sidecar.js';
+import { runReplayTrace } from './commands/replay-trace.js';
 import { DEFAULT_PORT } from '@arikernel/sidecar';
 
 const init = defineCommand({
@@ -85,9 +86,28 @@ const sidecar = defineCommand({
 	}),
 });
 
+const replayTrace = defineCommand({
+	meta: { name: 'replay-trace', description: 'Replay a JSON trace file through the kernel' },
+	args: {
+		tracePath: { type: 'positional', description: 'Path to the trace JSON file', required: true },
+		policy: { type: 'string', description: 'Policy file override for what-if analysis' },
+		preset: { type: 'string', description: 'Preset override for what-if analysis' },
+		json: { type: 'boolean', description: 'Output raw JSON summary', default: false },
+		verbose: { type: 'boolean', description: 'Show event-by-event comparison', default: false },
+		timeline: { type: 'boolean', description: 'Show attack timeline visualization', default: false },
+	},
+	run: ({ args }) => runReplayTrace(args.tracePath, {
+		policy: args.policy,
+		preset: args.preset,
+		json: args.json,
+		verbose: args.verbose,
+		timeline: args.timeline,
+	}),
+});
+
 const main = defineCommand({
 	meta: { name: 'arikernel', version: '0.2.2', description: 'Security runtime for AI agents' },
-	subCommands: { init, policy, replay, run, simulate, trace, sidecar },
+	subCommands: { init, policy, replay, 'replay-trace': replayTrace, run, simulate, trace, sidecar },
 });
 
 runMain(main);

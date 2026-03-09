@@ -20,7 +20,8 @@ Ari Kernel introduces runtime enforcement for AI agents by placing an **Agent Ru
 │  ├─ policy engine                 │
 │  ├─ behavioral sequence detection │
 │  ├─ run-level quarantine          │
-│  └─ tamper-evident audit log      │
+│  ├─ tamper-evident audit log      │
+│  └─ deterministic replay          │
 │                                   │
 │  allow / deny / quarantine        │
 └───────────────┬───────────────────┘
@@ -49,7 +50,7 @@ Prompt filters, system prompts, and output guardrails operate on text. They have
 
 ## What Ari Kernel Does
 
-Ari Kernel intercepts every tool call an AI agent makes and enforces security through five layers. The agent cannot bypass enforcement because all tool calls are routed through the kernel before anything executes.
+Ari Kernel intercepts every tool call an AI agent makes and enforces security through six layers. The agent cannot bypass enforcement because all tool calls are routed through the kernel before anything executes.
 
 **Capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority. A token for `file.read` does not grant `file.write`.
 
@@ -60,6 +61,8 @@ Ari Kernel intercepts every tool call an AI agent makes and enforces security th
 **Run-level quarantine** — when a behavioral rule matches or denial counters exceed a threshold, the session enters restricted mode. Only read-only actions pass for the remainder of the run. Immediate, irrecoverable containment.
 
 **Tamper-evident audit** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
+
+**Deterministic replay** — record any run as a JSON trace, then replay it through a fresh kernel to verify every security decision is reproducible. Swap policies for what-if analysis. No side effects are re-executed.
 
 ---
 
@@ -100,7 +103,8 @@ Without runtime enforcement, all steps execute and the SSH key is exfiltrated. W
 
 ### Forensics
 - SHA-256 hash-chained audit log with tamper detection
-- CLI tools for trace, replay, and step-by-step session review
+- Deterministic replay — record a run, replay it through a fresh kernel, verify every decision matches
+- What-if analysis — replay with different policies to see how decisions change
 - Quarantine events include trigger rule, matched pattern, and counters snapshot
 
 ---
@@ -139,6 +143,11 @@ pnpm install && pnpm build
 
 pnpm demo:behavioral                                      # behavioral quarantine demo
 pnpm ari replay --latest --verbose --db ./demo-audit.db    # replay the audit trail
+
+# Deterministic replay: record → inspect → replay
+pnpm demo:replay                                           # records trace + replays it
+cat demo-trace.json                                        # inspect the raw trace
+pnpm ari replay-trace demo-trace.json --verbose            # replay via CLI
 ```
 
 ### TypeScript
@@ -274,6 +283,7 @@ From the repo root, use `pnpm ari <command>`. If installed globally (`npm instal
 | `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
 | `arikernel trace [runId]` | Display security execution trace |
 | `arikernel replay [runId]` | Replay a recorded session step by step |
+| `arikernel replay-trace <file>` | Replay a JSON trace file through the kernel |
 | `arikernel init` | Interactive project setup |
 | `arikernel policy <file>` | Validate a policy YAML file |
 
@@ -286,10 +296,14 @@ All forensic commands default to `./arikernel-audit.db`. Override with `--db <pa
 Every command below works from the repo root after `pnpm install && pnpm build`:
 
 ```bash
+# Real agent demo (requires OPENAI_API_KEY)
+pnpm demo:real-agent          # LLM agent vs. prompt injection, quarantine + replay
+
 # Core demos
 pnpm demo:behavioral          # behavioral quarantine (web taint → sensitive read)
 pnpm demo:attack              # 4-stage prompt injection attack, all blocked
 pnpm demo:run-state           # threshold-based quarantine
+pnpm demo:replay              # deterministic attack replay
 
 # Framework integrations
 pnpm demo:langchain           # LangChain integration
@@ -315,6 +329,7 @@ pnpm test                     # all TypeScript tests
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
 - **Sidecar is experimental** — functional and tested, not yet hardened for production
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
+- **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
 
 ---
 
@@ -353,6 +368,7 @@ AriKernel/
 - [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
 - [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 5-scenario reproducible attack harness
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
+- [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
 - [Sidecar Mode](docs/sidecar-mode.md) — language-agnostic HTTP enforcement proxy
 
 ---
