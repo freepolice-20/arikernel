@@ -60,8 +60,12 @@ Rules fire on the first match. The system does not wait for threshold counters.
 When a behavioral rule matches — or when denial counters exceed a configurable threshold — the run enters **restricted mode**.
 
 In restricted mode:
-- Only read-only safe actions are allowed (`http.get`, `file.read`, `database.query`)
-- Write, execute, and escalation attempts are denied for the remainder of the session
+- Read-only actions are allowed: `file.read`, `database.query`, `http.get`, `http.head`
+- HTTP GET/HEAD are treated as **ingress** (content fetch) and allowed for continued read-only operation
+- Suspicious GET exfiltration (oversized query strings, large parameter values) is detected and blocked separately
+- True egress methods (`http.post`, `http.put`, `http.patch`, `http.delete`) are blocked
+- Write, execute, and shell attempts are denied for the remainder of the session
+- The action that triggers quarantine is itself denied (no first-hit exfiltration)
 - Quarantine is immediate and irrecoverable within the run
 
 The design principle is containment: a compromised agent session should be isolated, not rehabilitated.
@@ -72,6 +76,23 @@ Quarantine produces a `QuarantineInfo` record containing:
 - Human-readable reason
 - Counters snapshot at time of quarantine
 - Matched events that formed the pattern
+
+## Session-Level Taint
+
+Once an agent processes untrusted external data (web content, RAG retrieval, email), the run is marked as **persistently tainted**. This flag never resets within the run and can be used by policies and behavioral rules to make decisions based on the run's overall trust level.
+
+## SSRF Protection
+
+The HTTP executor validates all request destinations before connecting:
+
+- **DNS resolution**: hostnames are resolved to IP addresses before the request is made
+- **Private IP blocking**: requests to loopback (127.x), private (10.x, 172.16-31.x, 192.168.x), link-local (169.254.x), and IPv6 equivalents are blocked
+- **Redirect validation**: each redirect hop is validated against the same SSRF rules — a redirect from a public host to a private IP is blocked
+- **URL length limits**: URLs exceeding 2048 characters are rejected to prevent data exfiltration via oversized query strings
+
+## Symlink Protection
+
+File path allowlists use `realpathSync()` to resolve symlinks before comparison (CWE-59 mitigation). A symlink at `./data/link → /etc/shadow` will be resolved to `/etc/shadow` and correctly blocked by the path allowlist, even if `./data/**` is permitted.
 
 ## Tamper-Evident Audit
 
@@ -85,6 +106,16 @@ arikernel replay --latest    # replay and verify the hash chain
 ```
 
 Quarantine events are first-class audit records with structured metadata. The audit trail answers not just "what happened" but "why the system responded this way."
+
+### Hash Chain Limitations
+
+The hash chain provides **local tamper evidence** — it detects modifications to an existing log after the fact. It does **not** provide:
+
+- **Completeness guarantee**: if the entire database is replaced, there is no external anchor to detect the swap. For production deployments, forward audit events to an external SIEM or append-only log store.
+- **Integrity under host compromise**: if an attacker has write access to the SQLite database and the application, they can recompute valid hashes. The hash chain deters casual tampering, not a sophisticated attacker with full host access.
+- **Non-repudiation**: events are not cryptographically signed with a private key. The chain proves internal consistency, not authorship.
+
+For high-assurance deployments, we recommend streaming audit events to an external append-only store (e.g., AWS CloudTrail, a SIEM, or an immutable log service) in addition to the local hash-chained store.
 
 ## What Ari Kernel Does NOT Do
 

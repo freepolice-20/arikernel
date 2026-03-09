@@ -22,7 +22,7 @@ import type { FirewallHooks } from './hooks.js';
 import { isPathAllowed } from './path-security.js';
 import { validateCommand } from './command-security.js';
 import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
-import type { RunStateTracker } from './run-state.js';
+import { isSuspiciousGetExfil, type RunStateTracker } from './run-state.js';
 import type { TokenStore } from './token-store.js';
 
 /**
@@ -79,12 +79,21 @@ export class Pipeline {
 
 		// Step 1.5a: Run-state restriction — if the run is quarantined, only safe read-only actions pass
 		if (this.runState?.restricted) {
-			if (!this.runState.isAllowedInRestrictedMode(toolCall.toolClass, toolCall.action)) {
+			const isSafeAction = this.runState.isAllowedInRestrictedMode(toolCall.toolClass, toolCall.action);
+
+			// Even safe GET/HEAD is blocked if the URL carries suspicious exfil patterns
+			const isGetExfil = isSafeAction && toolCall.toolClass === 'http' &&
+				isSuspiciousGetExfil(String(toolCall.parameters.url ?? ''));
+
+			if (!isSafeAction || isGetExfil) {
+				const reason = isGetExfil
+					? `Suspicious data exfiltration via GET query parameters blocked in restricted mode. '${toolCall.toolClass}.${toolCall.action}' denied.`
+					: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
+						`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
 				const decision: Decision = {
 					verdict: 'deny',
 					matchedRule: null,
-					reason: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
-						`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`,
+					reason,
 					taintLabels: toolCall.taintLabels,
 					timestamp: now(),
 				};
@@ -96,8 +105,11 @@ export class Pipeline {
 
 		// Step 1.5b: Track run-state signals and push security events
 		if (this.runState) {
-			// Track taint from the tool call
+			// Track taint from the tool call — mark run as persistently tainted
 			if (toolCall.taintLabels.length > 0) {
+				for (const label of toolCall.taintLabels) {
+					this.runState.markTainted(label.source);
+				}
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
 					type: 'taint_observed',
@@ -105,19 +117,32 @@ export class Pipeline {
 					action: toolCall.action,
 					taintSources: toolCall.taintLabels.map((t) => t.source),
 				});
-				this.checkBehavioralRules(toolCall);
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by tainted input');
+				}
 			}
 
-			if (toolCall.toolClass === 'http' && this.runState.isEgressAction(toolCall.action)) {
-				this.runState.recordEgressAttempt();
-				this.runState.pushEvent({
-					timestamp: toolCall.timestamp,
-					type: 'egress_attempt',
-					toolClass: toolCall.toolClass,
-					action: toolCall.action,
-					metadata: { url: toolCall.parameters.url },
-				});
-				this.checkBehavioralRules(toolCall);
+			if (toolCall.toolClass === 'http') {
+				const isWriteEgress = this.runState.isEgressAction(toolCall.action);
+				const isGetExfil = !isWriteEgress &&
+					(toolCall.action === 'get' || toolCall.action === 'head') &&
+					isSuspiciousGetExfil(String(toolCall.parameters.url ?? ''));
+
+				if (isWriteEgress || isGetExfil) {
+					this.runState.recordEgressAttempt();
+					this.runState.pushEvent({
+						timestamp: toolCall.timestamp,
+						type: 'egress_attempt',
+						toolClass: toolCall.toolClass,
+						action: toolCall.action,
+						metadata: { url: toolCall.parameters.url, getExfil: isGetExfil || undefined },
+					});
+					if (this.checkBehavioralRules(toolCall)) {
+						this.denyQuarantinedAction(toolCall, isGetExfil
+							? 'behavioral rule triggered by suspicious GET exfiltration'
+							: 'behavioral rule triggered by egress attempt');
+					}
+				}
 			}
 			if (toolCall.toolClass === 'file') {
 				const path = String(toolCall.parameters.path ?? '');
@@ -130,7 +155,9 @@ export class Pipeline {
 						action: toolCall.action,
 						metadata: { path },
 					});
-					this.checkBehavioralRules(toolCall);
+					if (this.checkBehavioralRules(toolCall)) {
+						this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by sensitive file access');
+					}
 				}
 			}
 		}
@@ -177,6 +204,8 @@ export class Pipeline {
 					action: toolCall.action,
 					verdict: 'deny',
 				});
+				// Behavioral rules may trigger quarantine here, but the action is
+				// already being denied by policy — no extra denial needed.
 				this.checkBehavioralRules(toolCall);
 			}
 			this.logEvent(toolCall, decision);
@@ -230,6 +259,9 @@ export class Pipeline {
 				action: toolCall.action,
 				verdict: 'allow',
 			});
+			// Post-execution quarantine check — result is already produced but
+			// future actions will be blocked. We don't deny the current result
+			// since it already executed, but quarantine is now active.
 			this.checkBehavioralRules(toolCall);
 		}
 
@@ -272,6 +304,25 @@ export class Pipeline {
 
 		// Consume one use from the lease
 		this.tokenStore!.consume(grantId);
+	}
+
+	/**
+	 * Deny the current action because a behavioral rule just triggered quarantine.
+	 * This prevents first-hit exfiltration where the triggering action itself would
+	 * otherwise proceed despite causing quarantine.
+	 */
+	private denyQuarantinedAction(toolCall: ToolCall, context: string): never {
+		const decision: Decision = {
+			verdict: 'deny',
+			matchedRule: null,
+			reason: `Action '${toolCall.toolClass}.${toolCall.action}' denied: ${context}. ` +
+				`Run has been quarantined.`,
+			taintLabels: toolCall.taintLabels,
+			timestamp: now(),
+		};
+		this.runState?.recordDeniedAction();
+		this.logEvent(toolCall, decision);
+		throw new ToolCallDeniedError(toolCall, decision);
 	}
 
 	private denyAndThrow(toolCall: ToolCall, reason: string): never {
@@ -330,10 +381,15 @@ export class Pipeline {
 		return null;
 	}
 
-	private checkBehavioralRules(toolCall: ToolCall): void {
-		if (!this.runState?.behavioralRulesEnabled) return;
+	/**
+	 * Evaluate behavioral rules and apply quarantine if matched.
+	 * Returns true if quarantine was newly triggered — callers should
+	 * deny the current action to prevent first-hit exfiltration.
+	 */
+	private checkBehavioralRules(toolCall: ToolCall): boolean {
+		if (!this.runState?.behavioralRulesEnabled) return false;
 		const match = evaluateBehavioralRules(this.runState);
-		if (!match) return;
+		if (!match) return false;
 		const quarantine = applyBehavioralRule(this.runState, match);
 		if (quarantine) {
 			this.auditStore.appendSystemEvent(
@@ -348,7 +404,9 @@ export class Pipeline {
 					matchedEvents: quarantine.matchedEvents,
 				},
 			);
+			return true;
 		}
+		return false;
 	}
 
 	private logEvent(toolCall: ToolCall, decision: Decision, result?: ToolResult): AuditEvent {

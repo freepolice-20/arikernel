@@ -63,7 +63,15 @@ export interface QuarantineInfo {
 
 const MAX_EVENT_WINDOW = 20;
 
-/** Actions considered "safe read-only" that are still allowed in restricted mode. */
+/**
+ * Actions considered "safe read-only" that are still allowed in restricted mode.
+ *
+ * HTTP GET/HEAD are allowed for content ingress (fetching pages to read).
+ * Suspicious GET exfil patterns (large query strings, data-bearing params)
+ * are caught separately by isSuspiciousGetExfil() in the pipeline.
+ *
+ * True egress methods (POST/PUT/PATCH/DELETE) are always blocked in quarantine.
+ */
 const SAFE_READONLY_ACTIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
 	['http', new Set(['get', 'head', 'options'])],
 	['file', new Set(['read'])],
@@ -97,6 +105,8 @@ export class RunStateTracker {
 	private _restricted = false;
 	private _restrictedAt: string | null = null;
 	private _quarantineInfo: QuarantineInfo | null = null;
+	private _tainted = false;
+	private _taintSources: Set<string> = new Set();
 	private readonly threshold: number;
 	readonly behavioralRulesEnabled: boolean;
 
@@ -115,6 +125,25 @@ export class RunStateTracker {
 
 	get quarantineInfo(): QuarantineInfo | null {
 		return this._quarantineInfo;
+	}
+
+	/**
+	 * Whether the run has been tainted by untrusted external input.
+	 * Once set, this flag never resets — it persists for the entire run.
+	 */
+	get tainted(): boolean {
+		return this._tainted;
+	}
+
+	/** Set of taint source types observed during this run. */
+	get taintSources(): ReadonlySet<string> {
+		return this._taintSources;
+	}
+
+	/** Mark the run as tainted by an external source. Sticky — never resets. */
+	markTainted(source: string): void {
+		this._tainted = true;
+		this._taintSources.add(source);
 	}
 
 	/** Read-only view of recent events. */
@@ -182,7 +211,11 @@ export class RunStateTracker {
 		return SENSITIVE_PATH_PATTERNS.some((p) => p.test(path));
 	}
 
-	/** Check if an HTTP action is an egress (write) attempt. */
+	/**
+	 * Check if an HTTP action is a true egress (outbound write) attempt.
+	 * Only write methods are egress. GET/HEAD are ingress (content fetch).
+	 * Suspicious GET-based exfil is detected separately by isSuspiciousGetExfil().
+	 */
 	isEgressAction(action: string): boolean {
 		return ['post', 'put', 'patch', 'delete'].includes(action);
 	}
@@ -201,5 +234,45 @@ export class RunStateTracker {
 			};
 			this.pushEvent({ timestamp: ts, type: 'quarantine_entered', metadata: { triggerType: 'threshold' } });
 		}
+	}
+}
+
+// ── Suspicious GET exfil detection ────────────────────────────────
+
+/** Maximum query string length before a GET is flagged as suspicious exfil. */
+const MAX_SAFE_QUERY_LENGTH = 256;
+
+/** Maximum single query parameter value length. */
+const MAX_SAFE_PARAM_VALUE_LENGTH = 128;
+
+/**
+ * Detect GET/HEAD requests that appear to be exfiltrating data via query parameters.
+ *
+ * Heuristic checks:
+ * - Query string longer than 256 chars (data smuggling)
+ * - Any single query parameter value longer than 128 chars (encoded payload)
+ *
+ * This is intentionally simple — it catches obvious exfil patterns without
+ * becoming a full DLP engine. Normal page-fetch URLs pass through cleanly.
+ */
+export function isSuspiciousGetExfil(url: string): boolean {
+	try {
+		const parsed = new URL(url);
+		const query = parsed.search;
+
+		// No query string → definitely not exfil via query params
+		if (!query || query.length <= 1) return false;
+
+		// Long query strings suggest data smuggling
+		if (query.length > MAX_SAFE_QUERY_LENGTH) return true;
+
+		// Check individual parameter values for large payloads
+		for (const [, value] of parsed.searchParams) {
+			if (value.length > MAX_SAFE_PARAM_VALUE_LENGTH) return true;
+		}
+
+		return false;
+	} catch {
+		return false;
 	}
 }

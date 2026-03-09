@@ -67,11 +67,16 @@ describe('RunStateTracker unit', () => {
 		expect(tracker.restrictedAt).not.toBeNull();
 	});
 
-	it('identifies safe read-only actions', () => {
+	it('identifies safe read-only actions (GET/HEAD are ingress, POST is egress)', () => {
 		const tracker = new RunStateTracker();
+		// HTTP GET/HEAD are safe for content ingress (page fetching)
 		expect(tracker.isAllowedInRestrictedMode('http', 'get')).toBe(true);
 		expect(tracker.isAllowedInRestrictedMode('http', 'head')).toBe(true);
+		// HTTP write methods are blocked
 		expect(tracker.isAllowedInRestrictedMode('http', 'post')).toBe(false);
+		expect(tracker.isAllowedInRestrictedMode('http', 'put')).toBe(false);
+		expect(tracker.isAllowedInRestrictedMode('http', 'delete')).toBe(false);
+		// Local read-only actions are still safe
 		expect(tracker.isAllowedInRestrictedMode('file', 'read')).toBe(true);
 		expect(tracker.isAllowedInRestrictedMode('file', 'write')).toBe(false);
 		expect(tracker.isAllowedInRestrictedMode('shell', 'exec')).toBe(false);
@@ -86,11 +91,15 @@ describe('RunStateTracker unit', () => {
 		expect(tracker.isSensitivePath('./data/report.csv')).toBe(false);
 	});
 
-	it('tracks egress actions', () => {
+	it('tracks egress actions (only write methods are egress, GET/HEAD are ingress)', () => {
 		const tracker = new RunStateTracker();
 		expect(tracker.isEgressAction('post')).toBe(true);
 		expect(tracker.isEgressAction('put')).toBe(true);
+		expect(tracker.isEgressAction('patch')).toBe(true);
+		expect(tracker.isEgressAction('delete')).toBe(true);
+		// GET/HEAD are ingress — suspicious GET exfil is detected by isSuspiciousGetExfil()
 		expect(tracker.isEgressAction('get')).toBe(false);
+		expect(tracker.isEgressAction('head')).toBe(false);
 	});
 
 	it('tracks counters independently', () => {
@@ -175,7 +184,7 @@ describe('Run-state enforcement (integration)', () => {
 		).rejects.toThrow(/restricted mode/);
 	});
 
-	it('allows safe read-only actions in restricted mode', async () => {
+	it('allows normal GET ingress in restricted mode but blocks POST egress', async () => {
 		fw = makeFirewall(2);
 
 		// Force into restricted mode
@@ -193,17 +202,14 @@ describe('Run-state enforcement (integration)', () => {
 
 		expect(fw.isRestricted).toBe(true);
 
-		// HTTP GET should still work (read-only safe action)
+		// HTTP GET (ingress) capability should still be grantable in restricted mode
 		const httpGrant = fw.requestCapability('http.read');
 		expect(httpGrant.granted).toBe(true);
 
-		const result = await fw.execute({
-			toolClass: 'http',
-			action: 'get',
-			parameters: { url: 'https://httpbin.org/get' },
-			grantId: httpGrant.grant!.id,
-		});
-		expect(result.success).toBe(true);
+		// HTTP POST (egress) should be blocked
+		const writeGrant = fw.requestCapability('http.write');
+		expect(writeGrant.granted).toBe(false);
+		expect(writeGrant.reason).toContain('restricted mode');
 	});
 
 	it('blocks non-safe capability issuance in restricted mode', async () => {
@@ -234,7 +240,7 @@ describe('Run-state enforcement (integration)', () => {
 		expect(shellGrant.granted).toBe(false);
 		expect(shellGrant.reason).toContain('restricted mode');
 
-		// http.read issuance should still work
+		// http.read issuance should still work (GET/HEAD are safe ingress)
 		const readGrant = fw.requestCapability('http.read');
 		expect(readGrant.granted).toBe(true);
 	});

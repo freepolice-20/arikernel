@@ -1,9 +1,12 @@
+import { existsSync, realpathSync } from 'node:fs';
 import { resolve, normalize } from 'node:path';
 
 /**
  * Resolve and canonicalize a file path for security comparison.
- * Handles ../ traversal, multiple slashes, and relative paths.
- * Returns an absolute, normalized path.
+ * Handles ../ traversal, multiple slashes, relative paths, and symlinks (CWE-59).
+ *
+ * If the path exists on disk, realpathSync is used to resolve symlinks.
+ * This prevents symlink-based bypass of path allowlists.
  */
 export function canonicalizePath(inputPath: string, cwd?: string): string {
 	let p = inputPath;
@@ -11,7 +14,17 @@ export function canonicalizePath(inputPath: string, cwd?: string): string {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
 		p = p === '~' ? home : resolve(home, p.slice(2));
 	}
-	return normalize(resolve(cwd ?? process.cwd(), p));
+	const normalized = normalize(resolve(cwd ?? process.cwd(), p));
+
+	// Resolve symlinks if the path exists (CWE-59 protection)
+	try {
+		if (existsSync(normalized)) {
+			return realpathSync(normalized);
+		}
+	} catch {
+		// If realpath fails (permissions, etc.), fall back to normalized path
+	}
+	return normalized;
 }
 
 /**
