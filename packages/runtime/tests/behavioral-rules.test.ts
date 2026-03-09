@@ -262,3 +262,115 @@ describe('Event window management', () => {
 		expect(match!.ruleId).toBe('web_taint_sensitive_probe');
 	});
 });
+
+describe('Behavioral Rule 4: tainted_database_write', () => {
+	it('triggers when web taint is followed by database write', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'taint_observed', taintSources: ['web'] },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'exec' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match!.ruleId).toBe('tainted_database_write');
+	});
+
+	it('triggers for mutate action', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'taint_observed', taintSources: ['rag'] },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'mutate' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match!.ruleId).toBe('tainted_database_write');
+	});
+
+	it('does NOT trigger for database query (read-only)', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'taint_observed', taintSources: ['web'] },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'query' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).toBeNull();
+	});
+
+	it('does NOT trigger without taint', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'exec' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).toBeNull();
+	});
+});
+
+describe('Behavioral Rule 5: tainted_shell_with_data', () => {
+	it('rule 1 has priority over rule 5 when web taint + shell matches both', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'taint_observed', taintSources: ['web'] },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'shell', action: 'exec', metadata: { commandLength: 150 } },
+		]);
+		// Rule 1 catches taint→shell before rule 5 can fire
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match!.ruleId).toBe('web_taint_sensitive_probe');
+	});
+
+	it('does NOT trigger for non-web taint sources', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'taint_observed', taintSources: ['user-provided'] },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'shell', action: 'exec', metadata: { commandLength: 150 } },
+		]);
+		// user-provided doesn't trigger rules 1 or 5 (both require web/rag/email)
+		const match = evaluateBehavioralRules(state);
+		expect(match).toBeNull();
+	});
+});
+
+describe('Behavioral Rule 6: secret_access_then_any_egress', () => {
+	it('triggers when database query on secrets table is followed by egress', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'query', metadata: { query: 'SELECT * FROM credentials' } },
+			{ timestamp: ts(), type: 'egress_attempt', toolClass: 'http', action: 'post' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match!.ruleId).toBe('secret_access_then_any_egress');
+	});
+
+	it('triggers when vault URL access is followed by egress', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'http', action: 'get', metadata: { url: 'https://vault.internal/v1/secrets/data' } },
+			{ timestamp: ts(), type: 'egress_attempt', toolClass: 'http', action: 'post' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match!.ruleId).toBe('secret_access_then_any_egress');
+	});
+
+	it('does NOT trigger for normal database queries', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'query', metadata: { query: 'SELECT * FROM users' } },
+			{ timestamp: ts(), type: 'egress_attempt', toolClass: 'http', action: 'post' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).toBeNull();
+	});
+
+	it('does NOT trigger without egress', () => {
+		const state = new RunStateTracker();
+		pushEvents(state, [
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'database', action: 'query', metadata: { query: 'SELECT * FROM credentials' } },
+			{ timestamp: ts(), type: 'tool_call_allowed', toolClass: 'http', action: 'get' },
+		]);
+		const match = evaluateBehavioralRules(state);
+		expect(match).toBeNull();
+	});
+});

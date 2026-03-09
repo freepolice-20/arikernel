@@ -117,6 +117,14 @@ The hash chain provides **local tamper evidence** — it detects modifications t
 
 For high-assurance deployments, we recommend streaming audit events to an external append-only store (e.g., AWS CloudTrail, a SIEM, or an immutable log service) in addition to the local hash-chained store.
 
+## Output Filtering (DLP)
+
+AriKernel provides an `onOutputFilter` hook for scanning tool results before they reach the agent. The built-in `createSecretPatternFilter()` detects common secret patterns (AWS keys, private keys, GitHub tokens, Bearer tokens) and replaces them with `[REDACTED]`. Custom filters can be supplied for production DLP needs.
+
+## Execution Environment Hardening
+
+For OS and container-level hardening recommendations (network segmentation, filesystem isolation, secrets management, runtime monitoring), see [Execution Hardening](execution-hardening.md).
+
 ## What Ari Kernel Does NOT Do
 
 - **Prompt filtering** — it does not inspect model input/output text

@@ -12,6 +12,8 @@ export type {
 	SecurityEventType,
 } from './run-state.js';
 export { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
+export { createSecretPatternFilter } from './output-filter.js';
+export type { OutputFilterOptions } from './output-filter.js';
 export type { BehavioralRuleMatch } from './behavioral-rules.js';
 export { TokenStore } from './token-store.js';
 export { createKernel, getDefaultKernel, resetDefaultKernel } from './kernel.js';

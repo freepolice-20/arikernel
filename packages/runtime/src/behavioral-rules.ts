@@ -1,7 +1,7 @@
 /**
  * Behavioral sequence rules for run-state enforcement.
  *
- * Three explicit rules that detect suspicious multi-step patterns
+ * Six explicit rules that detect suspicious multi-step patterns
  * in the recent-event window and trigger immediate quarantine.
  * No DSL, no graph engine — just direct pattern matching.
  */
@@ -40,7 +40,10 @@ export function evaluateBehavioralRules(state: RunStateTracker): BehavioralRuleM
 	return (
 		checkWebTaintSensitiveProbe(events) ??
 		checkDeniedCapabilityThenEscalation(events) ??
-		checkSensitiveReadThenEgress(events)
+		checkSensitiveReadThenEgress(events) ??
+		checkTaintedDatabaseWrite(events) ??
+		checkTaintedShellWithData(events) ??
+		checkSecretAccessThenAnyEgress(events)
 	);
 }
 
@@ -146,6 +149,104 @@ function checkSensitiveReadThenEgress(events: readonly SecurityEvent[]): Behavio
 		ruleId: 'sensitive_read_then_egress',
 		reason: `Read of ${path} was followed by outbound ${egress.action ?? 'write'} attempt`,
 		matchedEvents: [sensitiveRead, egress],
+	};
+}
+
+// ── Rule 4: tainted_database_write ─────────────────────────────────
+//
+// If untrusted taint was observed, and the run then attempts a database
+// write/exec/mutate action → quarantine. Prevents tainted SQL injection.
+
+const DB_WRITE_ACTIONS = new Set(['exec', 'write', 'insert', 'update', 'delete', 'mutate']);
+
+function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+	const taintEvent = findRecent(events, (e) =>
+		e.type === 'taint_observed' &&
+		e.taintSources?.some((s) => s === 'web' || s === 'rag' || s === 'email') === true,
+	);
+	if (!taintEvent) return null;
+
+	const taintIdx = events.indexOf(taintEvent);
+
+	const dbWrite = findAfter(events, taintIdx, (e) =>
+		e.toolClass === 'database' && DB_WRITE_ACTIONS.has(e.action ?? ''),
+	);
+	if (!dbWrite) return null;
+
+	return {
+		ruleId: 'tainted_database_write',
+		reason: `Untrusted input was followed by database ${dbWrite.action} attempt`,
+		matchedEvents: [taintEvent, dbWrite],
+	};
+}
+
+// ── Rule 5: tainted_shell_with_data ────────────────────────────────
+//
+// If untrusted taint was observed, and the run then executes a shell
+// command with a long command string (suggesting data is being piped
+// or exfiltrated via command args) → quarantine.
+
+const SHELL_DATA_CMD_LENGTH = 100;
+
+function checkTaintedShellWithData(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+	const taintEvent = findRecent(events, (e) =>
+		e.type === 'taint_observed' &&
+		e.taintSources?.some((s) => s === 'web' || s === 'rag' || s === 'email') === true,
+	);
+	if (!taintEvent) return null;
+
+	const taintIdx = events.indexOf(taintEvent);
+
+	const shellWithData = findAfter(events, taintIdx, (e) => {
+		if (e.toolClass !== 'shell') return false;
+		const cmdLen = (e.metadata?.commandLength as number) ?? 0;
+		return cmdLen > SHELL_DATA_CMD_LENGTH;
+	});
+	if (!shellWithData) return null;
+
+	return {
+		ruleId: 'tainted_shell_with_data',
+		reason: `Untrusted input was followed by shell exec with long command (${(shellWithData.metadata?.commandLength as number) ?? '?'} chars)`,
+		matchedEvents: [taintEvent, shellWithData],
+	};
+}
+
+// ── Rule 6: secret_access_then_any_egress ──────────────────────────
+//
+// If the run accessed credentials/vault-like resources (via database
+// query to secrets tables or HTTP to vault endpoints), and then
+// attempts any egress → quarantine.
+
+const SECRETS_DB_PATTERNS = /secret|credential|password|token|vault|key_store/i;
+const SECRETS_URL_PATTERNS = /vault|secrets|credentials|\.well-known\/keys/i;
+
+function checkSecretAccessThenAnyEgress(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+	// Look for database queries or HTTP GETs that touched secrets-like resources
+	const secretAccess = findRecent(events, (e) => {
+		if (e.toolClass === 'database' && e.action === 'query') {
+			const query = (e.metadata?.query as string) ?? '';
+			return SECRETS_DB_PATTERNS.test(query);
+		}
+		if (e.toolClass === 'http' && (e.action === 'get' || e.action === 'head')) {
+			const url = (e.metadata?.url as string) ?? '';
+			return SECRETS_URL_PATTERNS.test(url);
+		}
+		return false;
+	});
+	if (!secretAccess) return null;
+
+	const accessIdx = events.indexOf(secretAccess);
+	const egress = findAfter(events, accessIdx, (e) => e.type === 'egress_attempt');
+	if (!egress) return null;
+
+	const resource = secretAccess.toolClass === 'database'
+		? `database query`
+		: `HTTP ${secretAccess.action} to ${(secretAccess.metadata?.url as string) ?? 'unknown'}`;
+
+	return {
+		ruleId: 'secret_access_then_any_egress',
+		reason: `${resource} accessing secrets was followed by ${egress.action ?? 'egress'} attempt`,
+		matchedEvents: [secretAccess, egress],
 	};
 }
 

@@ -160,6 +160,32 @@ export class Pipeline {
 					}
 				}
 			}
+			if (toolCall.toolClass === 'shell') {
+				const command = String(toolCall.parameters.command ?? '');
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: 'tool_call_allowed',
+					toolClass: 'shell',
+					action: toolCall.action,
+					metadata: { commandLength: command.length },
+				});
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by shell command');
+				}
+			}
+			if (toolCall.toolClass === 'database') {
+				const query = String(toolCall.parameters.query ?? '');
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: 'tool_call_allowed',
+					toolClass: 'database',
+					action: toolCall.action,
+					metadata: { query: query.slice(0, 200) },
+				});
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by database operation');
+				}
+			}
 		}
 
 		// Step 1.5c: Capability enforcement — protected tool calls REQUIRE a valid grant
@@ -241,7 +267,7 @@ export class Pipeline {
 			throw new ToolCallDeniedError(toolCall, noExecDecision);
 		}
 
-		const result = await executor.execute(toolCall);
+		let result = await executor.execute(toolCall);
 
 		// Step 6: Propagate taint — merge executor auto-taints with propagated input taints
 		const autoTaints = result.taintLabels;
@@ -249,6 +275,11 @@ export class Pipeline {
 		result.taintLabels = this.taintTracker.merge(autoTaints, propagated);
 
 		this.hooks.onExecute?.(toolCall, result);
+
+		// Step 6.3: Output filtering (DLP hook)
+		if (this.hooks.onOutputFilter) {
+			result = await this.hooks.onOutputFilter(toolCall, result);
+		}
 
 		// Step 6.5: Push tool_call_allowed event for behavioral tracking
 		if (this.runState) {

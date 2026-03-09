@@ -37,6 +37,22 @@ function inferTaintLabels(args: Record<string, unknown>): TaintLabel[] {
 }
 
 /**
+ * Merge two taint label arrays, deduplicating by source+origin.
+ */
+function mergeTaintLabels(a: TaintLabel[], b: TaintLabel[]): TaintLabel[] {
+	const seen = new Set<string>();
+	const merged: TaintLabel[] = [];
+	for (const label of [...a, ...b]) {
+		const key = `${label.source}:${label.origin}`;
+		if (!seen.has(key)) {
+			seen.add(key);
+			merged.push(label);
+		}
+	}
+	return merged;
+}
+
+/**
  * Dispatches AriKernel tool calls with toolClass='mcp' to registered MCPTools.
  * The `action` field maps to the tool name.
  */
@@ -77,7 +93,9 @@ export class McpDispatchExecutor implements ToolExecutor {
 
 		try {
 			const data = await tool.execute(toolCall.parameters);
-			const taintLabels = inferTaintLabels(toolCall.parameters);
+			const inferred = inferTaintLabels(toolCall.parameters);
+			// Merge caller's taint context with inferred taints — ensures cross-agent propagation
+			const taintLabels = mergeTaintLabels(toolCall.taintLabels, inferred);
 			return {
 				callId: toolCall.id,
 				success: true,
