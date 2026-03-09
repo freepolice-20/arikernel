@@ -38,6 +38,7 @@
     "demo:langchain": "tsx examples/langchain-arikernel.ts",
     "demo:mcp": "tsx examples/demo-mcp.ts",
     "demo:sidecar": "tsx examples/demo-sidecar.ts",
+    "demo:sidecar:security": "tsx examples/sidecar-security-demo/agent.ts",
     "demo:generic": "tsx examples/generic-wrapper/agent.ts",
     "demo:openai": "tsx examples/openai-tool-calling/agent.ts",
     "demo:crewai": "tsx examples/crewai-tool-protection/agent.ts",

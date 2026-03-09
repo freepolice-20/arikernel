@@ -66,6 +66,35 @@ Response (denied):
 }
 ```
 
+## Trust boundary
+
+The sidecar enforces a **process-level trust boundary**:
+
+```
+┌────────────────────┐       HTTP        ┌──────────────────────────┐
+│   Agent process    │  ──────────────►  │   Sidecar process        │
+│   (untrusted)      │  POST /execute    │   (trusted)              │
+│                    │  ◄──────────────  │                          │
+│   Has no access    │    JSON result    │   Owns: policy engine,   │
+│   to policy engine │                   │   run-state, taint graph,│
+│   or run-state     │                   │   audit DB, quarantine   │
+└────────────────────┘                   └──────────────────────────┘
+```
+
+The agent can only submit tool calls and read its enforcement state.
+It cannot modify policy, reset quarantine, or bypass capability checks.
+
+## Embedded vs sidecar: when to use which
+
+| Criterion | Embedded (`createKernel`) | Sidecar |
+|-----------|--------------------------|---------|
+| Latency | ~0ms (in-process) | ~1ms (localhost HTTP) |
+| Language | TypeScript/JavaScript only | Any language with HTTP |
+| Isolation | Agent can inspect internals | Policy state is opaque |
+| Quarantine bypass | Agent could theoretically tamper with in-process state | Agent has no way to reset quarantine |
+| Deployment | Single process | Two processes (or containers) |
+| Best for | Trusted first-party agents | Untrusted/third-party agents, polyglot environments |
+
 ## API reference
 
 ### `POST /execute`
@@ -83,6 +112,47 @@ HTTP status codes:
 - `400` — malformed request
 - `403` — call denied by policy or quarantine
 - `500` — internal error during execution
+
+### `POST /status`
+
+Returns the principal's enforcement state (quarantine, counters).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `principalId` | string | yes | Agent identifier (must already exist from a prior `/execute` call) |
+
+Response:
+```json
+{
+  "principalId": "my-agent",
+  "restricted": false,
+  "runId": "01JABCDE...",
+  "counters": {
+    "deniedActions": 3,
+    "capabilityRequests": 7,
+    "sensitiveFileReadAttempts": 1,
+    "externalEgressAttempts": 0
+  },
+  "quarantine": null
+}
+```
+
+When the principal is quarantined:
+```json
+{
+  "restricted": true,
+  "quarantine": {
+    "reason": "Exceeded denied action threshold (3)",
+    "triggerType": "denied_action_limit",
+    "timestamp": "2026-03-09T..."
+  }
+}
+```
+
+HTTP status codes:
+- `200` — status returned
+- `400` — missing or invalid `principalId`
+- `404` — unknown principal (no prior `/execute` call)
 
 ### `GET /health`
 
@@ -102,6 +172,11 @@ const result = await client.execute('http', 'GET', { url: 'https://api.example.c
 if (!result.allowed) {
   console.error('Denied:', result.error);
 }
+
+// Check enforcement state (quarantine, counters)
+const status = await client.status();
+console.log('Restricted:', status.restricted);
+console.log('Denied actions:', status.counters.deniedActions);
 ```
 
 ## Embedding the server
@@ -156,3 +231,14 @@ POST /execute
 
 If your policy denies tainted writes (`taintLabels: ['web:*']`), this call
 will be blocked with `allowed: false`.
+
+## Security examples
+
+Run the security demo to see prompt injection defense, quarantine escalation,
+and status introspection in action:
+
+```bash
+pnpm demo:sidecar:security
+```
+
+See [examples/sidecar-security-demo/agent.ts](../examples/sidecar-security-demo/agent.ts) for the full source.

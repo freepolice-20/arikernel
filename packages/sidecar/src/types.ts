@@ -25,6 +25,25 @@ export interface ExecuteResponse {
 	callId?: string;
 }
 
+export interface StatusResponse {
+	principalId: string;
+	restricted: boolean;
+	runId: string;
+	/** Denial and behavioral counters for this principal's run */
+	counters: {
+		deniedActions: number;
+		capabilityRequests: number;
+		sensitiveFileReadAttempts: number;
+		externalEgressAttempts: number;
+	};
+	/** Quarantine info if restricted */
+	quarantine?: {
+		reason: string;
+		triggerType: string;
+		timestamp: string;
+	};
+}
+
 export interface SidecarConfig {
 	/** TCP port to listen on. Default: 8787 */
 	port?: number;

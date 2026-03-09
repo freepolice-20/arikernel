@@ -32,6 +32,47 @@ const DENY_ALL_POLICY = [
 	},
 ];
 
+const REALISTIC_POLICY = [
+	{
+		id: 'allow-http-read',
+		name: 'Allow HTTP GET',
+		priority: 10,
+		match: { toolClass: 'http', action: 'GET' },
+		decision: 'allow' as const,
+	},
+	{
+		id: 'allow-file-read',
+		name: 'Allow file reads',
+		priority: 20,
+		match: { toolClass: 'file', action: 'read' },
+		decision: 'allow' as const,
+	},
+	{
+		id: 'deny-shell',
+		name: 'Deny shell',
+		priority: 30,
+		match: { toolClass: 'shell' },
+		decision: 'deny' as const,
+		reason: 'Shell execution is prohibited',
+	},
+	{
+		id: 'deny-default',
+		name: 'Default deny',
+		priority: 900,
+		match: {},
+		decision: 'deny' as const,
+		reason: 'Deny by default',
+	},
+];
+
+function post(port: number, path: string, body: unknown) {
+	return fetch(`http://localhost:${port}${path}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body),
+	});
+}
+
 // ── server lifecycle ──────────────────────────────────────────────────────────
 
 describe('SidecarServer lifecycle', () => {
@@ -66,7 +107,7 @@ describe('SidecarServer lifecycle', () => {
 	});
 });
 
-// ── execute endpoint ──────────────────────────────────────────────────────────
+// ── execute endpoint — validation ────────────────────────────────────────────
 
 describe('POST /execute — validation', () => {
 	let server: SidecarServer;
@@ -88,11 +129,7 @@ describe('POST /execute — validation', () => {
 	});
 
 	it('rejects missing principalId', async () => {
-		const res = await fetch('http://localhost:18788/execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ toolClass: 'http', action: 'GET', params: {} }),
-		});
+		const res = await post(18788, '/execute', { toolClass: 'http', action: 'GET', params: {} });
 		expect(res.status).toBe(400);
 		const body = await res.json() as { allowed: boolean; error: string };
 		expect(body.allowed).toBe(false);
@@ -100,22 +137,14 @@ describe('POST /execute — validation', () => {
 	});
 
 	it('rejects invalid toolClass', async () => {
-		const res = await fetch('http://localhost:18788/execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ principalId: 'agent-1', toolClass: 'invalid', action: 'GET', params: {} }),
-		});
+		const res = await post(18788, '/execute', { principalId: 'agent-1', toolClass: 'invalid', action: 'GET', params: {} });
 		expect(res.status).toBe(400);
 		const body = await res.json() as { allowed: boolean };
 		expect(body.allowed).toBe(false);
 	});
 
 	it('rejects non-object params', async () => {
-		const res = await fetch('http://localhost:18788/execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ principalId: 'agent-1', toolClass: 'http', action: 'GET', params: 'bad' }),
-		});
+		const res = await post(18788, '/execute', { principalId: 'agent-1', toolClass: 'http', action: 'GET', params: 'bad' });
 		expect(res.status).toBe(400);
 		const body = await res.json() as { allowed: boolean };
 		expect(body.allowed).toBe(false);
@@ -153,14 +182,142 @@ describe('POST /execute — policy enforcement', () => {
 	});
 
 	it('deny-all policy returns 403 with allowed=false', async () => {
-		const res = await fetch('http://localhost:18789/execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ principalId: 'agent-1', toolClass: 'http', action: 'GET', params: { url: 'http://example.com' } }),
+		const res = await post(18789, '/execute', {
+			principalId: 'agent-1', toolClass: 'http', action: 'GET',
+			params: { url: 'http://example.com' },
 		});
 		expect(res.status).toBe(403);
 		const body = await res.json() as { allowed: boolean };
 		expect(body.allowed).toBe(false);
+	});
+});
+
+// ── allowed execution path ───────────────────────────────────────────────────
+
+describe('POST /execute — allowed execution', () => {
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18792,
+			policy: REALISTIC_POLICY,
+			auditLog: join(dir, 'audit.db'),
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('allows file read and returns result with callId', async () => {
+		const res = await post(18792, '/execute', {
+			principalId: 'test-agent', toolClass: 'file', action: 'read',
+			params: { path: './package.json' },
+		});
+		expect(res.status).toBe(200);
+		const body = await res.json() as { allowed: boolean; callId: string };
+		expect(body.allowed).toBe(true);
+		expect(body.callId).toBeTruthy();
+	});
+
+	it('denies shell exec with 403', async () => {
+		const res = await post(18792, '/execute', {
+			principalId: 'test-agent', toolClass: 'shell', action: 'exec',
+			params: { command: 'whoami' },
+		});
+		expect(res.status).toBe(403);
+		const body = await res.json() as { allowed: boolean };
+		expect(body.allowed).toBe(false);
+	});
+});
+
+// ── quarantine / restricted mode ──────────────────────────────────────────────
+
+describe('quarantine via sidecar', () => {
+	let server: SidecarServer;
+	let client: SidecarClient;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18793,
+			policy: REALISTIC_POLICY,
+			auditLog: join(dir, 'audit.db'),
+			runStatePolicy: { maxDeniedSensitiveActions: 2 },
+		});
+		await server.listen();
+		client = new SidecarClient({ baseUrl: 'http://localhost:18793', principalId: 'quarantine-agent' });
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('enters restricted mode after repeated denied actions', async () => {
+		// Trigger denials to reach quarantine threshold
+		for (let i = 0; i < 3; i++) {
+			await client.execute('shell', 'exec', { command: `attempt-${i}` });
+		}
+
+		// Check status reflects quarantine
+		const status = await client.status();
+		expect(status.restricted).toBe(true);
+		expect(status.quarantine).toBeTruthy();
+		expect(status.counters.deniedActions).toBeGreaterThanOrEqual(2);
+	});
+});
+
+// ── status endpoint ──────────────────────────────────────────────────────────
+
+describe('POST /status', () => {
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18794,
+			policy: DENY_ALL_POLICY,
+			auditLog: join(dir, 'audit.db'),
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('returns 404 for unknown principal', async () => {
+		const res = await post(18794, '/status', { principalId: 'nobody' });
+		expect(res.status).toBe(404);
+	});
+
+	it('returns status for active principal', async () => {
+		// Create principal via an execute call — fully consume the response
+		await post(18794, '/execute', {
+			principalId: 'status-agent', toolClass: 'http', action: 'GET',
+			params: { url: 'http://example.com' },
+		});
+
+		const res = await post(18794, '/status', { principalId: 'status-agent' });
+		expect(res.status).toBe(200);
+		const body = await res.json() as { principalId: string; restricted: boolean; runId: string; counters: Record<string, number> };
+		expect(body.principalId).toBe('status-agent');
+		expect(body.restricted).toBe(false);
+		expect(body.runId).toBeTruthy();
+		expect(body.counters.deniedActions).toBeGreaterThanOrEqual(1);
+	});
+
+	it('rejects missing principalId', async () => {
+		const res = await post(18794, '/status', {});
+		expect(res.status).toBe(400);
 	});
 });
 
@@ -225,18 +382,58 @@ describe('per-principal isolation', () => {
 	});
 
 	it('two principals get independent firewall instances', async () => {
-		const post = (principalId: string) =>
-			fetch('http://localhost:18791/execute', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ principalId, toolClass: 'file', action: 'read', params: { path: '/tmp/x' } }),
-			}).then((r) => r.json());
-
-		const [r1, r2] = await Promise.all([post('agent-A'), post('agent-B')]);
-		// Both denied (deny-all) but each has its own callId prefix
+		const [r1, r2] = await Promise.all([
+			post(18791, '/execute', { principalId: 'agent-A', toolClass: 'file', action: 'read', params: { path: '/tmp/x' } }).then((r) => r.json()),
+			post(18791, '/execute', { principalId: 'agent-B', toolClass: 'file', action: 'read', params: { path: '/tmp/x' } }).then((r) => r.json()),
+		]);
 		expect((r1 as { allowed: boolean }).allowed).toBe(false);
 		expect((r2 as { allowed: boolean }).allowed).toBe(false);
-		// callIds should differ
 		expect((r1 as { callId?: string }).callId).not.toBe((r2 as { callId?: string }).callId);
+	});
+});
+
+// ── end-to-end trust boundary ─────────────────────────────────────────────────
+
+describe('end-to-end trust boundary', () => {
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18795,
+			policy: REALISTIC_POLICY,
+			auditLog: join(dir, 'audit.db'),
+			runStatePolicy: { maxDeniedSensitiveActions: 2 },
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('agent cannot bypass quarantine through process boundary', async () => {
+		const client = new SidecarClient({ baseUrl: 'http://localhost:18795', principalId: 'e2e-agent' });
+
+		// Step 1: File read works before quarantine
+		const r1 = await client.execute('file', 'read', { path: './package.json' });
+		expect(r1.allowed).toBe(true);
+
+		// Step 2: Trigger quarantine with repeated denied shell execs
+		for (let i = 0; i < 3; i++) {
+			await client.execute('shell', 'exec', { command: `bad-${i}` });
+		}
+
+		// Step 3: Quarantine is active
+		const status = await client.status();
+		expect(status.restricted).toBe(true);
+
+		// Step 4: Agent has no way to reset quarantine — state lives in sidecar.
+		// Creating a new client with same principalId still sees quarantine.
+		const client2 = new SidecarClient({ baseUrl: 'http://localhost:18795', principalId: 'e2e-agent' });
+		const status2 = await client2.status();
+		expect(status2.restricted).toBe(true);
 	});
 });

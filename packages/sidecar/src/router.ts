@@ -1,12 +1,25 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { PrincipalRegistry } from './registry.js';
-import type { ExecuteRequest, ExecuteResponse } from './types.js';
+import type { ExecuteRequest, ExecuteResponse, StatusResponse } from './types.js';
 import { TOOL_CLASSES, ToolCallDeniedError, ApprovalRequiredError } from '@arikernel/core';
+import type { CapabilityClass } from '@arikernel/core';
+
+/** Maximum request body size (1 MB). Prevents abuse from untrusted clients. */
+const MAX_BODY_BYTES = 1_048_576;
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		let body = '';
-		req.on('data', (chunk) => { body += chunk; });
+		let bytes = 0;
+		req.on('data', (chunk: Buffer | string) => {
+			bytes += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length;
+			if (bytes > MAX_BODY_BYTES) {
+				req.destroy();
+				reject(new Error('Request body too large'));
+				return;
+			}
+			body += chunk;
+		});
 		req.on('end', () => {
 			try { resolve(JSON.parse(body)); }
 			catch { reject(new Error('Invalid JSON body')); }
@@ -17,7 +30,11 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 
 function jsonResponse(res: ServerResponse, status: number, body: unknown): void {
 	const payload = JSON.stringify(body);
-	res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+	res.writeHead(status, {
+		'Content-Type': 'application/json',
+		'Content-Length': Buffer.byteLength(payload),
+		'Connection': 'close',
+	});
 	res.end(payload);
 }
 
@@ -50,6 +67,16 @@ function validateExecuteRequest(body: unknown): ExecuteRequest {
 	};
 }
 
+/**
+ * Derive a capability class from toolClass + action.
+ * Mirrors the logic in @arikernel/adapters adapter.ts.
+ */
+function deriveCapabilityClass(toolClass: string, action: string): CapabilityClass {
+	if (toolClass === 'shell') return 'shell.exec';
+	const readActions = ['get', 'read', 'query', 'list', 'search', 'fetch'];
+	return `${toolClass}.${readActions.includes(action) ? 'read' : 'write'}` as CapabilityClass;
+}
+
 export async function handleExecute(
 	req: IncomingMessage,
 	res: ServerResponse,
@@ -58,8 +85,10 @@ export async function handleExecute(
 	let body: unknown;
 	try {
 		body = await readBody(req);
-	} catch {
-		return jsonResponse(res, 400, { allowed: false, error: 'Invalid JSON body' });
+	} catch (e) {
+		const msg = (e as Error).message;
+		const status = msg === 'Request body too large' ? 413 : 400;
+		return jsonResponse(res, status, { allowed: false, error: msg });
 	}
 
 	let execReq: ExecuteRequest;
@@ -71,12 +100,20 @@ export async function handleExecute(
 
 	const firewall = registry.getOrCreate(execReq.principalId);
 
+	// Request a capability grant before executing — the pipeline requires a
+	// valid grantId for protected actions (Step 1.5c enforcement).
+	// Always route through firewall.execute() so the pipeline tracks denials
+	// in run-state counters (needed for quarantine thresholds).
+	const capClass = deriveCapabilityClass(execReq.toolClass, execReq.action);
+	const grant = firewall.requestCapability(capClass);
+
 	try {
 		const result = await firewall.execute({
 			toolClass: execReq.toolClass,
 			action: execReq.action,
 			parameters: execReq.params,
 			taintLabels: execReq.taint,
+			grantId: grant.granted ? grant.grant!.id : undefined,
 		});
 
 		const response: ExecuteResponse = {
@@ -99,6 +136,63 @@ export async function handleExecute(
 		}
 		return jsonResponse(res, 500, { allowed: false, error: (e as Error).message });
 	}
+}
+
+/**
+ * Handle POST /status — returns principal's quarantine state and run counters.
+ *
+ * This lets untrusted clients introspect their enforcement state without
+ * being able to modify it. The sidecar owns the state; clients can only read.
+ */
+export async function handleStatus(
+	req: IncomingMessage,
+	res: ServerResponse,
+	registry: PrincipalRegistry,
+): Promise<void> {
+	let body: unknown;
+	try {
+		body = await readBody(req);
+	} catch (e) {
+		const msg = (e as Error).message;
+		const status = msg === 'Request body too large' ? 413 : 400;
+		return jsonResponse(res, status, { error: msg });
+	}
+
+	if (!body || typeof body !== 'object') {
+		return jsonResponse(res, 400, { error: 'Request body must be a JSON object' });
+	}
+
+	const { principalId } = body as Record<string, unknown>;
+	if (typeof principalId !== 'string' || !principalId.trim()) {
+		return jsonResponse(res, 400, { error: 'principalId must be a non-empty string' });
+	}
+
+	if (!registry.has(principalId)) {
+		return jsonResponse(res, 404, { error: `Unknown principal: ${principalId}` });
+	}
+
+	const firewall = registry.getOrCreate(principalId);
+	const counters = firewall.runStateCounters;
+	const quarantine = firewall.quarantineInfo;
+
+	const response: StatusResponse = {
+		principalId,
+		restricted: firewall.isRestricted,
+		runId: firewall.runId,
+		counters: {
+			deniedActions: counters.deniedActions,
+			capabilityRequests: counters.capabilityRequests,
+			sensitiveFileReadAttempts: counters.sensitiveFileReadAttempts,
+			externalEgressAttempts: counters.externalEgressAttempts,
+		},
+		quarantine: quarantine ? {
+			reason: quarantine.reason,
+			triggerType: quarantine.triggerType,
+			timestamp: quarantine.timestamp,
+		} : undefined,
+	};
+
+	return jsonResponse(res, 200, response);
 }
 
 export function handleHealth(res: ServerResponse): void {

@@ -1,5 +1,5 @@
 import type { TaintLabel } from '@arikernel/core';
-import type { ExecuteRequest, ExecuteResponse } from './types.js';
+import type { ExecuteRequest, ExecuteResponse, StatusResponse } from './types.js';
 
 export interface SidecarClientOptions {
 	/** Base URL of the sidecar server. Default: http://localhost:8787 */
@@ -42,6 +42,16 @@ export class SidecarClient {
 		});
 
 		return res.json() as Promise<ExecuteResponse>;
+	}
+
+	/** Query this principal's enforcement state (quarantine, counters). */
+	async status(): Promise<StatusResponse> {
+		const res = await fetch(`${this.baseUrl}/status`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ principalId: this.principalId }),
+		});
+		return res.json() as Promise<StatusResponse>;
 	}
 
 	async health(): Promise<boolean> {

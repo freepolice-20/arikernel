@@ -58,6 +58,11 @@ export class PrincipalRegistry {
 		return firewall;
 	}
 
+	/** Check if a principal has an active firewall (without creating one). */
+	has(principalId: string): boolean {
+		return this.firewalls.has(principalId);
+	}
+
 	closeAll(): void {
 		for (const fw of this.firewalls.values()) {
 			try { fw.close(); } catch { /* ignore */ }

