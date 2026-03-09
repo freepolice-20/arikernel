@@ -203,10 +203,14 @@ pnpm ari replay --latest --verbose --db ./audit.db
 |-------------|---------|
 | Generic JS/TS wrapper | `protectTools()` |
 | OpenAI-style tool calling | `protectOpenAITools()` |
+| OpenAI Agents SDK | `protectAgentTools()` |
 | LangChain / LangGraph | `LangChainAdapter` |
+| LlamaIndex TS | `LlamaIndexAdapter` |
 | CrewAI | `CrewAIAdapter` |
 | Vercel AI SDK | `protectVercelTools()` |
 | MCP (Model Context Protocol) | `protectMCPTools()` |
+| Microsoft AutoGen (Python) | `protect_autogen_tool()` / `AutoGenToolWrapper` |
+| AutoGPT (Python) | `protect_autogpt_command()` / `AutoGPTCommandWrapper` |
 | Custom agent loop | Model-agnostic — works with any provider |
 
 Ari Kernel is model-agnostic. It protects tool execution, not the model. Works with OpenAI, Claude, Gemini, or any provider.

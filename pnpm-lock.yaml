@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@arikernel/adapters':
+        specifier: workspace:*
+        version: link:packages/adapters
       '@arikernel/audit-log':
         specifier: workspace:*
         version: link:packages/audit-log

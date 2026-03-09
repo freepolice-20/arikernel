@@ -44,6 +44,10 @@
     "demo:custom": "tsx examples/custom-agent-loop/agent.ts",
     "demo:real-agent": "tsx examples/demo-real-agent/agent.ts",
     "demo:security": "tsx examples/demo-security-hardening.ts",
+    "demo:openai-agents": "tsx examples/openai-agents-sdk/agent.ts",
+    "demo:llamaindex": "tsx examples/llamaindex-agent/agent.ts",
+    "demo:autogen": "python examples/autogen-agent.py",
+    "demo:autogpt": "python examples/autogpt-agent.py",
     "demo:python": "python examples/python-basic-agent.py",
     "demo:python:openai": "python examples/python-openai-tools.py",
     "demo:python:quarantine": "python examples/python-behavioral-quarantine.py",
@@ -51,6 +55,7 @@
     "benchmark:agentdojo": "npx tsx packages/benchmarks-agentdojo/src/index.ts"
   },
   "devDependencies": {
+    "@arikernel/adapters": "workspace:*",
     "@arikernel/audit-log": "workspace:*",
     "@arikernel/core": "workspace:*",
     "@arikernel/mcp-adapter": "workspace:*",

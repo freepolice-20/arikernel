@@ -28,13 +28,21 @@
     "./vercel-ai": {
       "types": "./dist/vercel-ai.d.ts",
       "import": "./dist/vercel-ai.js"
+    },
+    "./openai-agents": {
+      "types": "./dist/openai-agents.d.ts",
+      "import": "./dist/openai-agents.js"
+    },
+    "./llamaindex": {
+      "types": "./dist/llamaindex.d.ts",
+      "import": "./dist/llamaindex.js"
     }
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/langchain.ts src/openai.ts src/crewai.ts src/vercel-ai.ts --format esm --dts",
+    "build": "tsup src/index.ts src/langchain.ts src/openai.ts src/crewai.ts src/vercel-ai.ts src/openai-agents.ts src/llamaindex.ts --format esm --dts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
