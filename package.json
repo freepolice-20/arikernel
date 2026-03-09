@@ -43,6 +43,7 @@
     "demo:crewai": "tsx examples/crewai-tool-protection/agent.ts",
     "demo:custom": "tsx examples/custom-agent-loop/agent.ts",
     "demo:real-agent": "tsx examples/demo-real-agent/agent.ts",
+    "demo:security": "tsx examples/demo-security-hardening.ts",
     "demo:python": "python examples/python-basic-agent.py",
     "demo:python:openai": "python examples/python-openai-tools.py",
     "demo:python:quarantine": "python examples/python-behavioral-quarantine.py",
