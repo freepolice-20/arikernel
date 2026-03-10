@@ -22,6 +22,29 @@ const DEFAULT_MAX_CALLS = 10;
 
 const UNTRUSTED_SOURCES = ['web', 'rag', 'email', 'retrieved-doc'] as const;
 
+/**
+ * Intersect two optional string arrays using capability narrowing semantics.
+ *
+ * - Both undefined → undefined (no constraint)
+ * - One undefined → the other (the defined constraint applies)
+ * - Both defined → set intersection, with '*' acting as a wildcard that
+ *   permits all values from the opposing set.
+ */
+function intersectStringLists(
+	a: string[] | undefined,
+	b: string[] | undefined,
+): string[] | undefined {
+	if (a === undefined) return b;
+	if (b === undefined) return a;
+	// If base grants wildcard, request values are the constraint
+	if (b.includes('*')) return a;
+	// If request is wildcard, base values are the constraint
+	if (a.includes('*')) return b;
+	// Intersection: only values present in both
+	const bSet = new Set(b);
+	return a.filter((v) => bSet.has(v));
+}
+
 export class CapabilityIssuer {
 	constructor(
 		private readonly policyEngine: PolicyEngine,
@@ -167,15 +190,23 @@ export class CapabilityIssuer {
 		};
 	}
 
+	/**
+	 * Merge constraints using intersection semantics.
+	 *
+	 * When both requested and base define the same constraint field,
+	 * the result is the intersection (only values present in both).
+	 * This ensures grants can only narrow, never broaden, the base capability.
+	 * A wildcard '*' in the base permits all values from the request.
+	 */
 	private mergeConstraints(
 		requested: CapabilityConstraint,
 		base: Capability['constraints'] & {},
 	): CapabilityConstraint {
 		return {
-			allowedHosts: requested.allowedHosts ?? base.allowedHosts,
-			allowedPaths: requested.allowedPaths ?? base.allowedPaths,
-			allowedCommands: requested.allowedCommands ?? base.allowedCommands,
-			allowedDatabases: requested.allowedDatabases ?? base.allowedDatabases,
+			allowedHosts: intersectStringLists(requested.allowedHosts, base.allowedHosts),
+			allowedPaths: intersectStringLists(requested.allowedPaths, base.allowedPaths),
+			allowedCommands: intersectStringLists(requested.allowedCommands, base.allowedCommands),
+			allowedDatabases: intersectStringLists(requested.allowedDatabases, base.allowedDatabases),
 			parameters: requested.parameters,
 		};
 	}

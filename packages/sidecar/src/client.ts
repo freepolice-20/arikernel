@@ -6,6 +6,8 @@ export interface SidecarClientOptions {
 	baseUrl?: string;
 	/** principalId to use for all calls from this client instance */
 	principalId: string;
+	/** Bearer token for authentication (must match server's authToken) */
+	authToken?: string;
 }
 
 /**
@@ -15,10 +17,15 @@ export interface SidecarClientOptions {
 export class SidecarClient {
 	private readonly baseUrl: string;
 	private readonly principalId: string;
+	private readonly headers: Record<string, string>;
 
 	constructor(options: SidecarClientOptions) {
 		this.baseUrl = (options.baseUrl ?? 'http://localhost:8787').replace(/\/$/, '');
 		this.principalId = options.principalId;
+		this.headers = { 'Content-Type': 'application/json' };
+		if (options.authToken) {
+			this.headers['Authorization'] = `Bearer ${options.authToken}`;
+		}
 	}
 
 	async execute(
@@ -37,7 +44,7 @@ export class SidecarClient {
 
 		const res = await fetch(`${this.baseUrl}/execute`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: this.headers,
 			body: JSON.stringify(body),
 		});
 
@@ -48,7 +55,7 @@ export class SidecarClient {
 	async status(): Promise<StatusResponse> {
 		const res = await fetch(`${this.baseUrl}/status`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: this.headers,
 			body: JSON.stringify({ principalId: this.principalId }),
 		});
 		return res.json() as Promise<StatusResponse>;

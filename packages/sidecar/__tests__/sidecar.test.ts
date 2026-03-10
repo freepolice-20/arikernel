@@ -65,10 +65,10 @@ const REALISTIC_POLICY = [
 	},
 ];
 
-function post(port: number, path: string, body: unknown) {
+function post(port: number, path: string, body: unknown, headers?: Record<string, string>) {
 	return fetch(`http://localhost:${port}${path}`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', ...headers },
 		body: JSON.stringify(body),
 	});
 }
@@ -435,5 +435,85 @@ describe('end-to-end trust boundary', () => {
 		const client2 = new SidecarClient({ baseUrl: 'http://localhost:18795', principalId: 'e2e-agent' });
 		const status2 = await client2.status();
 		expect(status2.restricted).toBe(true);
+	});
+});
+
+// ── authentication ────────────────────────────────────────────────────────────
+
+describe('Bearer token authentication', () => {
+	const AUTH_TOKEN = 'test-secret-token-12345';
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18796,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, 'audit.db'),
+			authToken: AUTH_TOKEN,
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('health endpoint is always unauthenticated', async () => {
+		const res = await fetch('http://localhost:18796/health');
+		expect(res.status).toBe(200);
+	});
+
+	it('rejects /execute without auth header', async () => {
+		const res = await post(18796, '/execute', {
+			principalId: 'agent-1', toolClass: 'http', action: 'GET', params: {},
+		});
+		expect(res.status).toBe(401);
+		const body = await res.json() as { error: string };
+		expect(body.error).toContain('Authorization');
+	});
+
+	it('rejects /execute with wrong token', async () => {
+		const res = await post(18796, '/execute', {
+			principalId: 'agent-1', toolClass: 'http', action: 'GET', params: {},
+		}, { 'Authorization': 'Bearer wrong-token' });
+		expect(res.status).toBe(403);
+		const body = await res.json() as { error: string };
+		expect(body.error).toContain('Invalid');
+	});
+
+	it('accepts /execute with correct token', async () => {
+		const res = await post(18796, '/execute', {
+			principalId: 'agent-1', toolClass: 'http', action: 'GET',
+			params: { url: 'http://example.com' },
+		}, { 'Authorization': `Bearer ${AUTH_TOKEN}` });
+		expect(res.status).toBe(200);
+	});
+
+	it('rejects /status without auth header', async () => {
+		const res = await post(18796, '/status', { principalId: 'agent-1' });
+		expect(res.status).toBe(401);
+	});
+
+	it('SidecarClient works with authToken option', async () => {
+		const client = new SidecarClient({
+			baseUrl: 'http://localhost:18796',
+			principalId: 'auth-agent',
+			authToken: AUTH_TOKEN,
+		});
+		const result = await client.execute('http', 'GET', { url: 'http://example.com' });
+		expect(result.allowed).toBe(true);
+	});
+
+	it('SidecarClient without authToken gets rejected', async () => {
+		const client = new SidecarClient({
+			baseUrl: 'http://localhost:18796',
+			principalId: 'no-auth-agent',
+		});
+		const result = await client.execute('http', 'GET', { url: 'http://example.com' });
+		// Client gets 401 response parsed as JSON
+		expect(result).toHaveProperty('error');
 	});
 });

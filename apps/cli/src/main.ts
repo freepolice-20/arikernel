@@ -1,26 +1,44 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty';
 import { runInit } from './commands/init.js';
-import { runPolicyValidate } from './commands/policy.js';
+import { runPolicyValidate, runPolicyList, runPolicyShow } from './commands/policy.js';
 import { runReplay } from './commands/replay.js';
 import { runAgent } from './commands/run.js';
 import { runSimulate } from './commands/simulate.js';
 import { runTrace } from './commands/trace.js';
 import { runSidecar } from './commands/sidecar.js';
 import { runReplayTrace } from './commands/replay-trace.js';
-import { DEFAULT_PORT } from '@arikernel/sidecar';
+import { DEFAULT_PORT, DEFAULT_HOST } from '@arikernel/sidecar';
 
 const init = defineCommand({
 	meta: { name: 'init', description: 'Initialize arikernel config' },
 	run: () => runInit(),
 });
 
-const policy = defineCommand({
-	meta: { name: 'policy', description: 'Validate a policy file' },
+const policyValidate = defineCommand({
+	meta: { name: 'validate', description: 'Validate a policy file' },
 	args: {
 		file: { type: 'positional', description: 'Policy file path', required: true },
 	},
 	run: ({ args }) => runPolicyValidate(args.file),
+});
+
+const policyList = defineCommand({
+	meta: { name: 'list', description: 'List available security presets' },
+	run: () => runPolicyList(),
+});
+
+const policyShow = defineCommand({
+	meta: { name: 'show', description: 'Show details of a security preset' },
+	args: {
+		name: { type: 'positional', description: 'Preset name (e.g. safe, strict, research)', required: true },
+	},
+	run: ({ args }) => runPolicyShow(args.name),
+});
+
+const policy = defineCommand({
+	meta: { name: 'policy', description: 'Policy and preset management' },
+	subCommands: { validate: policyValidate, list: policyList, show: policyShow },
 });
 
 const replay = defineCommand({
@@ -77,12 +95,16 @@ const sidecar = defineCommand({
 	args: {
 		policy: { type: 'string', description: 'Policy file path', default: './arikernel.policy.yaml' },
 		port: { type: 'string', description: 'TCP port to listen on (default: 8787)', default: String(DEFAULT_PORT) },
+		host: { type: 'string', description: 'Host/IP to bind to (default: 127.0.0.1). Use 0.0.0.0 to expose on all interfaces.', default: DEFAULT_HOST },
 		auditLog: { type: 'string', description: 'Audit log path', default: './sidecar-audit.db' },
+		authToken: { type: 'string', description: 'Bearer token for authenticating requests' },
 	},
 	run: ({ args }) => runSidecar({
 		policy: args.policy,
 		port: Number(args.port),
+		host: args.host,
 		auditLog: args.auditLog,
+		authToken: args.authToken,
 	}),
 });
 

@@ -47,10 +47,21 @@ export interface StatusResponse {
 export interface SidecarConfig {
 	/** TCP port to listen on. Default: 8787 */
 	port?: number;
+	/**
+	 * Host/IP to bind to. Default: '127.0.0.1' (localhost only).
+	 * Set to '0.0.0.0' to listen on all interfaces (requires explicit opt-in).
+	 */
+	host?: string;
 	/** Path to policy file, or inline rules array. Required. */
 	policy: string | import('@arikernel/core').PolicyRule[];
 	/** Path for the audit SQLite database. Default: ./sidecar-audit.db */
 	auditLog?: string;
 	/** Run-state policy options */
 	runStatePolicy?: import('@arikernel/runtime').RunStatePolicy;
+	/**
+	 * Shared secret for authenticating requests. When set, all requests must
+	 * include an `Authorization: Bearer <token>` header matching this value.
+	 * Strongly recommended for any non-localhost deployment.
+	 */
+	authToken?: string;
 }

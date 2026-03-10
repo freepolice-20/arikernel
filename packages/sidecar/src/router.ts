@@ -74,7 +74,7 @@ function validateExecuteRequest(body: unknown): ExecuteRequest {
 function deriveCapabilityClass(toolClass: string, action: string): CapabilityClass {
 	if (toolClass === 'shell') return 'shell.exec';
 	const readActions = ['get', 'read', 'query', 'list', 'search', 'fetch'];
-	return `${toolClass}.${readActions.includes(action) ? 'read' : 'write'}` as CapabilityClass;
+	return `${toolClass}.${readActions.includes(action.toLowerCase()) ? 'read' : 'write'}` as CapabilityClass;
 }
 
 export async function handleExecute(
@@ -104,13 +104,15 @@ export async function handleExecute(
 	// valid grantId for protected actions (Step 1.5c enforcement).
 	// Always route through firewall.execute() so the pipeline tracks denials
 	// in run-state counters (needed for quarantine thresholds).
-	const capClass = deriveCapabilityClass(execReq.toolClass, execReq.action);
+	// Normalize action to lowercase — CAPABILITY_CLASS_MAP uses lowercase actions
+	const normalizedAction = execReq.action.toLowerCase();
+	const capClass = deriveCapabilityClass(execReq.toolClass, normalizedAction);
 	const grant = firewall.requestCapability(capClass);
 
 	try {
 		const result = await firewall.execute({
 			toolClass: execReq.toolClass,
-			action: execReq.action,
+			action: normalizedAction,
 			parameters: execReq.params,
 			taintLabels: execReq.taint,
 			grantId: grant.granted ? grant.grant!.id : undefined,
@@ -197,4 +199,47 @@ export async function handleStatus(
 
 export function handleHealth(res: ServerResponse): void {
 	jsonResponse(res, 200, { status: 'ok', service: 'arikernel-sidecar' });
+}
+
+/**
+ * Validate Bearer token authentication. Returns true if the request was
+ * rejected (caller should return early), false if authentication passed.
+ *
+ * Uses constant-time comparison to prevent timing attacks.
+ */
+export function rejectUnauthorized(
+	req: IncomingMessage,
+	res: ServerResponse,
+	expectedToken: string,
+): boolean {
+	const auth = req.headers.authorization;
+	if (!auth || !auth.startsWith('Bearer ')) {
+		jsonResponse(res, 401, { error: 'Missing or malformed Authorization header' });
+		return true;
+	}
+
+	const provided = auth.slice(7);
+	if (!timingSafeEqual(provided, expectedToken)) {
+		jsonResponse(res, 403, { error: 'Invalid authentication token' });
+		return true;
+	}
+
+	return false;
+}
+
+/** Constant-time string comparison to prevent timing side-channels. */
+function timingSafeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) {
+		// Compare against b anyway to avoid length-based timing leak
+		let result = a.length ^ b.length;
+		for (let i = 0; i < a.length; i++) {
+			result |= a.charCodeAt(i) ^ (b.charCodeAt(i % b.length) || 0);
+		}
+		return result === 0; // always false when lengths differ
+	}
+	let result = 0;
+	for (let i = 0; i < a.length; i++) {
+		result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return result === 0;
 }
