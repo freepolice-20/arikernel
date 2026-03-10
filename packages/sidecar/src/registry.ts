@@ -1,10 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Capability, PolicyRule, SigningKey } from "@arikernel/core";
+import type { AuditEvent, Capability, PolicyRule, SigningKey } from "@arikernel/core";
 import { getPreset, now } from "@arikernel/core";
 import type { PresetId } from "@arikernel/core";
 import { type Firewall, createFirewall } from "@arikernel/runtime";
-import type { RunStatePolicy, SecurityMode } from "@arikernel/runtime";
+import type { RunStatePolicy, SecurityMode, FirewallHooks } from "@arikernel/runtime";
 import {
 	type AlertHandler,
 	type CorrelatorConfig,
@@ -139,6 +139,43 @@ export class PrincipalRegistry {
 		const sanitized = principalId.replace(/[^a-zA-Z0-9_-]/g, "_");
 		const auditLog = join(this.auditDir, `${sanitized}.db`);
 
+		const sharedTaint = this.sharedTaint;
+		const correlator = this.correlator;
+
+		const hooks: FirewallHooks = {
+			onAudit: (event: AuditEvent) => {
+				// Feed audit events to the cross-principal correlator
+				correlator.ingest(event, principalId);
+
+				// Shared-store taint tracking:
+				const tc = event.toolCall;
+
+				// On shared-store writes: if this principal has read sensitive data,
+				// mark the shared resource as contaminated
+				const writeKey = sharedTaint.extractResourceKey(tc.toolClass, tc.action, tc.parameters);
+				if (writeKey && ["write", "insert", "update", "create"].includes(tc.action)) {
+					const fw = this.firewalls.get(principalId);
+					if (fw?.sensitiveReadObserved) {
+						sharedTaint.markContaminated(writeKey, principalId);
+					}
+				}
+
+				// On shared-store reads: if the resource is contaminated,
+				// inject derived-sensitive taint into the reading principal's firewall
+				const readKey = sharedTaint.extractResourceKey(tc.toolClass, tc.action, tc.parameters);
+				if (readKey && ["read", "query", "get", "select"].includes(tc.action)) {
+					const contamination = sharedTaint.getContamination(readKey);
+					if (contamination && contamination.principalId !== principalId) {
+						const fw = this.firewalls.get(principalId);
+						if (fw) {
+							const taintLabel = SharedTaintRegistry.createDerivedSensitiveTaint(contamination.principalId);
+							fw.injectExternalTaint([taintLabel]);
+						}
+					}
+				}
+			},
+		};
+
 		const firewall = createFirewall({
 			principal: {
 				name: principalId,
@@ -149,6 +186,7 @@ export class PrincipalRegistry {
 			runStatePolicy: this.runStatePolicy,
 			signingKey: this.signingKey,
 			securityMode: this.securityMode,
+			hooks,
 		});
 
 		attachExecutors(firewall);

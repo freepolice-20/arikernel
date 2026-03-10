@@ -1,4 +1,4 @@
-import type { CapabilityConstraint, TaintLabel } from "@arikernel/core";
+import { type CapabilityConstraint, type TaintLabel, deriveCapabilityClass } from "@arikernel/core";
 import type { ExecuteRequest, ExecuteResponse, RequestCapabilityResponse, StatusResponse } from "./types.js";
 
 export interface SidecarClientOptions {
@@ -82,7 +82,7 @@ export class SidecarClient {
 		taint?: TaintLabel[],
 	): Promise<ExecuteResponse> {
 		const cap = await this.requestCapability(
-			`${toolClass}.${action === "get" || action === "head" || action === "options" || action === "read" || action === "query" ? "read" : "write"}`,
+			deriveCapabilityClass(toolClass, action),
 		);
 		if (!cap.granted) {
 			return { allowed: false, error: cap.reason ?? "Capability denied" };

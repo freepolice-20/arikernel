@@ -202,27 +202,11 @@ export class Pipeline {
 				}
 			}
 			if (toolCall.toolClass === "shell") {
-				const command = String(toolCall.parameters.command ?? "");
-				this.runState.pushEvent({
-					timestamp: toolCall.timestamp,
-					type: "tool_call_allowed",
-					toolClass: "shell",
-					action: toolCall.action,
-					metadata: { commandLength: command.length },
-				});
 				if (this.checkBehavioralRules(toolCall)) {
 					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by shell command");
 				}
 			}
 			if (toolCall.toolClass === "database") {
-				const query = String(toolCall.parameters.query ?? "");
-				this.runState.pushEvent({
-					timestamp: toolCall.timestamp,
-					type: "tool_call_allowed",
-					toolClass: "database",
-					action: toolCall.action,
-					metadata: { query: query.slice(0, 200) },
-				});
 				if (this.checkBehavioralRules(toolCall)) {
 					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");
 				}
@@ -410,11 +394,6 @@ export class Pipeline {
 			if (!verification.valid) {
 				this.denyAndThrow(toolCall, `Token signature verification failed: ${verification.reason}`);
 			}
-		}
-
-		// Verify nonce hasn't been replayed (only for tokens with nonces)
-		if (grant.nonce && this.tokenStore?.checkAndRecordNonce(grant.nonce)) {
-			this.denyAndThrow(toolCall, `Nonce reuse detected for token '${grantId}' — possible replay attack`);
 		}
 
 		if (grant.principalId !== toolCall.principalId) {
