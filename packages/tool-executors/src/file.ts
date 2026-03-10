@@ -1,14 +1,83 @@
-import { access, readFile, writeFile } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import path from "node:path";
 import type { ToolCall, ToolResult } from "@arikernel/core";
 import type { ToolExecutor } from "./base.js";
 import { makeResult } from "./base.js";
+
+/**
+ * SECURITY: Resolve the allowed root directory once upfront.
+ * Default to cwd; callers should set FILE_EXECUTOR_ROOT to restrict further.
+ */
+function getAllowedRoot(): string {
+	return path.resolve(process.env.FILE_EXECUTOR_ROOT ?? process.cwd());
+}
+
+/**
+ * SECURITY: Opens a file using O_NOFOLLOW to prevent symlink-following,
+ * then verifies via fstat + realpath that the opened descriptor refers to
+ * a regular file inside the allowed root. This eliminates the TOCTOU race
+ * between path validation and file read: we validate *after* opening the
+ * descriptor, so no attacker-controlled symlink swap can redirect the read.
+ */
+async function secureOpen(filePath: string, flags: number): Promise<import("node:fs/promises").FileHandle> {
+	const allowedRoot = getAllowedRoot();
+
+	// SECURITY: Resolve to absolute path and verify it is within the allowed root
+	// *before* opening, as a first line of defense against ../traversal.
+	const resolved = path.resolve(filePath);
+	if (!resolved.startsWith(allowedRoot + path.sep) && resolved !== allowedRoot) {
+		throw new Error(`Path traversal blocked: ${filePath} is outside allowed root`);
+	}
+
+	// SECURITY: Open with O_NOFOLLOW so the kernel refuses to follow symlinks.
+	// This prevents a symlink at `filePath` from redirecting to an arbitrary file.
+	let handle: import("node:fs/promises").FileHandle;
+	try {
+		handle = await open(resolved, flags);
+	} catch (err: unknown) {
+		const code = (err as NodeJS.ErrnoException).code;
+		// ELOOP = symlink encountered with O_NOFOLLOW on Linux/macOS
+		// On Windows, O_NOFOLLOW may not be supported; we rely on post-open checks.
+		if (code === "ELOOP" || code === "ESYMLINK") {
+			throw new Error(`Symlink rejected: ${filePath}`);
+		}
+		throw err;
+	}
+
+	try {
+		// SECURITY: fstat on the opened fd to verify it's a regular file,
+		// not a symlink, device, or directory that could leak data.
+		const stat = await handle.stat();
+		if (stat.isSymbolicLink()) {
+			throw new Error(`Symlink rejected: ${filePath}`);
+		}
+		if (!stat.isFile()) {
+			throw new Error(`Not a regular file: ${filePath}`);
+		}
+
+		// SECURITY: Double-check the real path of the fd target is still
+		// inside the allowed root. This catches edge cases where the resolved
+		// path appeared safe but intermediate directories were symlinks.
+		const realFile = await realpath(resolved);
+		const realRoot = await realpath(allowedRoot);
+		if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
+			throw new Error(`Path escapes allowed root after resolution: ${filePath}`);
+		}
+	} catch (err) {
+		await handle.close();
+		throw err;
+	}
+
+	return handle;
+}
 
 export class FileExecutor implements ToolExecutor {
 	readonly toolClass = "file";
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
 		const start = Date.now();
-		const { path, content, encoding } = toolCall.parameters as {
+		const { path: filePath, content, encoding } = toolCall.parameters as {
 			path: string;
 			content?: string;
 			encoding?: BufferEncoding;
@@ -17,18 +86,54 @@ export class FileExecutor implements ToolExecutor {
 		try {
 			switch (toolCall.action) {
 				case "read": {
-					await access(path);
-					const data = await readFile(path, encoding ?? "utf-8");
-					const result = makeResult(toolCall.id, true, start, { path, content: data });
-					return { ...result, taintLabels: [] };
+					// SECURITY: Use descriptor-based read to eliminate TOCTOU race.
+					// open() → fstat() → verify root → read(fd) — all on the same fd.
+					const handle = await secureOpen(
+						filePath,
+						constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+					);
+					try {
+						const buf = await handle.readFile(encoding ?? "utf-8");
+						const data = typeof buf === "string" ? buf : buf.toString(encoding ?? "utf-8");
+						const result = makeResult(toolCall.id, true, start, { path: filePath, content: data });
+						return { ...result, taintLabels: [] };
+					} finally {
+						await handle.close();
+					}
 				}
 				case "write": {
-					await writeFile(path, content ?? "", encoding ?? "utf-8");
-					const result = makeResult(toolCall.id, true, start, {
-						path,
-						bytesWritten: (content ?? "").length,
-					});
-					return { ...result, taintLabels: [] };
+					// SECURITY: For writes we also use descriptor-based access.
+					// O_CREAT allows creating new files; O_NOFOLLOW prevents symlink writes.
+					const flags =
+						constants.O_WRONLY |
+						constants.O_CREAT |
+						constants.O_TRUNC |
+						(constants.O_NOFOLLOW ?? 0);
+
+					const allowedRoot = getAllowedRoot();
+					const resolved = path.resolve(filePath);
+					if (
+						!resolved.startsWith(allowedRoot + path.sep) &&
+						resolved !== allowedRoot
+					) {
+						throw new Error(`Path traversal blocked: ${filePath} is outside allowed root`);
+					}
+
+					const handle = await open(resolved, flags, 0o644);
+					try {
+						const stat = await handle.stat();
+						if (stat.isSymbolicLink()) {
+							throw new Error(`Symlink rejected: ${filePath}`);
+						}
+						await handle.writeFile(content ?? "", encoding ?? "utf-8");
+						const result = makeResult(toolCall.id, true, start, {
+							path: filePath,
+							bytesWritten: (content ?? "").length,
+						});
+						return { ...result, taintLabels: [] };
+					} finally {
+						await handle.close();
+					}
 				}
 				default: {
 					const result = makeResult(

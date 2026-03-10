@@ -12,6 +12,7 @@ import {
 	createHmac,
 	createPrivateKey,
 	createPublicKey,
+	randomBytes,
 	sign,
 	timingSafeEqual,
 	verify,
@@ -68,7 +69,16 @@ function canonicalPayload(grant: CapabilityGrant): string {
 			maxCalls: grant.lease.maxCalls,
 		},
 		taintContext: grant.taintContext,
+		nonce: grant.nonce,
 	});
+}
+
+/**
+ * Generate a cryptographically random nonce for replay protection.
+ * Returns a 32-byte hex string (256 bits of entropy).
+ */
+export function generateNonce(): string {
+	return randomBytes(32).toString("hex");
 }
 
 function signHmac(payload: string, secret: Buffer): string {

@@ -97,7 +97,7 @@ function createSimFirewall(policies: string | PolicyRule[]): Firewall {
 				{
 					toolClass: "http",
 					actions: ["get"],
-					constraints: { allowedHosts: ["api.github.com", "httpbin.org"] },
+					constraints: { allowedHosts: ["api.github.com", "httpbin.org", "malicious-site.com"] },
 				},
 				{
 					toolClass: "file",
@@ -123,12 +123,27 @@ function registerStubExecutors(fw: Firewall): void {
 	fw.registerExecutor({
 		toolClass: "http",
 		async execute(tc) {
+			// Produce web taint from URL hostname, matching real HTTP executor behavior.
+			const url = String(tc.parameters.url ?? "");
+			let hostname = url;
+			try {
+				hostname = new URL(url).hostname;
+			} catch {
+				/* use raw url as origin */
+			}
 			return {
 				callId: tc.id,
 				success: true,
-				data: { body: `response from ${tc.parameters.url}` },
+				data: { body: `response from ${url}` },
 				durationMs: 5,
-				taintLabels: [],
+				taintLabels: [
+					{
+						source: "web" as const,
+						origin: hostname,
+						confidence: 1.0,
+						addedAt: new Date().toISOString(),
+					},
+				],
 			};
 		},
 	});

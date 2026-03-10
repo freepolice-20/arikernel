@@ -26,7 +26,7 @@
  *   - blockedBy: 'behavioral_rule'
  */
 
-import { ToolCallDeniedError, now } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import type { ScenarioResult } from "../types.js";
 
@@ -110,18 +110,15 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 		auditLog: dbPath,
 	});
 
-	const webTaint = [
-		{ source: "web" as const, origin: "evil.com", confidence: 1.0, addedAt: now() },
-	];
-
 	try {
-		// Step 1: Fetch attacker-controlled web page → establishes web taint.
+		// Step 1: Fetch attacker-controlled web page — web taint auto-derived from executor output.
+		const httpGrant = fw.requestCapability("http.read");
 		try {
 			await fw.execute({
 				toolClass: "http",
 				action: "get",
 				parameters: { url: "https://evil.com/payload" },
-				taintLabels: webTaint,
+				grantId: httpGrant.grant?.id,
 			});
 			allowedCount++;
 		} catch {
@@ -129,8 +126,8 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 		}
 
 		// Step 2: Attempt database read with web-tainted context.
-		// Capability issuer denies database.read because of untrusted taint.
-		const dbCap = fw.requestCapability("database.read", { taintLabels: webTaint });
+		// Capability issuer denies database.read because run-state carries web taint.
+		const dbCap = fw.requestCapability("database.read");
 		if (!dbCap.granted) {
 			deniedCount++;
 			sensitiveReadPrevented = true;

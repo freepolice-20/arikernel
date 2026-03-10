@@ -1,6 +1,7 @@
 import type { Capability, PolicyRule, PresetId } from "@arikernel/core";
 import { DEFAULT_CAPABILITIES, DEFAULT_POLICIES, getPreset } from "@arikernel/core";
 import { type ScopeResult, classifyScope } from "./autoscope.js";
+import type { EnforcementMode, SidecarConnectionOptions } from "./config.js";
 import { Firewall } from "./firewall.js";
 import type { FirewallHooks } from "./hooks.js";
 import type { RunStatePolicy } from "./run-state.js";
@@ -22,6 +23,16 @@ export interface KernelOptions {
 	auditLog?: string;
 	hooks?: FirewallHooks;
 	runStatePolicy?: RunStatePolicy;
+	/**
+	 * Enforcement mode. Default: "embedded".
+	 *
+	 * In "sidecar" mode, all tool execution is delegated to the sidecar
+	 * HTTP server. The host process cannot execute tools directly.
+	 * Provide `sidecar` connection options when using this mode.
+	 */
+	mode?: EnforcementMode;
+	/** Sidecar connection config. Required when mode is "sidecar". */
+	sidecar?: SidecarConnectionOptions;
 }
 
 export interface Kernel {
@@ -198,6 +209,8 @@ export function createKernel(options: KernelOptions = {}): Kernel {
 		maxDeniedSensitiveActions: 10,
 		behavioralRules: true,
 	};
+	const mode = options.mode;
+	const sidecar = options.sidecar;
 	const isAutoScope = options.autoScope ?? false;
 
 	// Mutable state for AutoScope — starts with resolved config
@@ -235,6 +248,8 @@ export function createKernel(options: KernelOptions = {}): Kernel {
 				auditLog: overrides?.auditLog ?? auditLog,
 				hooks,
 				runStatePolicy,
+				mode,
+				sidecar,
 			});
 		},
 	};

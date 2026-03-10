@@ -19,7 +19,7 @@
  *   - blockedBy: 'behavioral_rule'
  */
 
-import { ToolCallDeniedError, now } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import type { ScenarioResult } from "../types.js";
 
@@ -83,14 +83,16 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 	});
 
 	try {
-		// Step 1: Fetch a web page. Simulate the result being web-tainted (attacker-controlled).
-		// The taintLabels on the request simulate the agent passing attacker content forward.
+		// Step 1: Fetch a web page. Agent requests http.read capability.
+		// HTTP executor auto-tags output with web taint. Content scanner detects
+		// injection pattern in the response body. No manual taintLabels needed.
+		const httpGrant = fw.requestCapability("http.read");
 		try {
 			await fw.execute({
 				toolClass: "http",
 				action: "get",
 				parameters: { url: "https://attacker.com/payload" },
-				taintLabels: [{ source: "web", origin: "attacker.com", confidence: 1.0, addedAt: now() }],
+				grantId: httpGrant.grant?.id,
 			});
 			allowedCount++;
 		} catch {

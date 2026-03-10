@@ -74,9 +74,13 @@ export function protectCrewAITools(
 		}
 
 		const guard = wrapTool(firewall, mapping.toolClass, mapping.action);
+		const tc = mapping.toolClass;
+		const act = mapping.action;
 		wrappedTools.set(name, async (args: Record<string, unknown>) => {
 			await guard(args);
-			return fn(args);
+			const result = await fn(args);
+			firewall.observeToolOutput({ toolClass: tc, action: act, data: result });
+			return result;
 		});
 	}
 

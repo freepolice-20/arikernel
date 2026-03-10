@@ -25,6 +25,7 @@ import { validateCommand } from "./command-security.js";
 import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
 import { type RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";
+import type { SecurityMode } from "./config.js";
 import type { TokenStore } from "./token-store.js";
 
 /**
@@ -60,6 +61,7 @@ export class Pipeline {
 		private readonly tokenStore?: TokenStore,
 		private readonly runState?: RunStateTracker,
 		private readonly signingKey?: SigningKey,
+		private readonly securityMode: SecurityMode = "dev",
 	) {}
 
 	async intercept(request: ToolCallRequest): Promise<ToolResult> {
@@ -202,7 +204,8 @@ export class Pipeline {
 		}
 
 		// Step 1.5c: Capability enforcement — protected tool calls REQUIRE a valid grant
-		if (this.tokenStore) {
+		const enforceTokens = this.securityMode === "secure" || !!this.tokenStore;
+		if (enforceTokens && this.tokenStore) {
 			if (request.grantId) {
 				this.validateToken(toolCall, request.grantId);
 			} else if (isProtected(toolCall.toolClass, toolCall.action)) {
@@ -284,10 +287,14 @@ export class Pipeline {
 
 		let result = await executor.execute(toolCall);
 
-		// Step 6: Propagate taint — merge executor auto-taints with propagated input taints
+		// Step 5.5: Content-based taint detection — scan tool output for injection patterns.
+		// This derives taint from actual malicious content rather than relying on agent annotation.
+		const contentTaints = this.taintTracker.scanOutput(result.data, toolCall.id);
+
+		// Step 6: Propagate taint — merge executor auto-taints, content-derived taints, and propagated input taints
 		const autoTaints = result.taintLabels;
 		const propagated = this.taintTracker.propagate(inputTaints, toolCall.id);
-		result.taintLabels = this.taintTracker.merge(autoTaints, propagated);
+		result.taintLabels = this.taintTracker.merge(autoTaints, contentTaints, propagated);
 
 		// Step 6.1: Enforce run-level taint — tools cannot silently clear taint.
 		// If the run is tainted, accumulated labels MUST appear in the output.
@@ -300,6 +307,30 @@ export class Pipeline {
 		// Step 6.2: Accumulate result taint labels into run-level state
 		if (this.runState && result.taintLabels.length > 0) {
 			this.runState.accumulateTaintLabels(result.taintLabels);
+
+			// Push taint_observed for output-derived taint so behavioral rules can track it.
+			// This covers both executor auto-taints (e.g. web from HTTP) and content-scan taints.
+			//
+			// We emit taint_observed whenever the output contains taint sources that were NOT
+			// already present in the input request's taintLabels. This ensures:
+			// - New taint from content scanning is always visible to behavioral rules
+			// - New taint from executor auto-tainting is always visible
+			// - Already-tainted follow-on requests still emit events for NEW sources
+			// - Duplicate events are avoided for sources already reported via input taint
+			const inputSources = new Set(toolCall.taintLabels.map((t) => t.source));
+			const newOutputSources = [...new Set(result.taintLabels.map((t) => t.source))].filter(
+				(s) => !inputSources.has(s),
+			);
+			if (newOutputSources.length > 0) {
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: "taint_observed",
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					taintSources: newOutputSources,
+				});
+				this.checkBehavioralRules(toolCall);
+			}
 		}
 
 		this.hooks.onExecute?.(toolCall, result);
@@ -353,6 +384,11 @@ export class Pipeline {
 			if (!verification.valid) {
 				this.denyAndThrow(toolCall, `Token signature verification failed: ${verification.reason}`);
 			}
+		}
+
+		// Verify nonce hasn't been replayed (only for tokens with nonces)
+		if (grant.nonce && this.tokenStore?.checkAndRecordNonce(grant.nonce)) {
+			this.denyAndThrow(toolCall, `Nonce reuse detected for token '${grantId}' — possible replay attack`);
 		}
 
 		if (grant.principalId !== toolCall.principalId) {

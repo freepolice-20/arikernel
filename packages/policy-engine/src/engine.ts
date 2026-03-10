@@ -2,7 +2,7 @@ import type { Capability, Decision, PolicyRule, TaintLabel, ToolCall } from "@ar
 import { now } from "@arikernel/core";
 import { DEFAULT_RULES } from "./defaults.js";
 import { loadPolicies } from "./loader.js";
-import { matchesRule } from "./matcher.js";
+import { UnsafeMatchError, matchesRule } from "./matcher.js";
 
 export class PolicyEngine {
 	private rules: PolicyRule[] = [];
@@ -58,14 +58,31 @@ export class PolicyEngine {
 
 		// Step 4: policy rules (sorted by priority, first match wins)
 		for (const rule of this.rules) {
-			if (matchesRule(rule.match, toolCall, taintLabels)) {
-				return {
-					verdict: rule.decision,
-					matchedRule: rule,
-					reason: rule.reason,
-					taintLabels,
-					timestamp,
-				};
+			try {
+				if (matchesRule(rule.match, toolCall, taintLabels)) {
+					return {
+						verdict: rule.decision,
+						matchedRule: rule,
+						reason: rule.reason,
+						taintLabels,
+						timestamp,
+					};
+				}
+			} catch (err) {
+				// UnsafeMatchError: regex evaluation was unsafe (invalid pattern,
+				// oversized input, etc.). Fail closed — deny unconditionally.
+				// This ensures a slow/broken regex on a deny rule cannot silently
+				// convert into an allow by being treated as "non-match."
+				if (err instanceof UnsafeMatchError) {
+					return {
+						verdict: "deny",
+						matchedRule: rule,
+						reason: `Policy rule '${rule.id}' triggered unsafe match: ${err.message}`,
+						taintLabels,
+						timestamp,
+					};
+				}
+				throw err;
 			}
 		}
 

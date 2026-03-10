@@ -97,7 +97,14 @@ export function protectAgentTools(
 				// Route through firewall security pipeline
 				await wrapped(args);
 				// Security passed — execute the original tool function
-				return originalExecute(args);
+				const result = await originalExecute(args);
+				// Observe real output for content scanning and taint derivation
+				firewall.observeToolOutput({
+					toolClass: mapping.toolClass,
+					action: mapping.action,
+					data: result,
+				});
+				return result;
 			},
 		};
 	});

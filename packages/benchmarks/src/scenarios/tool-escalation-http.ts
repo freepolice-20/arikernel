@@ -5,7 +5,7 @@
  * Expected: BLOCKED by behavioral rule or capability denial
  */
 
-import { ToolCallDeniedError, now } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import type { BenchmarkResult } from "../types.js";
 

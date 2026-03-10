@@ -5,7 +5,7 @@
  * Expected: BLOCKED by taint policy (web taint + shell → deny)
  */
 
-import { ToolCallDeniedError, now } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import type { BenchmarkResult } from "../types.js";
 
@@ -19,9 +19,18 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 	let deniedCount = 0;
 	let allowedCount = 0;
 
-	const webTaint = [
-		{ source: "web" as const, origin: "untrusted.example.com", confidence: 1.0, addedAt: now() },
-	];
+	// Stub fetch to return untrusted web content
+	const origFetch = globalThis.fetch;
+	globalThis.fetch = async () =>
+		({
+			ok: true,
+			status: 200,
+			headers: {
+				get: () => "application/json",
+				entries: () => [] as unknown as IterableIterator<[string, string]>,
+			},
+			text: async () => JSON.stringify({ config: "untrusted-data-from-web" }),
+		}) as unknown as Response;
 
 	const fw = createFirewall({
 		principal: {
@@ -65,26 +74,27 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 		auditLog: dbPath,
 	});
 
-	// Step 1: Web fetch introduces taint
+	// Step 1: Web fetch introduces taint automatically.
+	// Agent requests http.read capability, then the HTTP executor tags output with web taint.
+	const httpGrant = fw.requestCapability("http.read");
 	try {
 		await fw.execute({
 			toolClass: "http",
 			action: "get",
 			parameters: { url: "https://untrusted.example.com/data" },
-			taintLabels: webTaint,
+			grantId: httpGrant.grant?.id,
 		});
 		allowedCount++;
 	} catch {
 		deniedCount++;
 	}
 
-	// Step 2: File read (taint carried forward)
+	// Step 2: File read — taint propagated from run-state (kernel-tracked, not agent-provided)
 	try {
 		await fw.execute({
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/tmp/config.json" },
-			taintLabels: webTaint,
 		});
 		allowedCount++;
 	} catch (err) {
@@ -92,14 +102,13 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 		else allowedCount++;
 	}
 
-	// Step 3: Shell exec with propagated taint
+	// Step 3: Shell exec — web taint from step 1 propagated through run-state triggers deny-tainted-shell
 	let shellBlocked = false;
 	try {
 		await fw.execute({
 			toolClass: "shell",
 			action: "exec",
 			parameters: { command: "process-config /tmp/config.json" },
-			taintLabels: webTaint,
 		});
 		allowedCount++;
 	} catch (err) {
@@ -111,6 +120,7 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 		}
 	}
 
+	globalThis.fetch = origFetch;
 	fw.close();
 
 	return {

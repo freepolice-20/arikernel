@@ -15,9 +15,20 @@ export interface StoredToken {
 
 export class TokenStore {
 	private grants = new Map<string, StoredToken>();
+	private usedNonces = new Set<string>();
 
 	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void {
 		this.grants.set(grant.id, { grant, signature, algorithm });
+	}
+
+	/**
+	 * Check whether a nonce has already been used (replay detection).
+	 * Records the nonce atomically — returns true if reused, false if fresh.
+	 */
+	checkAndRecordNonce(nonce: string): boolean {
+		if (this.usedNonces.has(nonce)) return true;
+		this.usedNonces.add(nonce);
+		return false;
 	}
 
 	get(grantId: string): CapabilityGrant | null {

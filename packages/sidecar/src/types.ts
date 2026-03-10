@@ -11,6 +11,13 @@ export interface ExecuteRequest {
 	params: Record<string, unknown>;
 	/** Upstream taint labels to attach to the call */
 	taint?: TaintLabel[];
+	/**
+	 * Serialized signed capability token (base64-encoded).
+	 * When the sidecar is in 'secure' mode, this token is verified
+	 * independently before execution. In 'dev' mode, the sidecar
+	 * auto-issues tokens server-side.
+	 */
+	capabilityToken?: string;
 }
 
 export interface ExecuteResponse {
@@ -44,6 +51,51 @@ export interface StatusResponse {
 	};
 }
 
+export interface RequestCapabilityRequest {
+	/** Who is requesting the capability. */
+	principalId: string;
+	/** The capability class to request (e.g. "http.write", "file.read"). */
+	capabilityClass: string;
+	/** Optional constraints to narrow the grant. */
+	constraints?: import("@arikernel/core").CapabilityConstraint;
+	/** Optional justification for the request. */
+	justification?: string;
+}
+
+export interface RequestCapabilityResponse {
+	granted: boolean;
+	/** Grant ID to use in subsequent execute calls. */
+	grantId?: string;
+	/** Serialized signed capability token (base64). Present when signing is enabled. */
+	capabilityToken?: string;
+	reason?: string;
+}
+
+/**
+ * Maps API keys to principal identities. When configured, the sidecar derives
+ * principalId from the Bearer token rather than trusting client-supplied values.
+ * Key: API key string. Value: principal configuration.
+ */
+export interface PrincipalCredentials {
+	[apiKey: string]: { principalId: string };
+}
+
+/**
+ * Rate limiting and admission control configuration.
+ */
+export interface RateLimitConfig {
+	/** Max firewall instances per principal. Default: unlimited. */
+	maxFirewallsPerPrincipal?: number;
+	/** Max concurrent tool executions per principal. Default: unlimited. */
+	maxConcurrentExecutions?: number;
+	/** Max requests per second per principal (sliding window). Default: unlimited. */
+	maxRequestsPerSecond?: number;
+	/** Max total firewall instances across all principals. Default: unlimited. */
+	globalMaxFirewalls?: number;
+	/** Max total concurrent executions across all principals. Default: unlimited. */
+	globalMaxConcurrentExecutions?: number;
+}
+
 export interface SidecarConfig {
 	/** TCP port to listen on. Default: 8787 */
 	port?: number;
@@ -65,8 +117,21 @@ export interface SidecarConfig {
 	 * Shared secret for authenticating requests. When set, all requests must
 	 * include an `Authorization: Bearer <token>` header matching this value.
 	 * Strongly recommended for any non-localhost deployment.
+	 *
+	 * In dev mode (no `principals` configured), this is a shared secret.
+	 * When `principals` is configured, `authToken` is ignored — each principal
+	 * authenticates with their own API key.
 	 */
 	authToken?: string;
+	/**
+	 * Per-principal API key → identity mapping. When set, the sidecar derives
+	 * principalId from the Bearer token (API key) rather than trusting
+	 * client-supplied values. This is the recommended production configuration.
+	 *
+	 * When not set, the sidecar operates in "dev mode" where clients supply
+	 * their own principalId in the request body.
+	 */
+	principals?: PrincipalCredentials;
 	/**
 	 * Named preset: "safe", "strict", "research", "safe-research",
 	 * "rag-reader", "workspace-assistant", "automation-agent".
@@ -81,4 +146,20 @@ export interface SidecarConfig {
 	 * Overrides preset capabilities when both are set.
 	 */
 	capabilities?: import("@arikernel/core").Capability[];
+	/**
+	 * Signing key for cryptographic capability token verification.
+	 * When set, the sidecar operates in 'secure' mode: all capability tokens
+	 * are signed and verified before tool execution.
+	 */
+	signingKey?: import("@arikernel/core").SigningKey;
+	/**
+	 * Security mode override. Default: 'secure' if signingKey provided, 'dev' otherwise.
+	 */
+	securityMode?: import("@arikernel/runtime").SecurityMode;
+	/**
+	 * Rate limiting and admission control. When set, enforces per-principal
+	 * and global limits on firewall instances, concurrent executions, and
+	 * request rates.
+	 */
+	rateLimits?: RateLimitConfig;
 }

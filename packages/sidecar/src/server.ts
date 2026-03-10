@@ -1,15 +1,35 @@
 import { type Server, createServer } from "node:http";
 import { dirname, resolve } from "node:path";
+import { RateLimiter } from "./rate-limiter.js";
 import { PrincipalRegistry, resolveRegistryConfig } from "./registry.js";
-import { handleExecute, handleHealth, handleStatus, rejectUnauthorized } from "./router.js";
-import type { SidecarConfig } from "./types.js";
+import {
+	handleExecute,
+	handleHealth,
+	handleRequestCapability,
+	handleStatus,
+	rejectUnauthorized,
+	resolvePrincipal,
+} from "./router.js";
+import type { PrincipalCredentials, SidecarConfig } from "./types.js";
 
 export const DEFAULT_PORT = 8787;
 export const DEFAULT_HOST = "127.0.0.1";
 
+/**
+ * Request context resolved by the authentication layer.
+ * Passed to handlers so they never trust client-supplied principalId directly.
+ */
+export interface AuthContext {
+	/** The authenticated principalId (from API key lookup or dev-mode body). */
+	principalId?: string;
+	/** Whether identity was bound via API key (true) or client-supplied (false). */
+	authenticated: boolean;
+}
+
 export class SidecarServer {
 	private readonly server: Server;
 	private readonly registry: PrincipalRegistry;
+	private readonly rateLimiter: RateLimiter;
 	private readonly port: number;
 	private readonly host: string;
 
@@ -17,16 +37,20 @@ export class SidecarServer {
 		this.port = config.port ?? DEFAULT_PORT;
 		this.host = config.host ?? DEFAULT_HOST;
 		const authToken = config.authToken;
+		const principals = config.principals;
 
 		const registryConfig = resolveRegistryConfig({
 			policy: config.policy,
 			preset: config.preset,
 			capabilities: config.capabilities,
 			runStatePolicy: config.runStatePolicy,
+			signingKey: config.signingKey,
+			securityMode: config.securityMode,
 		});
 
 		const auditDir = dirname(resolve(config.auditLog ?? "./sidecar-audit.db"));
 		this.registry = new PrincipalRegistry(auditDir, registryConfig);
+		this.rateLimiter = new RateLimiter(config.rateLimits);
 
 		this.server = createServer((req, res) => {
 			const url = req.url ?? "/";
@@ -38,17 +62,27 @@ export class SidecarServer {
 				return;
 			}
 
-			// Authenticate all other endpoints when authToken is configured
-			if (authToken && rejectUnauthorized(req, res, authToken)) {
-				return;
+			// Authentication: principal-keyed mode takes precedence over shared authToken
+			let authCtx: AuthContext;
+			if (principals) {
+				const resolved = resolvePrincipal(req, res, principals);
+				if (!resolved) return; // response already sent (401/403)
+				authCtx = { principalId: resolved, authenticated: true };
+			} else if (authToken) {
+				if (rejectUnauthorized(req, res, authToken)) return;
+				authCtx = { authenticated: false };
+			} else {
+				authCtx = { authenticated: false };
 			}
 
 			let handler: Promise<void> | undefined;
 
 			if (method === "POST" && url === "/execute") {
-				handler = handleExecute(req, res, this.registry);
+				handler = handleExecute(req, res, this.registry, authCtx, this.rateLimiter);
+			} else if (method === "POST" && url === "/request-capability") {
+				handler = handleRequestCapability(req, res, this.registry, authCtx, this.rateLimiter);
 			} else if (method === "POST" && url === "/status") {
-				handler = handleStatus(req, res, this.registry);
+				handler = handleStatus(req, res, this.registry, authCtx);
 			}
 
 			if (handler) {

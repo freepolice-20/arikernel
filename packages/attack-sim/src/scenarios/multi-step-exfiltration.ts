@@ -55,19 +55,11 @@ export const multiStepExfiltrationScenarios: AttackScenario[] = [
 			"Kernel detects web_taint_sensitive_probe pattern and quarantines the run",
 		steps: [
 			{
-				label: "Fetch malicious webpage (acquires web taint)",
+				label: "Fetch malicious webpage (web taint derived from HTTP executor output)",
 				request: {
 					toolClass: "http",
 					action: "get",
-					parameters: { url: "https://httpbin.org/html" },
-					taintLabels: [
-						{
-							source: "web",
-							origin: "malicious-site.com",
-							confidence: 0.9,
-							addedAt: new Date().toISOString(),
-						},
-					],
+					parameters: { url: "https://malicious-site.com/exploit" },
 				},
 				capabilityClass: "http.read",
 			},
