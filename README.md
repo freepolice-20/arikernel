@@ -8,6 +8,16 @@ Inspired by the reference monitor model used in operating system security kernel
 
 ---
 
+## Why Ari Kernel Exists
+
+Prompt injection attacks are inevitable in complex AI systems. Instead of trying to perfectly filter malicious instructions, Ari Kernel assumes agents may become compromised.
+
+The kernel enforces security at runtime by controlling every tool an agent attempts to execute. Even if the agent is manipulated, dangerous actions cannot run.
+
+Most AI security tools try to prevent bad prompts. Ari Kernel assumes prompt injection will succeed and focuses on **runtime containment** instead.
+
+---
+
 ## Threat Model
 
 AI agents can read files, query databases, call APIs, and execute shell commands. If an attacker injects instructions into the agent's context — via web pages, documents, or RAG data — the agent may unknowingly perform dangerous actions.
@@ -104,19 +114,36 @@ If an agent bypasses the kernel and executes tools directly, enforcement is lost
 
 ## What Ari Kernel Does
 
-Ari Kernel intercepts every tool call an AI agent makes and enforces security through six layers:
+Ari Kernel intercepts every tool call an AI agent makes and enforces security through four core capabilities:
 
-**Capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority. A token for `file.read` does not grant `file.write`.
+### Runtime Capability Enforcement
 
-**Taint tracking** — data carries provenance labels (`web`, `rag`, `email`) that propagate through tool chains. Untrusted provenance blocks sensitive operations automatically.
+Agents cannot execute tools without explicit capability grants. Tokens are scoped, time-limited (5 min), usage-limited (10 calls). A token for `file.read` does not grant `file.write`. No ambient authority.
 
-**Behavioral sequence detection** — a sliding window (last 20 events) tracks multi-step patterns across the session. Six built-in rules detect prompt-injection-to-exfiltration sequences, privilege escalation, tainted database writes, and secret access followed by egress.
+### Automatic Taint Tracking
 
-**Run-level quarantine** — when a behavioral rule matches or denial counters exceed a threshold, the session enters restricted mode. Only read-only actions pass for the remainder of the run. Immediate, irrecoverable containment.
+Data carries provenance labels (`web`, `rag`, `email`) that propagate through tool chains. HTTP, RAG, and MCP executors auto-attach taint. Untrusted provenance blocks sensitive operations automatically.
 
-**Tamper-evident audit** — every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
+### Behavioral Attack Detection
 
-**Deterministic replay** — record any run as a JSON trace, then replay it through a fresh kernel to verify every security decision is reproducible. Swap policies for what-if analysis. No side effects are re-executed.
+A sliding window (last 20 events) tracks multi-step patterns across the session. Six built-in rules detect prompt-injection-to-exfiltration sequences, privilege escalation, tainted database writes, and secret access followed by egress. When a rule matches, the run enters **quarantine** — locked to read-only for the remainder of the session. Immediate, irrecoverable containment.
+
+### Deterministic Attack Replay
+
+Ari Kernel records normalized execution traces for security-relevant runs. These traces can be replayed deterministically through the kernel to reproduce the exact enforcement decisions that occurred during an incident.
+
+This enables forensic analysis of agent attacks, reproducible security testing, regression testing for new kernel policies, and research on agent exploit techniques.
+
+```bash
+# Record and replay an attack
+pnpm demo:replay
+pnpm ari replay-trace demo-trace.json --verbose
+
+# What-if: how would a different policy have handled this attack?
+pnpm ari replay-trace demo-trace.json --preset workspace-assistant
+```
+
+Every decision is logged in a SHA-256 hash-chained event store. Quarantine events, trigger metadata, and matched patterns are first-class audit records.
 
 ---
 
@@ -366,22 +393,9 @@ See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
 
 ## Deterministic Replay
 
-Record any run as a JSON trace, then replay it through a fresh kernel to verify every security decision is reproducible.
+Ari Kernel can deterministically replay agent attacks from recorded traces. Replay verifies security decisions only — external side effects are stubbed, making replay safe, fast, and deterministic.
 
-```bash
-# Record a trace during a demo
-pnpm demo:replay
-
-# Replay it
-pnpm ari replay-trace demo-trace.json --verbose
-
-# What-if: replay with a different preset
-pnpm ari replay-trace demo-trace.json --preset workspace-assistant
-```
-
-Replay verifies security decisions only — external side effects (HTTP requests, file I/O) are stubbed. This makes replay safe, fast, and deterministic.
-
-See [Deterministic Replay](docs/replay.md) for details.
+See [Deterministic Replay](docs/replay.md) for the full API reference.
 
 ---
 
