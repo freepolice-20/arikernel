@@ -29,6 +29,31 @@ export const CAPABILITY_CLASS_MAP: Record<CapabilityClass, CapabilityClassMappin
 	'file.write': { toolClass: 'file', actions: ['write'] },
 };
 
+/**
+ * Inverse lookup: (toolClass, action) → CapabilityClass.
+ *
+ * Built from CAPABILITY_CLASS_MAP so all classification stays in one place.
+ * Actions are stored lowercase; callers' input is lowercased before lookup.
+ */
+const INVERSE_MAP = new Map<string, CapabilityClass>();
+for (const [capClass, mapping] of Object.entries(CAPABILITY_CLASS_MAP) as [CapabilityClass, CapabilityClassMapping][]) {
+	for (const action of mapping.actions) {
+		INVERSE_MAP.set(`${mapping.toolClass}:${action}`, capClass);
+	}
+}
+
+/**
+ * Derive a CapabilityClass from a toolClass + action pair.
+ *
+ * Returns the matching capability class from CAPABILITY_CLASS_MAP,
+ * or falls back to `${toolClass}.write` for unknown actions
+ * (fail-closed: unknown actions are treated as writes).
+ */
+export function deriveCapabilityClass(toolClass: string, action: string): CapabilityClass {
+	const key = `${toolClass}:${action.toLowerCase()}`;
+	return INVERSE_MAP.get(key) ?? (`${toolClass}.write` as CapabilityClass);
+}
+
 export interface CapabilityConstraint {
 	allowedHosts?: string[];
 	allowedPaths?: string[];

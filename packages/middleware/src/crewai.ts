@@ -61,7 +61,7 @@ export function protectCrewAITools(
 	const toolNames = Object.keys(tools);
 	const mappings = resolveToolMappings(toolNames, options.toolMappings);
 
-	registerStubExecutors(firewall, mappings);
+	registerStubExecutors(firewall, mappings, options.autoTaint);
 
 	const wrappedTools = new Map<string, (args: Record<string, unknown>) => Promise<unknown>>();
 

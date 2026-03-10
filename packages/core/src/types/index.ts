@@ -42,4 +42,5 @@ export {
 	type IssuanceDecision,
 	CAPABILITY_CLASSES,
 	CAPABILITY_CLASS_MAP,
+	deriveCapabilityClass,
 } from './capability.js';

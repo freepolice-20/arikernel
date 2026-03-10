@@ -4,8 +4,28 @@ import { ToolCallDeniedError } from '@arikernel/core';
 import { SessionManager, type SessionConfig } from './sessions.js';
 
 const PORT = Number(process.env.PORT ?? 9099);
+const HOST = process.env.HOST ?? '127.0.0.1';
 const POLICY = process.env.POLICY ?? resolve('policies', 'safe-defaults.yaml');
 const AUDIT_DB = process.env.AUDIT_DB ?? resolve('audit.db');
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES ?? 1_048_576); // 1 MB
+
+/* ── Minimal per-IP rate limiter ─────────────────────────────────── */
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = Number(process.env.RATE_MAX ?? 120); // requests per window
+const hits = new Map<string, { count: number; resetAt: number }>();
+
+function rateOk(ip: string): boolean {
+	const now = Date.now();
+	let entry = hits.get(ip);
+	if (!entry || now >= entry.resetAt) {
+		entry = { count: 1, resetAt: now + RATE_WINDOW_MS };
+		hits.set(ip, entry);
+		return true;
+	}
+	entry.count++;
+	return entry.count <= RATE_MAX;
+}
 
 const sessions = new SessionManager(POLICY, AUDIT_DB);
 
@@ -16,9 +36,21 @@ function json(res: ServerResponse, status: number, body: unknown): void {
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
 	const chunks: Buffer[] = [];
-	for await (const chunk of req) chunks.push(chunk as Buffer);
-	return JSON.parse(Buffer.concat(chunks).toString());
+	let size = 0;
+	for await (const chunk of req) {
+		size += (chunk as Buffer).length;
+		if (size > MAX_BODY_BYTES) throw new BodyTooLargeError();
+		chunks.push(chunk as Buffer);
+	}
+	try {
+		return JSON.parse(Buffer.concat(chunks).toString());
+	} catch {
+		throw new JsonParseError();
+	}
 }
+
+class BodyTooLargeError extends Error { constructor() { super('Request body exceeds size limit'); } }
+class JsonParseError extends Error { constructor() { super('Invalid JSON in request body'); } }
 
 function parseRoute(url: string): { path: string; sessionId?: string; action?: string } {
 	const parts = url.split('/').filter(Boolean);
@@ -145,16 +177,45 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 const server = createServer(async (req, res) => {
 	try {
+		const ip = req.socket.remoteAddress ?? 'unknown';
+
+		// Rate limiting
+		if (!rateOk(ip)) {
+			json(res, 429, { error: 'Too many requests' });
+			return;
+		}
+
+		// Bearer auth (when AUTH_TOKEN is set)
+		if (AUTH_TOKEN) {
+			const authHeader = req.headers.authorization;
+			if (authHeader !== `Bearer ${AUTH_TOKEN}`) {
+				json(res, 401, { error: 'Unauthorized' });
+				return;
+			}
+		}
+
 		await handleRequest(req, res);
 	} catch (err) {
-		json(res, 500, { error: err instanceof Error ? err.message : 'Internal error' });
+		if (err instanceof BodyTooLargeError) {
+			json(res, 413, { error: err.message });
+		} else if (err instanceof JsonParseError) {
+			json(res, 400, { error: err.message });
+		} else {
+			json(res, 500, { error: err instanceof Error ? err.message : 'Internal error' });
+		}
 	}
 });
 
-server.listen(PORT, () => {
-	console.log(`AriKernel server listening on http://localhost:${PORT}`);
-	console.log(`  Policy: ${POLICY}`);
-	console.log(`  Audit:  ${AUDIT_DB}`);
+server.listen(PORT, HOST, () => {
+	console.log(`AriKernel server listening on http://${HOST}:${PORT}`);
+	console.log(`  Policy:    ${POLICY}`);
+	console.log(`  Audit:     ${AUDIT_DB}`);
+	console.log(`  Auth:      ${AUTH_TOKEN ? 'enabled' : 'disabled (set AUTH_TOKEN to enable)'}`);
+	console.log(`  Max body:  ${MAX_BODY_BYTES} bytes`);
+	console.log(`  Rate cap:  ${RATE_MAX} req/${RATE_WINDOW_MS / 1000}s per IP`);
+	if (HOST === '0.0.0.0') {
+		console.warn('  ⚠ Server bound to all interfaces — ensure this is intentional');
+	}
 });
 
 process.on('SIGTERM', () => { sessions.close(); server.close(); });

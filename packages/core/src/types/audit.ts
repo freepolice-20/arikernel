@@ -20,4 +20,5 @@ export interface RunContext {
 	startedAt: string;
 	endedAt?: string;
 	eventCount: number;
+	startPreviousHash?: string;
 }

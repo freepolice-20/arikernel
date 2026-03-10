@@ -132,6 +132,45 @@ describe('protectLangChainAgent', () => {
 		const searchResult = await result.agent.tools[0].func!({ url: 'https://httpbin.org/get' });
 		expect(searchResult).toBe('Results for: https://httpbin.org/get');
 	});
+
+	it('preserves this binding for func', async () => {
+		const tool: LangChainTool & { state: { called: number } } = {
+			name: 'web_search',
+			state: { called: 0 },
+			func: async function (this: any, args: any) {
+				this.state.called++;
+				return `called ${this.state.called}`;
+			},
+		};
+		const agent = { tools: [tool] };
+		const result = protectLangChainAgent(agent, {
+			toolMappings: { web_search: { toolClass: 'http', action: 'get' } },
+		});
+		firewall = result.firewall;
+
+		await result.agent.tools[0].func!({ url: 'https://example.com' });
+		await result.agent.tools[0].func!({ url: 'https://example.com' });
+		expect(tool.state.called).toBe(2);
+	});
+
+	it('preserves this binding for invoke', async () => {
+		const tool: LangChainTool & { state: { called: number } } = {
+			name: 'web_search',
+			state: { called: 0 },
+			invoke: async function (this: any, input: any) {
+				this.state.called++;
+				return `called ${this.state.called}`;
+			},
+		};
+		const agent = { tools: [tool] };
+		const result = protectLangChainAgent(agent, {
+			toolMappings: { web_search: { toolClass: 'http', action: 'get' } },
+		});
+		firewall = result.firewall;
+
+		await result.agent.tools[0].invoke!({ url: 'https://example.com' });
+		expect(tool.state.called).toBe(1);
+	});
 });
 
 describe('protectLangChainTools', () => {

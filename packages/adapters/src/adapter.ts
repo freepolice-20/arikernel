@@ -1,5 +1,5 @@
 import type { ToolCallRequest, ToolResult, IssuanceDecision, CapabilityClass, TaintLabel } from '@arikernel/core';
-import { ToolCallDeniedError, generateId, now } from '@arikernel/core';
+import { ToolCallDeniedError, generateId, now, deriveCapabilityClass } from '@arikernel/core';
 import type { Firewall, Kernel } from '@arikernel/runtime';
 import { getDefaultKernel } from '@arikernel/runtime';
 
@@ -94,11 +94,6 @@ export function wrapTool(
 	};
 }
 
-function deriveCapabilityClass(toolClass: string, action: string): string {
-	if (toolClass === 'shell') return 'shell.exec';
-	const readActions = ['get', 'read', 'query', 'list', 'search', 'fetch'];
-	return `${toolClass}.${readActions.includes(action) ? 'read' : 'write'}`;
-}
 
 /**
  * Tool mapping for protectTools().

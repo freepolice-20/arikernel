@@ -4,7 +4,7 @@
  * All framework-specific middleware wrappers use these primitives internally.
  */
 
-import { type PresetId, getPreset } from '@arikernel/core';
+import { type PresetId, type TaintLabel, getPreset } from '@arikernel/core';
 import type { Firewall, KernelAllow, FirewallHooks, Kernel } from '@arikernel/runtime';
 import { createKernel } from '@arikernel/runtime';
 
@@ -21,6 +21,8 @@ export interface MiddlewareOptions {
 	hooks?: FirewallHooks;
 	/** Tool name → Ari Kernel tool class mapping. Auto-inferred if omitted. */
 	toolMappings?: Record<string, ToolMapping>;
+	/** Derive taint labels from tool parameters in stub executors. Default: false. */
+	autoTaint?: boolean;
 }
 
 export interface ToolMapping {
@@ -116,24 +118,54 @@ export function resolveToolMappings(
  * The firewall pipeline requires a registered executor for each tool class.
  * These stubs pass through security checks (capability, policy, taint,
  * behavioral rules, audit) without performing real I/O.
+ *
+ * When `autoTaint` is true, stub executors derive taint labels from the tool
+ * call parameters (e.g. hostname from `url` for HTTP tools).
  */
 export function registerStubExecutors(
 	firewall: Firewall,
 	mappings: Record<string, ToolMapping>,
+	autoTaint = false,
 ): void {
 	const toolClasses = new Set(Object.values(mappings).map((m) => m.toolClass));
 	for (const tc of toolClasses) {
 		firewall.registerExecutor({
 			toolClass: tc,
 			async execute(toolCall) {
+				const taintLabels: TaintLabel[] = autoTaint
+					? deriveTaintLabels(tc, toolCall.parameters)
+					: [];
 				return {
 					callId: toolCall.id,
 					success: true,
 					data: null,
 					durationMs: 0,
-					taintLabels: [],
+					taintLabels,
 				};
 			},
 		});
 	}
+}
+
+/** Derive taint labels from tool class and parameters. */
+function deriveTaintLabels(
+	toolClass: string,
+	parameters: Record<string, unknown>,
+): TaintLabel[] {
+	const now = new Date().toISOString();
+	if (toolClass === 'http') {
+		let hostname = 'unknown';
+		if (typeof parameters.url === 'string') {
+			try {
+				hostname = new URL(parameters.url).hostname;
+			} catch {
+				// invalid URL, keep 'unknown'
+			}
+		}
+		return [{ source: 'web', origin: hostname, confidence: 0.9, addedAt: now }];
+	}
+	if (toolClass === 'database') {
+		return [{ source: 'tool-output', origin: 'database', confidence: 0.8, addedAt: now }];
+	}
+	return [];
 }

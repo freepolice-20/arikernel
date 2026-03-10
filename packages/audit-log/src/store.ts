@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS runs (
   started_at    TEXT NOT NULL,
   ended_at      TEXT,
   event_count   INTEGER DEFAULT 0,
-  config_json   TEXT NOT NULL
+  config_json   TEXT NOT NULL,
+  start_previous_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -49,12 +50,13 @@ export class AuditStore {
 		this.db.pragma('journal_mode = WAL');
 		this.db.pragma('foreign_keys = ON');
 		this.db.exec(MIGRATION_001);
+		this.migrateSchema();
 
 		this.lastHash = this.getLastHash();
 
 		this.insertRun = this.db.prepare(`
-			INSERT INTO runs (run_id, principal_id, started_at, config_json)
-			VALUES (?, ?, ?, ?)
+			INSERT INTO runs (run_id, principal_id, started_at, config_json, start_previous_hash)
+			VALUES (?, ?, ?, ?, ?)
 		`);
 
 		this.insertEvent = this.db.prepare(`
@@ -65,6 +67,17 @@ export class AuditStore {
 		`);
 	}
 
+	/** Add columns that may be missing from older schema versions. */
+	private migrateSchema(): void {
+		const cols = this.db
+			.prepare("PRAGMA table_info('runs')")
+			.all() as Array<{ name: string }>;
+		const colNames = new Set(cols.map((c) => c.name));
+		if (!colNames.has('start_previous_hash')) {
+			this.db.exec('ALTER TABLE runs ADD COLUMN start_previous_hash TEXT');
+		}
+	}
+
 	private getLastHash(): string {
 		const row = this.db
 			.prepare('SELECT hash FROM events ORDER BY rowid DESC LIMIT 1')
@@ -73,7 +86,7 @@ export class AuditStore {
 	}
 
 	startRun(runId: string, principalId: string, config: Record<string, unknown>): void {
-		this.insertRun.run(runId, principalId, now(), JSON.stringify(config));
+		this.insertRun.run(runId, principalId, now(), JSON.stringify(config), this.lastHash);
 	}
 
 	endRun(runId: string): void {
@@ -217,6 +230,7 @@ export class AuditStore {
 			startedAt: row.started_at as string,
 			endedAt: (row.ended_at as string) ?? undefined,
 			eventCount: row.event_count as number,
+			startPreviousHash: (row.start_previous_hash as string) ?? undefined,
 		};
 	}
 
@@ -231,6 +245,7 @@ export class AuditStore {
 			startedAt: row.started_at as string,
 			endedAt: (row.ended_at as string) ?? undefined,
 			eventCount: (row.event_count as number) ?? 0,
+			startPreviousHash: (row.start_previous_hash as string) ?? undefined,
 		}));
 	}
 

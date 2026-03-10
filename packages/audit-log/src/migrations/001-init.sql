@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS runs (
   started_at    TEXT NOT NULL,
   ended_at      TEXT,
   event_count   INTEGER DEFAULT 0,
-  config_json   TEXT NOT NULL
+  config_json   TEXT NOT NULL,
+  start_previous_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS events (

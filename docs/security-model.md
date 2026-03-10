@@ -196,6 +196,24 @@ firewall.execute({
 });
 ```
 
+## Approval-Required Behavior
+
+When a policy rule returns `require-approval`, the pipeline invokes the `onApprovalRequired` hook. If no hook is registered — which is the default — the call is **denied** (fail-closed). This ensures that `require-approval` rules never accidentally permit actions when no approval mechanism is configured.
+
+To enable interactive approval, provide a hook when creating the firewall:
+
+```typescript
+const firewall = createFirewall({
+  // ...
+  hooks: {
+    onApprovalRequired: async (toolCall, decision) => {
+      // Return true to approve, false to deny
+      return await promptUser(`Allow ${toolCall.action}?`);
+    },
+  },
+});
+```
+
 ## What Ari Kernel Does NOT Do
 
 - **Prompt filtering** — it does not inspect model input/output text

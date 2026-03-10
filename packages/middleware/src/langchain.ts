@@ -84,7 +84,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 	const toolNames = agent.tools.map((t) => t.name);
 	const mappings = resolveToolMappings(toolNames, options.toolMappings);
 
-	registerStubExecutors(firewall, mappings);
+	registerStubExecutors(firewall, mappings, options.autoTaint);
 
 	for (const tool of agent.tools) {
 		const mapping = mappings[tool.name];
@@ -97,7 +97,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 			tool.func = async (...args: any[]) => {
 				const params = typeof args[0] === 'object' && args[0] !== null ? args[0] : { input: args[0] };
 				await wrapped(params);
-				return original(...args);
+				return original.apply(tool, args);
 			};
 		}
 
@@ -106,7 +106,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 			tool.invoke = async (input: any, config?: any) => {
 				const params = typeof input === 'object' && input !== null ? input : { input };
 				await wrapped(params);
-				return original(input, config);
+				return original.call(tool, input, config);
 			};
 		}
 	}

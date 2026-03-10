@@ -1,8 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { PrincipalRegistry } from './registry.js';
 import type { ExecuteRequest, ExecuteResponse, StatusResponse } from './types.js';
-import { TOOL_CLASSES, ToolCallDeniedError, ApprovalRequiredError } from '@arikernel/core';
-import type { CapabilityClass } from '@arikernel/core';
+import { TOOL_CLASSES, ToolCallDeniedError, ApprovalRequiredError, deriveCapabilityClass } from '@arikernel/core';
 
 /** Maximum request body size (1 MB). Prevents abuse from untrusted clients. */
 const MAX_BODY_BYTES = 1_048_576;
@@ -67,15 +66,6 @@ function validateExecuteRequest(body: unknown): ExecuteRequest {
 	};
 }
 
-/**
- * Derive a capability class from toolClass + action.
- * Mirrors the logic in @arikernel/adapters adapter.ts.
- */
-function deriveCapabilityClass(toolClass: string, action: string): CapabilityClass {
-	if (toolClass === 'shell') return 'shell.exec';
-	const readActions = ['get', 'read', 'query', 'list', 'search', 'fetch'];
-	return `${toolClass}.${readActions.includes(action.toLowerCase()) ? 'read' : 'write'}` as CapabilityClass;
-}
 
 export async function handleExecute(
 	req: IncomingMessage,

@@ -7,6 +7,7 @@ export { firewallConfigSchema, type FirewallConfig } from './schemas/config.sche
 export { capabilityRequestSchema, capabilityGrantSchema } from './schemas/capability.schema.js';
 export {
 	PRESETS,
+	POLICY_SPEC,
 	getPreset,
 	DEFAULT_CAPABILITIES,
 	DEFAULT_POLICIES,
