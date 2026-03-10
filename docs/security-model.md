@@ -167,7 +167,7 @@ When using middleware wrappers (`protectLangChainAgent`, `protectCrewAITools`, e
 
 However:
 
-- **Auto-taint is not applied**: middleware uses stub executors that return `taintLabels: []`. The real tool executes outside the firewall pipeline, so executor-level provenance labels (e.g., `web:<host>`) are not generated
+- **Auto-taint is not applied by default**: middleware uses stub executors that return `taintLabels: []`. Set `autoTaint: true` to enable parameter-derived taint inference (e.g., hostname from URL → `web:<host>` label). This provides taint-driven behavioral detection without full pipeline integration. See [Middleware docs](middleware.md#taint-boundary) for details
 - **Result taint is not surfaced**: the `ToolResult` from the firewall pipeline is used only for security decisions — the original tool's return value is passed through to the caller without taint metadata
 
 This is by design. Middleware wrappers provide **permit-or-deny enforcement** with zero architecture changes to the host framework. They do not transform tool results or insert themselves into the framework's data flow.
@@ -178,7 +178,7 @@ This is by design. Middleware wrappers provide **permit-or-deny enforcement** wi
 |----------|--------------|------------|
 | Policy evaluation with taint | Yes | Yes |
 | Behavioral quarantine | Yes | Yes |
-| Auto-taint on HTTP responses | Yes | No |
+| Auto-taint on HTTP responses | Yes | Optional (`autoTaint: true`) |
 | Taint labels on tool results | Yes | No |
 | Multi-hop taint propagation | Yes | Input taint only |
 

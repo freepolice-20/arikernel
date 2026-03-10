@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  ci:
+  typescript:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,3 +29,29 @@ jobs:
       - run: pnpm test
 
       - run: pnpm lint
+
+      # Smoke test: verify core package works when installed from pack
+      - name: Package smoke test
+        run: |
+          cd packages/core && npm pack --pack-destination /tmp
+          TARBALL=$(ls /tmp/arikernel-core-*.tgz)
+          mkdir /tmp/smoke && cd /tmp/smoke
+          npm init -y
+          npm install "$TARBALL"
+          node -e "const c = require('@arikernel/core'); console.log('Presets:', Object.keys(c.PRESETS).length); if (!Object.keys(c.PRESETS).length) process.exit(1)"
+
+  python:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python runtime
+        run: pip install -e python/
+
+      - name: Run Python tests
+        run: cd python && python -m pytest tests/ -v

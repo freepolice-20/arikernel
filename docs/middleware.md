@@ -211,6 +211,7 @@ All middleware functions accept the same options:
 | `principal` | string | `"agent"` | Principal name for audit attribution |
 | `auditLog` | string | `":memory:"` | Audit log path (SQLite) |
 | `toolMappings` | object | auto-inferred | Explicit tool name → (toolClass, action) mapping |
+| `autoTaint` | boolean | `false` | Derive taint labels from tool parameters in stub executors (e.g. hostname from URL for HTTP tools) |
 | `hooks` | object | none | Firewall lifecycle hooks (TS only) |
 | `allow` | object | none | Explicit capability overrides (TS only) |
 
@@ -301,6 +302,22 @@ No runtime redesign. No new enforcement logic. Just developer ergonomics.
 
 ### Taint Boundary
 
-Middleware wrappers enforce security policy (capabilities, taint-aware rules, behavioral detection, quarantine) but do not transform tool results. Auto-taint labels that real executors generate (e.g., `web:<host>` from HTTP responses) are not applied in middleware mode because the actual tool executes outside the pipeline. Input taint and behavioral sequence detection work normally.
+By default, middleware wrappers enforce security policy (capabilities, taint-aware rules, behavioral detection, quarantine) but do not apply executor-level auto-taint labels because the actual tool executes outside the pipeline.
+
+To enable taint inference in middleware mode, set `autoTaint: true`:
+
+```typescript
+const { agent, firewall } = protectLangChainAgent(myAgent, {
+  preset: "safe-research",
+  autoTaint: true,  // Derives web:<hostname> from HTTP URLs, etc.
+})
+```
+
+With `autoTaint` enabled, stub executors derive taint labels from tool parameters:
+- **HTTP tools**: extracts hostname from `url` parameter → `web:<hostname>` label
+- **Database tools**: adds `tool-output:database` label
+- **Other tools**: no auto-taint (supply explicit labels if needed)
+
+This provides taint-driven behavioral detection (e.g., "web taint then sensitive read → quarantine") without requiring full pipeline integration.
 
 For full taint propagation details, see [Security Model → Taint Propagation Boundaries](security-model.md#taint-propagation-boundaries).
