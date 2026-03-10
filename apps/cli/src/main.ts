@@ -163,6 +163,16 @@ const replayTrace = defineCommand({
 			description: "Show attack timeline visualization",
 			default: false,
 		},
+		summary: {
+			type: "boolean",
+			description: "Show concise trace summary with counters",
+			default: false,
+		},
+		graph: {
+			type: "boolean",
+			description: "Show ASCII attack sequence graph",
+			default: false,
+		},
 	},
 	run: ({ args }) =>
 		runReplayTrace(args.tracePath, {
@@ -171,6 +181,8 @@ const replayTrace = defineCommand({
 			json: args.json,
 			verbose: args.verbose,
 			timeline: args.timeline,
+			summary: args.summary,
+			graph: args.graph,
 		}),
 });
 

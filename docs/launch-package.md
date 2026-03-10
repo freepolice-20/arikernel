@@ -6,7 +6,7 @@ Everything needed to announce the project publicly.
 
 ## 1. One-Line GitHub Description
 
-> A reference monitor for AI agents. Capability tokens, taint tracking, behavioral quarantine, and SHA-256 hash-chained audit — before any tool call executes.
+> Runtime security enforcement for AI agents. Capability tokens, taint tracking, behavioral quarantine, and SHA-256 hash-chained audit — before any tool call executes.
 
 (155 characters)
 
@@ -14,7 +14,7 @@ Everything needed to announce the project publicly.
 
 ## 2. Short Announcement Post
 
-> Releasing Ari Kernel — a reference monitor for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
+> Releasing Ari Kernel — runtime security enforcement for AI agents. Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail. Apache-2.0.
 
 (250 characters)
 
@@ -34,7 +34,7 @@ AI agents should never execute with ambient authority.
 
 ### Post 2: What Ari Kernel Does
 
-Ari Kernel is a reference monitor that sits between the agent and its tools. Five enforcement layers:
+Ari Kernel is an enforcement layer that sits between the agent and its tools, drawing on the reference monitor concept from OS security. Five enforcement layers:
 
 1. **Short-lived capability tokens** — scoped, time-limited (5 min), usage-limited (10 calls). No ambient authority.
 2. **Provenance-aware enforcement** — data carries taint labels (web, rag, email). Untrusted provenance blocks sensitive operations at the issuance layer.
@@ -149,7 +149,7 @@ Static allowlists evaluate each call independently. They cannot detect that a se
 
 **What does proxy/sidecar mode change?**
 
-In proxy mode, the kernel runs as a separate process. Tools are only accessible through the proxy — the agent has no direct network path or filesystem access to tools. This provides mandatory enforcement (no bypass path), process isolation (agent cannot modify kernel state), and tamper-proof audit (audit log is in a separate process). It also supports any language, not just TypeScript.
+In proxy mode, the kernel runs as a separate process. Tools are only accessible through the proxy — the agent has no direct network path or filesystem access to tools. This provides mandatory mediation (no bypass path within the process boundary), process isolation (agent cannot modify kernel state), and tamper-evident audit isolated from the agent process. It also supports any language, not just TypeScript.
 
 ---
 

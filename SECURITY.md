@@ -51,11 +51,11 @@ We credit reporters in release notes (with permission). If you prefer to remain 
 
 ## Security Design
 
-AriKernel follows a reference monitor architecture. Key security properties:
+AriKernel's design draws on the reference monitor concept (Anderson, 1972), adapted to userspace agent runtimes. Key security properties:
 
-- **Complete mediation**: All tool calls route through the enforcement pipeline
-- **Tamperproof state**: Quarantine and run-state counters are server-side (agents cannot reset them)
+- **Mediation**: All tool calls routed through the kernel are subject to enforcement. In embedded mode this is cooperative (the framework must route calls through the kernel). In sidecar mode, the process boundary provides mandatory mediation — no direct agent-to-tool path exists.
+- **Tamper-resistant state**: Quarantine and run-state counters are managed by the kernel. In sidecar mode, the agent has no access to kernel state. In embedded mode, kernel state lives in the same process and is not protected by a hardware boundary.
 - **Least privilege**: Capability grants use intersection semantics (can only narrow, never broaden)
-- **Audit trail**: Every decision is logged with cryptographic integrity markers
+- **Tamper-evident audit**: Every decision is logged in a SHA-256 hash-chained store. The chain detects modification after the fact but does not prevent it — see [Security Model § Hash Chain Limitations](docs/security-model.md#24-audit-and-tamper-evidence).
 
 For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).

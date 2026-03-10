@@ -52,11 +52,14 @@ export interface SidecarConfig {
 	 * Set to '0.0.0.0' to listen on all interfaces (requires explicit opt-in).
 	 */
 	host?: string;
-	/** Path to policy file, or inline rules array. Required. */
-	policy: string | import("@arikernel/core").PolicyRule[];
+	/**
+	 * Path to policy file, or inline rules array.
+	 * Required unless `preset` is provided.
+	 */
+	policy?: string | import("@arikernel/core").PolicyRule[];
 	/** Path for the audit SQLite database. Default: ./sidecar-audit.db */
 	auditLog?: string;
-	/** Run-state policy options */
+	/** Run-state policy options. Overrides preset defaults when both are set. */
 	runStatePolicy?: import("@arikernel/runtime").RunStatePolicy;
 	/**
 	 * Shared secret for authenticating requests. When set, all requests must
@@ -64,4 +67,18 @@ export interface SidecarConfig {
 	 * Strongly recommended for any non-localhost deployment.
 	 */
 	authToken?: string;
+	/**
+	 * Named preset: "safe", "strict", "research", "safe-research",
+	 * "rag-reader", "workspace-assistant", "automation-agent".
+	 * Provides pre-configured policies, capabilities, and run-state rules.
+	 * When set, `policy` and `capabilities` are optional (preset values used).
+	 * Explicit `policy` / `capabilities` override preset defaults.
+	 */
+	preset?: import("@arikernel/core").PresetId;
+	/**
+	 * Per-principal capabilities. When set, each principal receives these
+	 * constrained capabilities instead of unconstrained defaults.
+	 * Overrides preset capabilities when both are set.
+	 */
+	capabilities?: import("@arikernel/core").Capability[];
 }

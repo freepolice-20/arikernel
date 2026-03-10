@@ -15,12 +15,13 @@ export interface SidecarClientOptions {
  * Agents use this instead of calling tools directly — the sidecar enforces policy.
  */
 export class SidecarClient {
-	private readonly baseUrl: string;
+	/** @internal Used by SidecarGuard to exempt sidecar-bound requests. */
+	readonly endpoint: string;
 	private readonly principalId: string;
 	private readonly headers: Record<string, string>;
 
 	constructor(options: SidecarClientOptions) {
-		this.baseUrl = (options.baseUrl ?? "http://localhost:8787").replace(/\/$/, "");
+		this.endpoint = (options.baseUrl ?? "http://localhost:8787").replace(/\/$/, "");
 		this.principalId = options.principalId;
 		this.headers = { "Content-Type": "application/json" };
 		if (options.authToken) {
@@ -42,7 +43,7 @@ export class SidecarClient {
 			taint,
 		};
 
-		const res = await fetch(`${this.baseUrl}/execute`, {
+		const res = await fetch(`${this.endpoint}/execute`, {
 			method: "POST",
 			headers: this.headers,
 			body: JSON.stringify(body),
@@ -53,7 +54,7 @@ export class SidecarClient {
 
 	/** Query this principal's enforcement state (quarantine, counters). */
 	async status(): Promise<StatusResponse> {
-		const res = await fetch(`${this.baseUrl}/status`, {
+		const res = await fetch(`${this.endpoint}/status`, {
 			method: "POST",
 			headers: this.headers,
 			body: JSON.stringify({ principalId: this.principalId }),
@@ -63,7 +64,7 @@ export class SidecarClient {
 
 	async health(): Promise<boolean> {
 		try {
-			const res = await fetch(`${this.baseUrl}/health`);
+			const res = await fetch(`${this.endpoint}/health`);
 			return res.ok;
 		} catch {
 			return false;

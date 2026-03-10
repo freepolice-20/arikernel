@@ -44,7 +44,13 @@ A **reference monitor** is a security concept from operating system design (Ande
 2. **Tamper-proof** — the monitor cannot be modified by the subjects it governs.
 3. **Verifiable** — the monitor is small enough to be subjected to rigorous analysis.
 
-Ari Kernel applies this concept to AI agent runtimes. It is a reference monitor that interposes on every tool call an agent makes, evaluating four dimensions before allowing execution:
+Ari Kernel draws on this concept for AI agent runtimes, but operates as a **userspace library**, not an OS kernel module. It does not fully satisfy the classical reference monitor properties in all deployment modes:
+
+- **Always invoked**: In sidecar mode, the process boundary provides mandatory mediation — no direct agent→tool path exists (provided the agent has no alternative access to tools). In embedded mode, mediation is cooperative: the framework must route all calls through the kernel. A direct `fetch()` or `fs.readFile()` bypasses it.
+- **Tamper resistance**: In sidecar mode, kernel state is process-isolated from the agent. In embedded mode, kernel state shares the agent's memory space and is not protected by a hardware boundary.
+- **Verifiable**: The 10-step pipeline is deterministic and bounded. Hash-chained audit logs enable replay verification.
+
+With these caveats, Ari Kernel interposes on tool calls and evaluates four dimensions before allowing execution:
 
 - **Capability tokens** — Does the agent hold a valid, unexpired token that grants permission for this specific operation?
 - **Data provenance** — Does the tool call involve data from untrusted sources? Do taint labels on the call match policy restrictions?
@@ -165,7 +171,7 @@ This produces forensic-grade evidence. After an incident, an operator can recons
 
 The kernel is a **synchronous intercept**. The agent blocks until it returns a decision. There is no asynchronous path that bypasses enforcement. The tool call is either allowed (and executed), denied (and returned with an error), or quarantined (and all subsequent non-read-only calls denied).
 
-In embedded mode, the kernel runs as a library in the same process as the agent. In sidecar mode, it runs as a separate HTTP proxy. Both modes ensure the "always invoked" property: tool calls cannot reach executors without passing through the enforcement pipeline.
+In embedded mode, the kernel runs as a library in the same process as the agent — mediation is cooperative (the framework must route calls through the kernel). In sidecar mode, it runs as a separate HTTP proxy — mediation is mandatory within the scope of the process boundary. Only sidecar mode approaches the "always invoked" property; embedded mode depends on correct framework integration.
 
 ---
 
@@ -175,7 +181,7 @@ Ari Kernel draws from three established security traditions.
 
 ### The OS Reference Monitor (Anderson, 1972)
 
-James Anderson's reference monitor concept defined the requirements for a trusted enforcement boundary in operating systems: complete mediation (every access is checked), isolation (the monitor is tamper-proof), and verifiability (the monitor is small enough to analyze). Ari Kernel applies these requirements to the AI agent context. Every tool call is mediated. The enforcement logic runs outside the model's control. The pipeline is a bounded, auditable code path.
+James Anderson's reference monitor concept defined the requirements for a trusted enforcement boundary in operating systems: complete mediation (every access is checked), isolation (the monitor is tamper-proof), and verifiability (the monitor is small enough to analyze). Ari Kernel draws on these requirements for AI agent runtimes, but as a userspace library it does not fully satisfy them. In sidecar mode, process separation provides mandatory mediation and state isolation from the agent. In embedded mode, enforcement is cooperative — the framework must route all calls through the kernel, and kernel state shares the agent's address space. The pipeline is a bounded, auditable code path in both modes.
 
 ### The Browser Sandbox
 
@@ -187,4 +193,4 @@ In capability-based systems, subjects hold explicit tokens that grant specific p
 
 ### Convergence
 
-Ari Kernel is a reference monitor for AI agent runtimes that combines complete mediation with capability-based access control and behavioral sequence detection. The first two are established principles adapted to a new context. The third — detecting adversarial intent through multi-step behavioral patterns and quarantining the session — is specific to the problem of AI agents operating under potentially adversarial control.
+Ari Kernel is an enforcement layer for AI agent runtimes that draws on the reference monitor model and combines it with capability-based access control and behavioral sequence detection. It approaches but does not fully satisfy the classical reference monitor properties — mediation is mandatory only in sidecar mode, and tamper resistance depends on process isolation rather than hardware enforcement. The behavioral dimension — detecting adversarial intent through multi-step patterns and quarantining the session — is specific to the problem of AI agents operating under potentially adversarial control.

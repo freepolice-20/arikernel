@@ -1,27 +1,42 @@
-import type { CapabilityGrant } from "@arikernel/core";
+import type { CapabilityGrant, SigningAlgorithm } from "@arikernel/core";
 
 export interface TokenValidation {
 	valid: boolean;
 	reason?: string;
 }
 
-export class TokenStore {
-	private grants = new Map<string, CapabilityGrant>();
+export interface StoredToken {
+	grant: CapabilityGrant;
+	/** Base64-encoded signature, present when signing is enabled. */
+	signature?: string;
+	/** Signing algorithm used, present when signing is enabled. */
+	algorithm?: SigningAlgorithm;
+}
 
-	store(grant: CapabilityGrant): void {
-		this.grants.set(grant.id, grant);
+export class TokenStore {
+	private grants = new Map<string, StoredToken>();
+
+	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void {
+		this.grants.set(grant.id, { grant, signature, algorithm });
 	}
 
 	get(grantId: string): CapabilityGrant | null {
+		return this.grants.get(grantId)?.grant ?? null;
+	}
+
+	/** Get the full stored token including signature metadata. */
+	getStoredToken(grantId: string): StoredToken | null {
 		return this.grants.get(grantId) ?? null;
 	}
 
 	validate(grantId: string): TokenValidation {
-		const grant = this.grants.get(grantId);
+		const stored = this.grants.get(grantId);
 
-		if (!grant) {
+		if (!stored) {
 			return { valid: false, reason: `Grant not found: ${grantId}` };
 		}
+
+		const { grant } = stored;
 
 		if (grant.revoked) {
 			return { valid: false, reason: `Grant revoked: ${grantId}` };
@@ -50,8 +65,10 @@ export class TokenStore {
 	 * validation before either increments callsUsed.
 	 */
 	consume(grantId: string): TokenValidation {
-		const grant = this.grants.get(grantId);
-		if (!grant) return { valid: false, reason: `Grant not found: ${grantId}` };
+		const stored = this.grants.get(grantId);
+		if (!stored) return { valid: false, reason: `Grant not found: ${grantId}` };
+
+		const { grant } = stored;
 		if (grant.revoked) return { valid: false, reason: `Grant revoked: ${grantId}` };
 
 		const currentTime = Date.now();
@@ -72,20 +89,22 @@ export class TokenStore {
 	}
 
 	revoke(grantId: string): boolean {
-		const grant = this.grants.get(grantId);
-		if (!grant) return false;
-		grant.revoked = true;
+		const stored = this.grants.get(grantId);
+		if (!stored) return false;
+		stored.grant.revoked = true;
 		return true;
 	}
 
 	activeGrants(principalId: string): CapabilityGrant[] {
 		const now = Date.now();
-		return [...this.grants.values()].filter(
-			(g) =>
-				g.principalId === principalId &&
-				!g.revoked &&
-				new Date(g.lease.expiresAt).getTime() > now &&
-				g.lease.callsUsed < g.lease.maxCalls,
-		);
+		return [...this.grants.values()]
+			.filter(
+				(s) =>
+					s.grant.principalId === principalId &&
+					!s.grant.revoked &&
+					new Date(s.grant.lease.expiresAt).getTime() > now &&
+					s.grant.lease.callsUsed < s.grant.lease.maxCalls,
+			)
+			.map((s) => s.grant);
 	}
 }

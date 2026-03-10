@@ -1,6 +1,6 @@
 # Ari Kernel Benchmarks
 
-These benchmarks simulate real multi-step agent attacks — the kind of sequences that execute successfully on typical agent stacks with no runtime enforcement. Each benchmark walks through the attack step by step, shows what happens without a reference monitor, and demonstrates how Ari Kernel detects the pattern and quarantines the run.
+These benchmarks simulate real multi-step agent attacks — the kind of sequences that execute successfully on typical agent stacks with no runtime enforcement. Each benchmark walks through the attack step by step, shows what happens without an enforcement layer, and demonstrates how Ari Kernel detects the pattern and quarantines the run.
 
 > See also: [AgentDojo Benchmark](benchmark-agentdojo.md) | [Threat Model](threat-model.md) | [Security Model](security-model.md)
 

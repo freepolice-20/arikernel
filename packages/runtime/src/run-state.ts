@@ -7,6 +7,8 @@
  * which limits the agent to read-only safe actions.
  */
 
+import type { TaintLabel, TaintState } from "@arikernel/core";
+
 export interface RunStatePolicy {
 	/** Number of denied sensitive actions before entering restricted mode. Default: 5 */
 	maxDeniedSensitiveActions?: number;
@@ -107,10 +109,14 @@ export class RunStateTracker {
 	private _quarantineInfo: QuarantineInfo | null = null;
 	private _tainted = false;
 	private _taintSources: Set<string> = new Set();
+	private _accumulatedTaintLabels: TaintLabel[] = [];
 	private readonly threshold: number;
 	readonly behavioralRulesEnabled: boolean;
+	/** The policy configuration used to construct this tracker. */
+	readonly policy: RunStatePolicy | undefined;
 
 	constructor(policy?: RunStatePolicy) {
+		this.policy = policy;
 		this.threshold = policy?.maxDeniedSensitiveActions ?? 5;
 		this.behavioralRulesEnabled = policy?.behavioralRules !== false;
 	}
@@ -144,6 +150,37 @@ export class RunStateTracker {
 	markTainted(source: string): void {
 		this._tainted = true;
 		this._taintSources.add(source);
+	}
+
+	/**
+	 * Accumulate taint labels into the run-level taint state.
+	 *
+	 * Deduplicates by source:origin key so repeated labels don't bloat the set.
+	 * This is the kernel's independent taint record — it persists even if tools
+	 * or agents omit taint metadata from subsequent calls.
+	 */
+	accumulateTaintLabels(labels: TaintLabel[]): void {
+		for (const label of labels) {
+			const key = `${label.source}:${label.origin}`;
+			if (!this._accumulatedTaintLabels.some((l) => `${l.source}:${l.origin}` === key)) {
+				this._accumulatedTaintLabels.push(label);
+			}
+			this.markTainted(label.source);
+		}
+	}
+
+	/** Read-only view of accumulated taint labels for the run. */
+	get accumulatedTaintLabels(): readonly TaintLabel[] {
+		return this._accumulatedTaintLabels;
+	}
+
+	/** Snapshot the kernel-maintained taint state for this run. */
+	get taintState(): TaintState {
+		return {
+			tainted: this._tainted,
+			sources: [...this._taintSources],
+			labels: [...this._accumulatedTaintLabels],
+		};
 	}
 
 	/** Read-only view of recent events. */

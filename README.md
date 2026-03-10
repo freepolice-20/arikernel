@@ -4,7 +4,7 @@
 
 Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious instructions, it prevents dangerous actions from executing — regardless of what the model decided.
 
-Inspired by the reference monitor model used in operating system security kernels.
+Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -190,7 +190,7 @@ When properly integrated, Ari Kernel guarantees:
 
 These guarantees cover file access, database queries, HTTP requests, shell execution, and external tool calls (including MCP).
 
-No known attacker-reachable bypass paths remain under the current threat model. See [docs/security-model.md](docs/security-model.md) for the formal threat model and security guarantees of Ari Kernel.
+These guarantees assume all tool calls are routed through the kernel. In embedded mode, enforcement is cooperative — if agent framework code bypasses the kernel, guarantees are void. In sidecar mode, the process boundary provides stronger mediation. See [docs/security-model.md](docs/security-model.md) for the formal threat model, deployment mode guarantees, and known limitations.
 
 ## Non-Goals
 
@@ -286,6 +286,7 @@ pnpm install && pnpm build
 pnpm demo:real-agent                                      # full agent demo (requires OPENAI_API_KEY)
 pnpm demo:behavioral                                      # behavioral quarantine demo
 pnpm demo:sidecar                                         # sidecar proxy mode
+pnpm example:sidecar-secure                               # secure sidecar with preset + auth
 
 # Deterministic replay
 pnpm demo:replay                                           # records trace + replays it
@@ -401,21 +402,27 @@ Rules operate on a sliding window (last 20 events) and quarantine the run immedi
 
 ## AgentDojo Benchmark Results
 
-Five reproducible attack scenarios aligned with the [AgentDojo](https://github.com/ethz-spylab/agentdojo) attack taxonomy:
+Nine reproducible attack scenarios aligned with the [AgentDojo](https://github.com/ethz-spylab/agentdojo) attack taxonomy. Ari Kernel blocks these attacks through three enforcement layers: **capability enforcement** (scoped, time-limited grants), **taint propagation** (web/rag/email provenance tracking), and **behavioral sequence detection** (multi-step pattern quarantine).
 
-| Scenario | Attack Class | Enforcement | Result |
-|----------|-------------|-------------|--------|
-| Prompt injection -> SSH key theft | `prompt_injection` | Behavioral rule `web_taint_sensitive_probe` | Quarantined, shell blocked |
+| Scenario | Attack Class | Enforcement Mechanism | Result |
+|----------|-------------|----------------------|--------|
+| Prompt injection → SSH key theft | `prompt_injection` | Behavioral rule `web_taint_sensitive_probe` | Quarantined, shell blocked |
 | Tainted shell exfiltration | `prompt_injection` | Policy rule `deny-tainted-shell` | Shell denied at policy layer |
 | Privilege escalation after denial | `privilege_escalation` | Behavioral rule `denied_capability_then_escalation` | Quarantined, shell blocked |
 | Tainted file write staging | `prompt_injection` | Policy rule `deny-tainted-file-write` | Write denied, quarantined |
-| Repeated sensitive probing | `data_exfiltration` | Threshold quarantine | All reads blocked, quarantined |
+| Repeated sensitive probing | `data_exfiltration` | Threshold quarantine (5 denied reads) | All reads blocked, quarantined |
+| Shell command injection | `tool_abuse` | Metacharacter validation + taint policy | All 5 payloads blocked |
+| Path traversal / filesystem escape | `filesystem_traversal` | Policy parameter matching + path canonicalization | All 5 traversal paths blocked |
+| SSRF to internal endpoints | `ssrf` | Policy + IP validation (`isPrivateIP`) | All 5 targets blocked |
+| Multi-step data exfiltration | `data_exfiltration` | Behavioral rule + quarantine (defense-in-depth) | DB denied, HTTP + shell exfil blocked |
 
-**5/5 attacks blocked. 100% exfiltration prevented. Deterministic and reproducible.**
+**9/9 attacks blocked. 100% exfiltration prevented. 100% quarantine rate. Deterministic and reproducible.**
 
 ```bash
-pnpm benchmark:agentdojo          # run all 5 scenarios
+pnpm benchmark:agentdojo          # run all 9 scenarios
 ```
+
+Output: attack name, blocked/allowed, decision reason, execution time. Reports written to `benchmarks/agentdojo-results.md`, `benchmarks/results/latest.json`, and `benchmarks/results/latest.md`.
 
 See [AgentDojo Benchmark](docs/benchmark-agentdojo.md) for scenario details, output formats, and how to add new scenarios.
 
@@ -462,7 +469,7 @@ From the repo root, use `pnpm ari <command>`. If installed globally (`npm instal
 | `arikernel simulate [type]` | Run attack simulations (prompt-injection, data-exfiltration, tool-escalation) |
 | `arikernel trace [runId]` | Display security execution trace |
 | `arikernel replay [runId]` | Replay a recorded session step by step |
-| `arikernel replay-trace <file>` | Replay a JSON trace file through the kernel |
+| `arikernel replay-trace <file>` | Replay a JSON trace file (`--timeline`, `--summary`, `--graph`, `--json`) |
 | `arikernel sidecar` | Start sidecar proxy (localhost:8787 by default) |
 | `arikernel init` | Interactive project setup |
 | `arikernel policy <file>` | Validate a policy YAML file |
@@ -491,6 +498,9 @@ pnpm demo:replay              # deterministic attack replay
 
 # Deterministic replay via CLI
 pnpm ari replay-trace examples/demo-real-agent/trace.json --verbose
+pnpm ari replay-trace demo-trace.json --timeline             # attack timeline
+pnpm ari replay-trace demo-trace.json --summary              # concise summary
+pnpm ari replay-trace demo-trace.json --graph                # ASCII attack graph
 
 # Framework integrations
 pnpm demo:langchain           # LangChain integration
@@ -498,6 +508,7 @@ pnpm demo:openai              # OpenAI-style tool calling
 pnpm demo:crewai              # CrewAI tool protection
 pnpm demo:mcp                 # MCP tool protection
 pnpm demo:sidecar             # sidecar proxy mode
+pnpm example:sidecar-secure   # secure sidecar (preset + auth)
 
 # Python
 pnpm demo:python              # basic agent with protect_tool decorator
@@ -507,26 +518,49 @@ pnpm demo:python:quarantine   # behavioral quarantine in Python
 pnpm test                     # all TypeScript tests (28 packages)
 pnpm test:proof               # high-signal proof tests: attacks, middleware, sidecar, runtime (284 tests)
 pnpm test:live                # live integration tests (requires OPENAI_API_KEY)
-pnpm benchmark:agentdojo      # 5 attack scenarios — 100% exfiltration prevented
+pnpm benchmark:agentdojo      # 9 attack scenarios — 100% exfiltration prevented
 ```
 
 ---
 
-## Sidecar Mode
+## Sidecar Mode (Recommended for Production)
 
-Ari Kernel can run as a standalone HTTP proxy that enforces policy before any tool executes. The agent sends `POST /execute` requests; the sidecar evaluates capability tokens, taint, policy rules, and behavioral patterns, then returns the result or a denial.
+> **For production and security-sensitive deployments, sidecar mode is recommended.** It provides the highest assurance via process isolation — the agent has no code path to tools that bypasses the kernel, provided all side-effectful operations are routed exclusively through the sidecar.
+
+Ari Kernel runs as a standalone HTTP proxy that enforces policy before any tool executes. The agent sends `POST /execute` requests; the sidecar evaluates capability tokens, taint, policy rules, and behavioral patterns, then returns the result or a denial.
 
 ```bash
-arikernel sidecar --policy ./arikernel.policy.yaml --port 8787
+arikernel sidecar --preset safe --auth-token "$AUTH_TOKEN" --port 8787
 ```
 
-**Security defaults**: The sidecar binds to `127.0.0.1` (localhost only). External network exposure requires the explicit `--host 0.0.0.0` flag. Optional Bearer token authentication via `--auth-token <token>`.
+Or programmatically with preset support:
+
+```typescript
+import { SidecarServer } from "@arikernel/sidecar";
+
+const server = new SidecarServer({
+  preset: "safe",                    // pre-configured policies + capabilities
+  authToken: process.env.AUTH_TOKEN, // Bearer token authentication
+});
+await server.listen();
+```
+
+**Security defaults**: The sidecar binds to `127.0.0.1` (localhost only). External network exposure requires the explicit `--host 0.0.0.0` flag. Bearer token authentication via `--auth-token <token>` is strongly recommended for any deployment.
 
 > **Note:** `X-Forwarded-For` should only be trusted when Ari Kernel is deployed behind a reverse proxy. In the default localhost-only configuration, rate limiting uses the direct socket address and is not spoofable.
 
-The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state.
+The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state. See [Deployment Mode Guarantees](docs/security-model.md#deployment-mode-guarantees) for a comparison of middleware, in-process, and sidecar assurance levels.
 
-See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
+**Optional runtime guard**: To prevent accidental bypass of the sidecar, enable the runtime guard in the agent process. This intercepts `fetch()` and `child_process` calls, routing them through the sidecar's policy engine:
+
+```typescript
+import { enableSidecarGuard, SidecarClient } from "@arikernel/sidecar";
+
+enableSidecarGuard({ client: new SidecarClient({ principalId: "my-agent" }) });
+// fetch() and child_process are now mediated by the sidecar
+```
+
+See [Sidecar Guard](docs/security-model.md#sidecar-guard-optional-runtime-mediation) for details and limitations. See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
 
 ---
 
@@ -584,7 +618,7 @@ AriKernel/
 - [Agent Reference Monitor](docs/agent-reference-monitor.md) — the reference monitor concept applied to AI agents
 - [Threat Model](docs/threat-model.md) — what Ari Kernel mitigates and what it doesn't
 - [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
-- [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 5-scenario reproducible attack harness
+- [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 9-scenario reproducible attack harness
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
 - [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
 - [Sidecar Mode](docs/sidecar-mode.md) — language-agnostic HTTP enforcement proxy

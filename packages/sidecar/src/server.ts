@@ -1,6 +1,6 @@
 import { type Server, createServer } from "node:http";
 import { dirname, resolve } from "node:path";
-import { PrincipalRegistry } from "./registry.js";
+import { PrincipalRegistry, resolveRegistryConfig } from "./registry.js";
 import { handleExecute, handleHealth, handleStatus, rejectUnauthorized } from "./router.js";
 import type { SidecarConfig } from "./types.js";
 
@@ -18,8 +18,15 @@ export class SidecarServer {
 		this.host = config.host ?? DEFAULT_HOST;
 		const authToken = config.authToken;
 
+		const registryConfig = resolveRegistryConfig({
+			policy: config.policy,
+			preset: config.preset,
+			capabilities: config.capabilities,
+			runStatePolicy: config.runStatePolicy,
+		});
+
 		const auditDir = dirname(resolve(config.auditLog ?? "./sidecar-audit.db"));
-		this.registry = new PrincipalRegistry(auditDir, config.policy, config.runStatePolicy);
+		this.registry = new PrincipalRegistry(auditDir, registryConfig);
 
 		this.server = createServer((req, res) => {
 			const url = req.url ?? "/";

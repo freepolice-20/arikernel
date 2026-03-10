@@ -27,4 +27,6 @@ export interface Principal {
 	id: string;
 	name: string;
 	capabilities: Capability[];
+	/** ID of the parent principal that delegated capabilities to this one. */
+	parentId?: string;
 }

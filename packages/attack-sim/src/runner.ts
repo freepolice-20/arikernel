@@ -3,13 +3,22 @@ import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import { DEFAULT_POLICY } from "./default-policy.js";
 import { dataExfiltrationScenarios } from "./scenarios/data-exfiltration.js";
+import { filesystemTraversalScenarios } from "./scenarios/filesystem-traversal.js";
 import { privilegeEscalationScenarios } from "./scenarios/privilege-escalation.js";
 import { promptInjectionScenarios } from "./scenarios/prompt-injection.js";
+import { ssrfScenarios } from "./scenarios/ssrf.js";
+import { toolEscalationScenarios } from "./scenarios/tool-escalation.js";
 import { toolMisuseScenarios } from "./scenarios/tool-misuse.js";
 
 export interface SimScenario {
 	name: string;
 	description: string;
+	/** The attack prompt that triggers this behavior. */
+	attackPrompt?: string;
+	/** What the agent is expected to do. */
+	expectedAgentBehavior?: string;
+	/** How the kernel should respond. */
+	expectedKernelResponse?: string;
 	request: ToolCallRequest;
 	expectedVerdict: DecisionVerdict;
 }
@@ -26,6 +35,9 @@ const ALL_SCENARIOS: SimScenario[] = [
 	...toolMisuseScenarios,
 	...dataExfiltrationScenarios,
 	...privilegeEscalationScenarios,
+	...ssrfScenarios,
+	...filesystemTraversalScenarios,
+	...toolEscalationScenarios,
 ];
 
 export async function runSimulation(policies?: string | PolicyRule[]): Promise<SimResult[]> {

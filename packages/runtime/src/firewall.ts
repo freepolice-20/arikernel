@@ -1,17 +1,27 @@
 import { AuditStore, type ReplayResult, replayRun } from "@arikernel/audit-log";
 import type {
 	AuditEvent,
+	Capability,
 	CapabilityClass,
 	CapabilityConstraint,
 	CapabilityGrant,
 	CapabilityRequest,
+	DelegatedCapability,
+	DelegationResult,
 	IssuanceDecision,
 	Principal,
 	TaintLabel,
 	ToolCallRequest,
 	ToolResult,
 } from "@arikernel/core";
-import { CAPABILITY_CLASS_MAP, generateId, now } from "@arikernel/core";
+import {
+	CAPABILITY_CLASS_MAP,
+	createDelegatedPrincipal,
+	delegateCapability,
+	generateId,
+	now,
+	revokeDelegationsFrom,
+} from "@arikernel/core";
 import { PolicyEngine } from "@arikernel/policy-engine";
 import { TaintTracker } from "@arikernel/taint-tracker";
 import type { ToolExecutor } from "@arikernel/tool-executors";
@@ -59,7 +69,12 @@ export class Firewall {
 		this.auditStore = new AuditStore(options.auditLog ?? "./audit.db");
 		this.executorRegistry = new ExecutorRegistry();
 		this.tokenStore = new TokenStore();
-		this.issuer = new CapabilityIssuer(this.policyEngine, this.taintTracker, this.tokenStore);
+		this.issuer = new CapabilityIssuer(
+			this.policyEngine,
+			this.taintTracker,
+			this.tokenStore,
+			options.signingKey,
+		);
 
 		this._hooks = options.hooks ?? {};
 		this._runState = new RunStateTracker(options.runStatePolicy);
@@ -79,6 +94,7 @@ export class Firewall {
 			options.hooks ?? {},
 			this.tokenStore,
 			this._runState,
+			options.signingKey,
 		);
 	}
 
@@ -216,6 +232,11 @@ export class Firewall {
 		return this._runState.quarantineInfo;
 	}
 
+	/** Kernel-maintained taint state for this run. */
+	get taintState(): import("@arikernel/core").TaintState {
+		return this._runState.taintState;
+	}
+
 	private checkBehavioralRulesFromCapability(capabilityClass: string): void {
 		if (!this._runState.behavioralRulesEnabled) return;
 		const match = evaluateBehavioralRules(this._runState);
@@ -235,6 +256,60 @@ export class Firewall {
 				},
 			);
 		}
+	}
+
+	/**
+	 * Delegate a subset of this firewall's principal capabilities to a child principal.
+	 *
+	 * The child receives the intersection of the parent's capabilities and
+	 * the requested capabilities — delegation can only narrow, never widen.
+	 *
+	 * Returns a new Firewall instance bound to the child principal.
+	 */
+	delegateToChild(
+		childName: string,
+		requestedCapabilities: Capability[],
+	): { firewall: Firewall; denied: DelegationResult[] } {
+		const childId = generateId();
+		const { principal: childPrincipal, denied } = createDelegatedPrincipal(
+			{ ...this.principal, capabilities: this.principal.capabilities as DelegatedCapability[] },
+			childId,
+			childName,
+			requestedCapabilities,
+			now(),
+		);
+
+		const childFirewall = new Firewall({
+			principal: {
+				name: childPrincipal.name,
+				capabilities: childPrincipal.capabilities,
+			},
+			policies: [...this.policyEngine.getRules()],
+			hooks: this._hooks,
+			runStatePolicy: this._runState.policy,
+		});
+
+		// Override the generated principal to preserve parentId and delegation metadata
+		(childFirewall as any).principal = childPrincipal;
+
+		return { firewall: childFirewall, denied };
+	}
+
+	/**
+	 * Revoke all capabilities that were delegated through a specific principal.
+	 *
+	 * Transitive: if A → B → C, revoking B removes C's delegated capabilities too.
+	 */
+	revokeDelegationsFrom(principalId: string): void {
+		this.principal.capabilities = revokeDelegationsFrom(
+			this.principal.capabilities as DelegatedCapability[],
+			principalId,
+		);
+	}
+
+	/** The principal bound to this firewall instance. */
+	get principalInfo(): Readonly<Principal> {
+		return this.principal;
 	}
 
 	close(): void {

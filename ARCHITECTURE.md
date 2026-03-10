@@ -1,7 +1,7 @@
 # Ari Kernel — Architecture
 
-> A runtime security reference monitor for AI agents.
-> Intercepts every tool call at the execution boundary and enforces security before anything executes.
+> A runtime security enforcement layer for AI agents, drawing on the reference monitor concept (Anderson, 1972).
+> Intercepts tool calls at the execution boundary and enforces security before anything executes. The degree to which classical reference monitor properties hold depends on deployment mode (see § 12).
 
 ## 1. Technical Architecture
 
@@ -672,9 +672,9 @@ In sidecar mode, the kernel runs as a separate HTTP process on port 8787. Tools 
 **When to use:** Production deployments, untrusted agent code, polyglot environments, compliance-sensitive workloads. This is the right mode when you need to guarantee enforcement regardless of what the agent framework does.
 
 **Guarantees:**
-- Complete mediation — no tool call can bypass the sidecar
-- Process isolation — agent cannot modify firewall state or audit log
-- Tamper-proof audit — audit log is in a separate process, inaccessible to the agent
+- Mandatory mediation — no tool call can reach executors without passing through the sidecar, provided the agent has no alternative network path or filesystem access to tools outside the sidecar
+- Process isolation — agent cannot inspect or modify firewall state or audit log (separate address space)
+- Tamper-evident audit — audit log is in a separate process with a SHA-256 hash chain. Process separation prevents the agent from modifying the log, but does not prevent tampering by an attacker with host-level access (see § 13)
 - Supports any language or framework — agent communicates via HTTP
 - Per-principal isolation — each principal gets an independent kernel instance
 
@@ -684,7 +684,7 @@ In sidecar mode, the kernel runs as a separate HTTP process on port 8787. Tools 
 |----------|--------------|------------|
 | Enforcement type | Cooperative | Mandatory |
 | Agent can bypass? | Only if framework code is modified to skip enforcement | No — no direct path to tools |
-| Audit tamper resistance | Tamper-evident (hash chain) | Tamper-proof (separate process) |
+| Audit tamper resistance | Tamper-evident (hash chain, same process) | Tamper-evident + process-isolated (agent cannot access audit DB) |
 | Language support | TypeScript/JavaScript or Python (native runtimes) | Any (HTTP API) |
 | Latency | In-process (microseconds) | Network hop (milliseconds) |
 | Setup complexity | `npm install` + `createKernel()` | Separate service deployment |

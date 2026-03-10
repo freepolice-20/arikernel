@@ -2,7 +2,21 @@ import type { ToolCall } from "@arikernel/core";
 import { now } from "@arikernel/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HttpExecutor } from "../src/http.js";
+import type { PinnedResponse } from "../src/ssrf.js";
 import { RetrievalExecutor } from "../src/retrieval.js";
+
+// Mock the ssrf module so HttpExecutor tests don't make real network requests
+vi.mock("../src/ssrf.js", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/ssrf.js")>();
+	return {
+		...actual,
+		ssrfSafeRequest: vi.fn(),
+	};
+});
+
+import { ssrfSafeRequest } from "../src/ssrf.js";
+
+const mockSsrfSafeRequest = vi.mocked(ssrfSafeRequest);
 
 function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 	return {
@@ -19,18 +33,22 @@ function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 	};
 }
 
+function mockOkResponse(contentType = "text/plain", body = "hello"): PinnedResponse {
+	return {
+		status: 200,
+		headers: { "content-type": contentType },
+		body,
+		redirectChain: [],
+	};
+}
+
 describe("HttpExecutor auto-taint", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
 	it("tags successful responses with web:<hostname>", async () => {
-		vi.stubGlobal("fetch", async () => ({
-			ok: true,
-			status: 200,
-			headers: { get: () => "text/plain", entries: () => [] },
-			text: async () => "hello",
-		}));
+		mockSsrfSafeRequest.mockResolvedValue(mockOkResponse());
 
 		const executor = new HttpExecutor();
 		const result = await executor.execute(
@@ -46,9 +64,7 @@ describe("HttpExecutor auto-taint", () => {
 	});
 
 	it("tags failed/error responses with web:<hostname>", async () => {
-		vi.stubGlobal("fetch", async () => {
-			throw new Error("network error");
-		});
+		mockSsrfSafeRequest.mockRejectedValue(new Error("network error"));
 
 		const executor = new HttpExecutor();
 		const result = await executor.execute(
@@ -64,9 +80,9 @@ describe("HttpExecutor auto-taint", () => {
 	});
 
 	it("uses full url as origin when url is not parseable", async () => {
-		vi.stubGlobal("fetch", async () => {
-			throw new Error("fail");
-		});
+		// With an unparseable URL, the executor will fail before calling ssrfSafeRequest
+		// because new URL() in ssrfSafeRequest will throw
+		mockSsrfSafeRequest.mockRejectedValue(new Error("Invalid URL"));
 
 		const executor = new HttpExecutor();
 		const result = await executor.execute(
@@ -80,12 +96,9 @@ describe("HttpExecutor auto-taint", () => {
 	});
 
 	it("uses hostname from subdomain URLs", async () => {
-		vi.stubGlobal("fetch", async () => ({
-			ok: true,
-			status: 200,
-			headers: { get: () => "application/json", entries: () => [] },
-			json: async () => ({ data: "test" }),
-		}));
+		mockSsrfSafeRequest.mockResolvedValue(
+			mockOkResponse("application/json", '{"data":"test"}'),
+		);
 
 		const executor = new HttpExecutor();
 		const result = await executor.execute(

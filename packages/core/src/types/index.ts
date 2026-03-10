@@ -30,6 +30,7 @@ export type {
 export type {
 	AuditEvent,
 	RunContext,
+	TaintState,
 } from "./audit.js";
 
 export {

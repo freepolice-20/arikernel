@@ -42,7 +42,12 @@ const { results, summary } = await benchmark(RESULTS_DIR, progressCallback);
 const report = buildReport(results, summary);
 const paths = defaultResultsPaths(REPO_ROOT);
 
+const agentDojoResultsPath = resolve(REPO_ROOT, "benchmarks", "agentdojo-results.md");
+
 printConsoleSummary(report);
 writeJsonReport(report, paths.json);
 writeJsonlReport(report, paths.jsonl);
 writeMarkdownReport(report, paths.markdown);
+writeMarkdownReport(report, agentDojoResultsPath);
+
+console.log(`  AgentDojo report: benchmarks/agentdojo-results.md\n`);

@@ -1,6 +1,7 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { VERSION } from "@arikernel/core";
 import type {
 	BenchmarkEnvironment,
 	BenchmarkReport,
@@ -119,13 +120,13 @@ export function writeJsonlReport(report: BenchmarkReport, outPath: string): void
 export function captureEnvironment(): BenchmarkEnvironment {
 	let gitSha = "unknown";
 	try {
-		gitSha = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+		gitSha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
 	} catch {
 		/* not in a git repo */
 	}
 
 	return {
-		ariKernelVersion: "0.1.0",
+		ariKernelVersion: VERSION,
 		gitSha,
 		nodeVersion: process.version,
 		platform: process.platform,

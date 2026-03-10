@@ -6,9 +6,10 @@ import type {
 	CapabilityRequest,
 	IssuanceDecision,
 	Principal,
+	SigningKey,
 	TaintLabel,
 } from "@arikernel/core";
-import { CAPABILITY_CLASS_MAP, generateId, now } from "@arikernel/core";
+import { CAPABILITY_CLASS_MAP, createCapabilityToken, generateId, now } from "@arikernel/core";
 import { type PolicyEngine, matchesRule } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
 import type { TokenStore } from "./token-store.js";
@@ -66,6 +67,7 @@ export class CapabilityIssuer {
 		private readonly policyEngine: PolicyEngine,
 		private readonly taintTracker: TaintTracker,
 		private readonly tokenStore: TokenStore,
+		private readonly signingKey?: SigningKey,
 	) {}
 
 	evaluate(request: CapabilityRequest, principal: Principal): IssuanceDecision {
@@ -137,7 +139,14 @@ export class CapabilityIssuer {
 
 		// Step 5: issue the grant
 		const grant = this.issueGrant(request, baseCap, timestamp);
-		this.tokenStore.store(grant);
+
+		// Sign the grant if a signing key is configured
+		if (this.signingKey) {
+			const signed = createCapabilityToken(grant, this.signingKey);
+			this.tokenStore.store(grant, signed.signature, signed.algorithm);
+		} else {
+			this.tokenStore.store(grant);
+		}
 
 		return {
 			requestId: request.id,

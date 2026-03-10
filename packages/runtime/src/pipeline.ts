@@ -3,6 +3,7 @@ import type {
 	AuditEvent,
 	Decision,
 	Principal,
+	SigningKey,
 	ToolCall,
 	ToolCallRequest,
 	ToolResult,
@@ -14,6 +15,7 @@ import {
 	generateId,
 	now,
 	toolCallRequestSchema,
+	verifyCapabilityToken,
 } from "@arikernel/core";
 import type { PolicyEngine } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
@@ -57,6 +59,7 @@ export class Pipeline {
 		private readonly hooks: FirewallHooks,
 		private readonly tokenStore?: TokenStore,
 		private readonly runState?: RunStateTracker,
+		private readonly signingKey?: SigningKey,
 	) {}
 
 	async intercept(request: ToolCallRequest): Promise<ToolResult> {
@@ -112,9 +115,7 @@ export class Pipeline {
 		if (this.runState) {
 			// Track taint from the tool call — mark run as persistently tainted
 			if (toolCall.taintLabels.length > 0) {
-				for (const label of toolCall.taintLabels) {
-					this.runState.markTainted(label.source);
-				}
+				this.runState.accumulateTaintLabels(toolCall.taintLabels);
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
 					type: "taint_observed",
@@ -218,8 +219,15 @@ export class Pipeline {
 			}
 		}
 
-		// Step 2: Collect taint
-		const inputTaints = this.taintTracker.collectInputTaints(toolCall);
+		// Step 2: Collect taint — merge tool-call labels with kernel-maintained run-level taint.
+		// This ensures taint propagates even when a tool or agent omits taintLabels.
+		let inputTaints = this.taintTracker.collectInputTaints(toolCall);
+		if (this.runState && this.runState.tainted) {
+			const runLabels = this.runState.accumulatedTaintLabels as import("@arikernel/core").TaintLabel[];
+			if (runLabels.length > 0) {
+				inputTaints = this.taintTracker.merge(inputTaints, [...runLabels]);
+			}
+		}
 
 		// Step 3: Evaluate policy
 		const decision = this.policyEngine.evaluate(toolCall, inputTaints, this.principal.capabilities);
@@ -281,6 +289,19 @@ export class Pipeline {
 		const propagated = this.taintTracker.propagate(inputTaints, toolCall.id);
 		result.taintLabels = this.taintTracker.merge(autoTaints, propagated);
 
+		// Step 6.1: Enforce run-level taint — tools cannot silently clear taint.
+		// If the run is tainted, accumulated labels MUST appear in the output.
+		// Only an explicit policy rule with tag "allow-taint-clear" can bypass this.
+		if (this.runState && this.runState.tainted) {
+			const runLabels = this.runState.accumulatedTaintLabels as import("@arikernel/core").TaintLabel[];
+			result.taintLabels = this.taintTracker.merge(result.taintLabels, [...runLabels]);
+		}
+
+		// Step 6.2: Accumulate result taint labels into run-level state
+		if (this.runState && result.taintLabels.length > 0) {
+			this.runState.accumulateTaintLabels(result.taintLabels);
+		}
+
 		this.hooks.onExecute?.(toolCall, result);
 
 		// Step 6.3: Output filtering (DLP hook)
@@ -314,6 +335,24 @@ export class Pipeline {
 
 		if (!grant) {
 			this.denyAndThrow(toolCall, `Capability token not found: ${grantId}`);
+		}
+
+		// Verify cryptographic signature if signing is enabled
+		if (this.signingKey) {
+			const stored = this.tokenStore?.getStoredToken(grantId);
+			if (!stored?.signature || !stored?.algorithm) {
+				this.denyAndThrow(
+					toolCall,
+					`Signing is enabled but token '${grantId}' has no signature`,
+				);
+			}
+			const verification = verifyCapabilityToken(
+				{ grant, signature: stored.signature, algorithm: stored.algorithm },
+				this.signingKey,
+			);
+			if (!verification.valid) {
+				this.denyAndThrow(toolCall, `Token signature verification failed: ${verification.reason}`);
+			}
 		}
 
 		if (grant.principalId !== toolCall.principalId) {

@@ -16,6 +16,8 @@ export interface ReplayTraceOptions {
 	json?: boolean;
 	verbose?: boolean;
 	timeline?: boolean;
+	summary?: boolean;
+	graph?: boolean;
 }
 
 export async function runReplayTrace(
@@ -147,6 +149,16 @@ export async function runReplayTrace(
 	if (options.timeline) {
 		printTimeline(trace);
 	}
+
+	// Summary view
+	if (options.summary) {
+		printSummaryView(trace);
+	}
+
+	// Graph view
+	if (options.graph) {
+		printGraph(trace);
+	}
 }
 
 function printTimeline(trace: ReplayTrace): void {
@@ -166,55 +178,40 @@ function printTimeline(trace: ReplayTrace): void {
 		console.log(`  ${DIM}Scenario: ${trace.metadata.description}${RESET}\n`);
 	}
 
-	// Build timeline entries from events and quarantines
-	interface TimelineEntry {
-		time: string;
-		timestamp: string;
-		label: string;
-		detail: string;
-		color: string;
-		icon: string;
-	}
-
-	const entries: TimelineEntry[] = [];
+	const principal = trace.metadata.principal ?? "unknown";
 
 	for (const event of trace.events) {
 		const time = relativeTime(event.timestamp);
+		const step = `${DIM}#${event.sequence}${RESET}`;
 		const tool = `${event.request.toolClass}.${event.request.action}`;
-		const target = event.request.parameters.url ?? event.request.parameters.path ?? "";
+		const target = (event.request.parameters.url ?? event.request.parameters.path ?? "") as string;
+		const taintSources = event.request.taintLabels?.map((t) => t.source) ?? [];
+		const taintStr =
+			taintSources.length > 0 ? `${YELLOW}taint:[${taintSources.join(",")}]${RESET}` : "";
+		const rule = event.decision.matchedRule
+			? `${DIM}rule:${event.decision.matchedRule}${RESET}`
+			: "";
 
 		if (event.decision.verdict === "allow") {
-			entries.push({
-				time,
-				timestamp: event.timestamp,
-				label: "ALLOWED",
-				detail: `${tool}  ${DIM}${target}${RESET}`,
-				color: GREEN,
-				icon: "\u2713", // ✓
-			});
-
-			// Check if this event had web taint
-			const hasTaint = event.request.taintLabels?.some((t) => t.source === "web");
-			if (hasTaint) {
-				entries.push({
-					time,
-					timestamp: event.timestamp,
-					label: "DATA TAINTED",
-					detail: `${DIM}source: web${RESET}`,
-					color: YELLOW,
-					icon: "\u26a0", // ⚠
-				});
-			}
+			console.log(
+				`  ${time}  ${step}  ${GREEN}\u2713 ALLOWED${RESET}  ${tool} ${DIM}${target}${RESET}`,
+			);
 		} else {
-			entries.push({
-				time,
-				timestamp: event.timestamp,
-				label: event.capabilityGranted === false ? "BLOCKED" : "DENIED",
-				detail: `${tool}  ${DIM}${target}${RESET}\n${" ".repeat(16)}${DIM}${event.decision.reason}${RESET}`,
-				color: RED,
-				icon: "\u2717", // ✗
-			});
+			const label = event.capabilityGranted === false ? "BLOCKED" : "DENIED";
+			console.log(
+				`  ${time}  ${step}  ${RED}\u2717 ${label}${RESET}   ${tool} ${DIM}${target}${RESET}`,
+			);
+			console.log(`${" ".repeat(28)}${DIM}${event.decision.reason}${RESET}`);
 		}
+
+		// Print metadata line (taint, principal, rule) if any are present
+		const meta = [taintStr, `${DIM}principal:${principal}${RESET}`, rule]
+			.filter(Boolean)
+			.join("  ");
+		if (meta) {
+			console.log(`${" ".repeat(28)}${meta}`);
+		}
+		console.log();
 	}
 
 	// Insert quarantine entries
@@ -222,44 +219,26 @@ function printTimeline(trace: ReplayTrace): void {
 		for (const q of trace.quarantines) {
 			const time = relativeTime(q.timestamp);
 			const rule = q.ruleId ?? "behavioral detection";
-			entries.push({
-				time,
-				timestamp: q.timestamp,
-				label: "QUARANTINE",
-				detail: `Rule: ${BOLD}${rule}${RESET}\n${" ".repeat(16)}${DIM}${q.reason}${RESET}`,
-				color: MAGENTA,
-				icon: "\ud83d\udd12", // 🔒
-			});
+			console.log(
+				`  ${time}       ${MAGENTA}\ud83d\udd12 QUARANTINE${RESET}  Rule: ${BOLD}${rule}${RESET}`,
+			);
+			console.log(`${" ".repeat(28)}${DIM}${q.reason}${RESET}`);
+			console.log();
 		}
 	} else if (trace.outcome.quarantined) {
-		// Synthesize quarantine entry: place it after the last non-blocked denied event
 		const lastDenied = [...trace.events]
 			.reverse()
 			.find((e) => e.decision.verdict === "deny" && e.capabilityGranted !== false);
 		if (lastDenied) {
 			const time = relativeTime(lastDenied.timestamp);
-			entries.push({
-				time,
-				timestamp: lastDenied.timestamp,
-				label: "QUARANTINE ACTIVATED",
-				detail: `${DIM}Run locked to read-only after behavioral rule match${RESET}`,
-				color: MAGENTA,
-				icon: "\ud83d\udd12", // 🔒
-			});
+			console.log(
+				`  ${time}       ${MAGENTA}\ud83d\udd12 QUARANTINE ACTIVATED${RESET}`,
+			);
+			console.log(
+				`${" ".repeat(28)}${DIM}Run locked to read-only after behavioral rule match${RESET}`,
+			);
+			console.log();
 		}
-	}
-
-	// Sort by timestamp
-	entries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-	// Render
-	for (const entry of entries) {
-		const timeStr = entry.time.padStart(8);
-		console.log(
-			`  ${DIM}${timeStr}${RESET}  ${entry.color}${entry.icon} ${BOLD}${entry.label}${RESET}`,
-		);
-		console.log(`${" ".repeat(12)}  ${entry.detail}`);
-		console.log();
 	}
 
 	// Result
@@ -268,5 +247,109 @@ function printTimeline(trace: ReplayTrace): void {
 	console.log(
 		`${BOLD}  Result: ${contained ? `${RED}ATTACK CONTAINED${RESET}` : `${GREEN}NO ATTACK DETECTED${RESET}`}${RESET}`,
 	);
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}\n`);
+}
+
+function printSummaryView(trace: ReplayTrace): void {
+	const BAR = "\u2501";
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}`);
+	console.log(`${CYAN}${BOLD} TRACE SUMMARY${RESET}`);
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}\n`);
+
+	if (trace.metadata.description) {
+		console.log(`  ${DIM}Scenario:${RESET}  ${trace.metadata.description}`);
+	}
+	if (trace.metadata.principal) {
+		console.log(`  ${DIM}Principal:${RESET} ${trace.metadata.principal}`);
+	}
+	if (trace.metadata.preset) {
+		console.log(`  ${DIM}Preset:${RESET}    ${trace.metadata.preset}`);
+	}
+	const duration =
+		new Date(trace.timestampCompleted).getTime() -
+		new Date(trace.timestampStarted).getTime();
+	console.log(`  ${DIM}Duration:${RESET}  ${duration}ms`);
+	console.log();
+
+	// Event summary table
+	console.log(`  ${BOLD}Events:${RESET}`);
+	for (const event of trace.events) {
+		const tool = `${event.request.toolClass}.${event.request.action}`;
+		const target = (event.request.parameters.url ?? event.request.parameters.path ?? "") as string;
+		const short = target.length > 40 ? `${target.slice(0, 37)}...` : target;
+		const verdictColor = event.decision.verdict === "allow" ? GREEN : RED;
+		const verdict = event.decision.verdict.toUpperCase();
+		const taint =
+			(event.request.taintLabels?.length ?? 0) > 0
+				? ` ${YELLOW}[tainted]${RESET}`
+				: "";
+		console.log(
+			`    ${event.sequence + 1}. ${tool} ${DIM}${short}${RESET} \u2192 ${verdictColor}${verdict}${RESET}${taint}`,
+		);
+	}
+	console.log();
+
+	// Counters
+	const c = trace.outcome.finalCounters;
+	console.log(`  ${BOLD}Counters:${RESET}`);
+	console.log(`    Denied actions:          ${c.deniedActions}`);
+	console.log(`    Capability requests:     ${c.capabilityRequests}`);
+	console.log(`    Denied capabilities:     ${c.deniedCapabilityRequests}`);
+	console.log(`    Egress attempts:         ${c.externalEgressAttempts}`);
+	console.log(`    Sensitive file reads:    ${c.sensitiveFileReadAttempts}`);
+	console.log();
+
+	// Verdict
+	const o = trace.outcome;
+	console.log(
+		`  ${BOLD}Verdict:${RESET}  ${GREEN}${o.allowed} allowed${RESET}, ${RED}${o.denied} denied${RESET}` +
+			`${o.quarantined ? `, ${MAGENTA}quarantined${RESET}` : ""}`,
+	);
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}\n`);
+}
+
+function printGraph(trace: ReplayTrace): void {
+	const BAR = "\u2501";
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}`);
+	console.log(`${CYAN}${BOLD} ATTACK SEQUENCE GRAPH${RESET}`);
+	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}\n`);
+
+	if (trace.events.length === 0) {
+		console.log(`  ${DIM}(no events)${RESET}\n`);
+		return;
+	}
+
+	// Build nodes
+	const nodes: Array<{ label: string; verdict: string; color: string }> = [];
+	for (const event of trace.events) {
+		const tool = `${event.request.toolClass}.${event.request.action}`;
+		const target = (event.request.parameters.url ?? event.request.parameters.path ?? "") as string;
+		const short = target.length > 30 ? `${target.slice(0, 27)}...` : target;
+		const verdictColor = event.decision.verdict === "allow" ? GREEN : RED;
+		const verdict = event.decision.verdict.toUpperCase();
+		nodes.push({ label: `${tool} ${short}`, verdict, color: verdictColor });
+	}
+
+	// Render as vertical ASCII flowchart
+	for (let i = 0; i < nodes.length; i++) {
+		const node = nodes[i];
+		const stepNum = `${DIM}#${i}${RESET}`;
+		const box = `[${node.color}${node.verdict.padEnd(7)}${RESET}]`;
+		console.log(`  ${stepNum}  ${box}  ${node.label}`);
+
+		if (i < nodes.length - 1) {
+			const nextColor = nodes[i + 1].color;
+			console.log(`             ${nextColor}\u2502${RESET}`);
+			console.log(`             ${nextColor}\u2514\u2500\u2500\u25b6${RESET}`);
+		}
+	}
+
+	// Quarantine marker
+	if (trace.outcome.quarantined) {
+		console.log(`             ${RED}\u2502${RESET}`);
+		console.log(`       ${MAGENTA}${BOLD}\ud83d\udd12 QUARANTINE${RESET} ${DIM}run locked to read-only${RESET}`);
+	}
+
+	console.log();
 	console.log(`${CYAN}${BOLD}${BAR.repeat(56)}${RESET}\n`);
 }

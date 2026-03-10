@@ -23,8 +23,8 @@ afterEach(() => {
 });
 
 describe("SCENARIOS registry", () => {
-	it("exports exactly 5 scenarios", () => {
-		expect(SCENARIOS).toHaveLength(5);
+	it("exports exactly 9 scenarios", () => {
+		expect(SCENARIOS).toHaveLength(9);
 	});
 
 	it("each scenario has unique id, name, attackClass, and run function", () => {
