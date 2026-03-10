@@ -3,6 +3,22 @@ import { resolve } from "node:path";
 import { ToolCallDeniedError } from "@arikernel/core";
 import { type SessionConfig, SessionManager } from "./sessions.js";
 
+/** Constant-time string comparison to prevent timing side-channels. */
+function timingSafeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) {
+		let result = a.length ^ b.length;
+		for (let i = 0; i < a.length; i++) {
+			result |= a.charCodeAt(i) ^ (b.charCodeAt(i % b.length) || 0);
+		}
+		return result === 0; // always false when lengths differ
+	}
+	let result = 0;
+	for (let i = 0; i < a.length; i++) {
+		result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return result === 0;
+}
+
 const PORT = Number(process.env.PORT ?? 9099);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const POLICY = process.env.POLICY ?? resolve("policies", "safe-defaults.yaml");
@@ -205,7 +221,11 @@ const server = createServer(async (req, res) => {
 		// Bearer auth (when AUTH_TOKEN is set)
 		if (AUTH_TOKEN) {
 			const authHeader = req.headers.authorization;
-			if (authHeader !== `Bearer ${AUTH_TOKEN}`) {
+			if (!authHeader || !authHeader.startsWith("Bearer ")) {
+				json(res, 401, { error: "Missing or malformed Authorization header" });
+				return;
+			}
+			if (!timingSafeEqual(authHeader.slice(7), AUTH_TOKEN)) {
 				json(res, 401, { error: "Unauthorized" });
 				return;
 			}
