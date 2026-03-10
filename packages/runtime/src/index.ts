@@ -1,7 +1,7 @@
 export { Firewall, createFirewall } from "./firewall.js";
 export type { FirewallOptions } from "./config.js";
 export type { FirewallHooks } from "./hooks.js";
-export { CapabilityIssuer } from "./issuer.js";
+export { CapabilityIssuer, setUntrustedSources, getUntrustedSources } from "./issuer.js";
 export { RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";
 export type {
 	RunStatePolicy,

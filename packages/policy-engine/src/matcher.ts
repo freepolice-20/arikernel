@@ -48,8 +48,20 @@ function matchesParameters(
 		const value = String(params[key] ?? "");
 
 		if (matcher.pattern) {
-			const regex = new RegExp(matcher.pattern);
-			if (!regex.test(value)) return false;
+			try {
+				const regex = new RegExp(matcher.pattern);
+				// Guard against catastrophic backtracking: timeout after 5ms
+				const start = performance.now();
+				const result = regex.test(value);
+				if (performance.now() - start > 5) {
+					// Regex took too long — treat as non-match to fail safe
+					return false;
+				}
+				if (!result) return false;
+			} catch {
+				// Invalid regex in policy — fail closed (deny match)
+				return false;
+			}
 		}
 
 		if (matcher.in) {

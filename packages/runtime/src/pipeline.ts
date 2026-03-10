@@ -310,13 +310,11 @@ export class Pipeline {
 	}
 
 	private validateToken(toolCall: ToolCall, grantId: string): void {
-		const validation = this.tokenStore?.validate(grantId);
+		const grant = this.tokenStore?.get(grantId);
 
-		if (!validation.valid) {
-			this.denyAndThrow(toolCall, `Capability token invalid: ${validation.reason}`);
+		if (!grant) {
+			this.denyAndThrow(toolCall, `Capability token not found: ${grantId}`);
 		}
-
-		const grant = this.tokenStore?.get(grantId)!;
 
 		if (grant.principalId !== toolCall.principalId) {
 			this.denyAndThrow(
@@ -346,8 +344,11 @@ export class Pipeline {
 			this.denyAndThrow(toolCall, `Grant constraint violation: ${constraintViolation}`);
 		}
 
-		// Consume one use from the lease
-		this.tokenStore?.consume(grantId);
+		// Atomically validate + consume one use (prevents TOCTOU double-spend)
+		const consumed = this.tokenStore?.consume(grantId);
+		if (consumed && !consumed.valid) {
+			this.denyAndThrow(toolCall, `Capability token invalid: ${consumed.reason}`);
+		}
 	}
 
 	/**

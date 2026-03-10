@@ -43,15 +43,32 @@ export class TokenStore {
 		return { valid: true };
 	}
 
-	consume(grantId: string): boolean {
+	/**
+	 * Atomically validate and consume one use from a grant.
+	 * Combines validation + increment in a single method to prevent
+	 * TOCTOU race conditions where concurrent callers both pass
+	 * validation before either increments callsUsed.
+	 */
+	consume(grantId: string): TokenValidation {
 		const grant = this.grants.get(grantId);
-		if (!grant) return false;
+		if (!grant) return { valid: false, reason: `Grant not found: ${grantId}` };
+		if (grant.revoked) return { valid: false, reason: `Grant revoked: ${grantId}` };
 
-		const validation = this.validate(grantId);
-		if (!validation.valid) return false;
+		const currentTime = Date.now();
+		const expiresAt = new Date(grant.lease.expiresAt).getTime();
+		if (currentTime > expiresAt) {
+			return { valid: false, reason: `Grant expired at ${grant.lease.expiresAt}` };
+		}
+		if (grant.lease.callsUsed >= grant.lease.maxCalls) {
+			return {
+				valid: false,
+				reason: `Grant exhausted: ${grant.lease.callsUsed}/${grant.lease.maxCalls} calls used`,
+			};
+		}
 
+		// Atomically increment — no window between check and mutation
 		grant.lease.callsUsed++;
-		return true;
+		return { valid: true };
 	}
 
 	revoke(grantId: string): boolean {

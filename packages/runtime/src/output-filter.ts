@@ -17,14 +17,15 @@ interface SecretPattern {
 
 const DEFAULT_PATTERNS: SecretPattern[] = [
 	{ name: "aws-access-key", regex: /AKIA[0-9A-Z]{16}/g },
-	{ name: "private-key", regex: /-----BEGIN\s[\w\s]*PRIVATE KEY-----/g },
-	{ name: "github-token", regex: /gh[ps]_[A-Za-z0-9_]{36,}/g },
-	{ name: "bearer-token", regex: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g },
+	{ name: "private-key", regex: /-----BEGIN\s[\w\s]{0,40}PRIVATE KEY-----/g },
+	{ name: "github-token", regex: /gh[ps]_[A-Za-z0-9_]{36,255}/g },
+	{ name: "bearer-token", regex: /Bearer\s+[A-Za-z0-9\-._~+/]{1,500}=*/g },
 	{
 		name: "generic-api-key",
-		regex: /(?:api[_-]?key|apikey)\s*[:=]\s*["']?[A-Za-z0-9\-._]{20,}["']?/gi,
+		regex: /(?:api[_-]?key|apikey)\s{0,5}[:=]\s{0,5}["']?[A-Za-z0-9\-._]{20,200}["']?/gi,
 	},
-	{ name: "base64-blob", regex: /[A-Za-z0-9+/]{64,}={0,2}/g },
+	// Bounded length to prevent ReDoS on large alphanumeric blocks
+	{ name: "base64-blob", regex: /[A-Za-z0-9+/]{64,1024}={0,2}/g },
 ];
 
 export interface OutputFilterOptions {

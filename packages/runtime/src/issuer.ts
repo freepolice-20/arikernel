@@ -16,13 +16,30 @@ import type { TokenStore } from "./token-store.js";
 const DEFAULT_LEASE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_MAX_CALLS = 10;
 
-const UNTRUSTED_SOURCES = ["web", "rag", "email", "retrieved-doc"] as const;
+/**
+ * Taint sources considered untrusted for capability issuance.
+ * Configurable via setUntrustedSources() to accommodate new sources
+ * without requiring code changes.
+ */
+let UNTRUSTED_SOURCES: readonly string[] = ["web", "rag", "email", "retrieved-doc", "user-input"];
+
+/** Override the default untrusted taint sources list. */
+export function setUntrustedSources(sources: string[]): void {
+	UNTRUSTED_SOURCES = Object.freeze([...sources]);
+}
+
+/** Get the current untrusted sources list. */
+export function getUntrustedSources(): readonly string[] {
+	return UNTRUSTED_SOURCES;
+}
 
 /**
  * Intersect two optional string arrays using capability narrowing semantics.
  *
- * - Both undefined → undefined (no constraint)
- * - One undefined → the other (the defined constraint applies)
+ * Security invariant: the result must NEVER be broader than the base (b).
+ * - Both undefined → undefined (no constraint from either side)
+ * - Request undefined, base defined → base applies (request cannot broaden)
+ * - Request defined, base undefined → request applies (narrowing is fine)
  * - Both defined → set intersection, with '*' acting as a wildcard that
  *   permits all values from the opposing set.
  */
@@ -30,10 +47,13 @@ function intersectStringLists(
 	a: string[] | undefined,
 	b: string[] | undefined,
 ): string[] | undefined {
+	if (a === undefined && b === undefined) return undefined;
+	// Request didn't specify → base constraint applies (cannot bypass by omitting)
 	if (a === undefined) return b;
+	// Base didn't specify → request constraint applies (narrowing)
 	if (b === undefined) return a;
 	// If base grants wildcard, request values are the constraint
-	if (b.includes("*")) return a;
+	if (b.includes("*")) return a.filter((v) => v !== "*");
 	// If request is wildcard, base values are the constraint
 	if (a.includes("*")) return b;
 	// Intersection: only values present in both
@@ -80,7 +100,7 @@ export class CapabilityIssuer {
 
 		if (hasTaintRisk) {
 			const sources = request.taintLabels
-				.filter((t) => (UNTRUSTED_SOURCES as readonly string[]).includes(t.source))
+				.filter((t) => UNTRUSTED_SOURCES.includes(t.source))
 				.map((t) => `${t.source}:${t.origin}`)
 				.join(", ");
 
@@ -131,9 +151,7 @@ export class CapabilityIssuer {
 	}
 
 	private assessTaintRisk(taintLabels: TaintLabel[], capabilityClass: CapabilityClass): boolean {
-		const hasUntrustedTaint = taintLabels.some((t) =>
-			(UNTRUSTED_SOURCES as readonly string[]).includes(t.source),
-		);
+		const hasUntrustedTaint = taintLabels.some((t) => UNTRUSTED_SOURCES.includes(t.source));
 
 		if (!hasUntrustedTaint) return false;
 

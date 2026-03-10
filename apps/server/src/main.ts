@@ -210,7 +210,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 const server = createServer(async (req, res) => {
 	try {
-		const ip = req.socket.remoteAddress ?? "unknown";
+		// Use X-Forwarded-For when behind a trusted proxy, fall back to socket address
+		const forwarded = req.headers["x-forwarded-for"];
+		const ip =
+			(typeof forwarded === "string" ? forwarded.split(",")[0].trim() : undefined) ??
+			req.socket.remoteAddress ??
+			"unknown";
 
 		// Rate limiting
 		if (!rateOk(ip)) {
