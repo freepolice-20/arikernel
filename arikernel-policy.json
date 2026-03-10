@@ -191,6 +191,151 @@
           "reason": "Filesystem access is not allowed in automation preset"
         }
       ]
+    },
+
+    "safe": {
+      "id": "safe",
+      "name": "Safe",
+      "description": "Recommended default for production agents. Blocks tainted→secret, tainted→shell, tainted→egress. Allows safe read-only operations. Behavioral quarantine at low threshold.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] } },
+        { "toolClass": "database", "actions": ["query"] }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        {
+          "id": "deny-tainted-http-write",
+          "name": "Deny tainted HTTP writes",
+          "priority": 10,
+          "match": { "toolClass": "http", "action": ["post", "put", "patch", "delete"], "taintSources": ["web", "rag", "email"] },
+          "decision": "deny",
+          "reason": "Outbound HTTP writes with untrusted taint are forbidden"
+        },
+        "deny-http-write",
+        "deny-file-write",
+        "deny-shell",
+        "allow-http-get",
+        "allow-file-read",
+        {
+          "id": "allow-db-query-safe",
+          "name": "Allow DB queries",
+          "priority": 100,
+          "match": { "toolClass": "database", "action": "query" },
+          "decision": "allow",
+          "reason": "Read-only database queries are allowed"
+        },
+        {
+          "id": "deny-db-write-safe",
+          "name": "Deny DB mutations",
+          "priority": 20,
+          "match": { "toolClass": "database", "action": ["exec", "mutate", "write", "insert", "update", "delete"] },
+          "decision": "deny",
+          "reason": "Database mutations are blocked in safe mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 5,
+        "behavioralRules": true
+      }
+    },
+
+    "strict": {
+      "id": "strict",
+      "name": "Strict",
+      "description": "High-security environments. All tainted→external actions blocked. Shell blocked unless explicitly granted. Database denied by default. HTTP GET only with empty host allowlist.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": [] } },
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**"] } }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        {
+          "id": "deny-tainted-any-write",
+          "name": "Deny all tainted write actions",
+          "priority": 5,
+          "match": { "taintSources": ["web", "rag", "email"] },
+          "decision": "deny",
+          "reason": "All actions with untrusted taint are forbidden in strict mode"
+        },
+        "deny-shell",
+        "deny-http-write",
+        "deny-file-write",
+        {
+          "id": "allow-http-get-strict",
+          "name": "Allow HTTP GET (host-constrained)",
+          "priority": 90,
+          "match": { "toolClass": "http", "action": "get" },
+          "decision": "allow",
+          "reason": "HTTP GET allowed (grant constraints enforce host allowlist)"
+        },
+        "allow-file-read",
+        {
+          "id": "deny-db-all-strict",
+          "name": "Deny all database operations",
+          "priority": 20,
+          "match": { "toolClass": "database" },
+          "decision": "deny",
+          "reason": "Database access requires explicit capability grant in strict mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 3,
+        "behavioralRules": true
+      }
+    },
+
+    "research": {
+      "id": "research",
+      "name": "Research",
+      "description": "Experimentation and debugging. Permissive — allows HTTP, file read/write, DB queries. Taint tracked, high quarantine threshold. Shell approval-gated.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get", "post"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "file", "actions": ["read", "write"], "constraints": { "allowedPaths": ["./**"] } },
+        { "toolClass": "database", "actions": ["query", "exec"] },
+        { "toolClass": "shell", "actions": ["exec"] }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        "allow-http-get",
+        {
+          "id": "allow-http-post-research",
+          "name": "Allow HTTP POST",
+          "priority": 100,
+          "match": { "toolClass": "http", "action": "post" },
+          "decision": "allow",
+          "reason": "HTTP POST allowed for research and testing"
+        },
+        "allow-file-read",
+        {
+          "id": "allow-file-write-research",
+          "name": "Allow file writes",
+          "priority": 100,
+          "match": { "toolClass": "file", "action": "write" },
+          "decision": "allow",
+          "reason": "File writes allowed for research (grant constraints enforce path limits)"
+        },
+        {
+          "id": "allow-db-all-research",
+          "name": "Allow database operations",
+          "priority": 100,
+          "match": { "toolClass": "database" },
+          "decision": "allow",
+          "reason": "Database operations allowed for research"
+        },
+        {
+          "id": "approve-shell-research",
+          "name": "Shell requires approval",
+          "priority": 50,
+          "match": { "toolClass": "shell" },
+          "decision": "require-approval",
+          "reason": "Shell commands require approval even in research mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 20,
+        "behavioralRules": true
+      }
     }
   },
 

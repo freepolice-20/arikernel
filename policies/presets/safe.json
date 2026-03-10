@@ -1,0 +1,26 @@
+{
+  "$comment": "Extracted from arikernel-policy.json — use the canonical source for runtime.",
+  "id": "safe",
+  "name": "Safe",
+  "description": "Recommended default for production agents. Blocks tainted→secret, tainted→shell, tainted→egress. Allows safe read-only operations. Behavioral quarantine at low threshold.",
+  "capabilities": [
+    { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+    { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] } },
+    { "toolClass": "database", "actions": ["query"] }
+  ],
+  "policies": [
+    "deny-tainted-shell",
+    "deny-tainted-http-write (inline)",
+    "deny-http-write",
+    "deny-file-write",
+    "deny-shell",
+    "allow-http-get",
+    "allow-file-read",
+    "allow-db-query-safe (inline)",
+    "deny-db-write-safe (inline)"
+  ],
+  "runStatePolicy": {
+    "maxDeniedSensitiveActions": 5,
+    "behavioralRules": true
+  }
+}

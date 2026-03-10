@@ -102,7 +102,7 @@ function checkConstraints(toolCall: ToolCall, capability: Capability): string | 
 		const url = String(toolCall.parameters.url ?? '');
 		try {
 			const hostname = new URL(url).hostname;
-			if (!constraints.allowedHosts.includes(hostname)) {
+			if (!constraints.allowedHosts.includes('*') && !constraints.allowedHosts.includes(hostname)) {
 				return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(', ')}`;
 			}
 		} catch {

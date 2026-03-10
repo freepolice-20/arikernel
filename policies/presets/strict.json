@@ -1,0 +1,24 @@
+{
+  "$comment": "Extracted from arikernel-policy.json — use the canonical source for runtime.",
+  "id": "strict",
+  "name": "Strict",
+  "description": "High-security environments. All tainted→external actions blocked. Shell blocked unless explicitly granted. Database denied by default. HTTP GET only with empty host allowlist.",
+  "capabilities": [
+    { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": [] } },
+    { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**"] } }
+  ],
+  "policies": [
+    "deny-tainted-shell",
+    "deny-tainted-any-write (inline — priority 5, blocks all tainted actions)",
+    "deny-shell",
+    "deny-http-write",
+    "deny-file-write",
+    "allow-http-get-strict (inline — host-constrained)",
+    "allow-file-read",
+    "deny-db-all-strict (inline — blocks all database operations)"
+  ],
+  "runStatePolicy": {
+    "maxDeniedSensitiveActions": 3,
+    "behavioralRules": true
+  }
+}

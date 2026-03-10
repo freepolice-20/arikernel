@@ -10,9 +10,15 @@ export interface Preset {
 	description: string;
 	capabilities: Capability[];
 	policies: PolicyRule[];
+	runStatePolicy?: {
+		maxDeniedSensitiveActions?: number;
+		behavioralRules?: boolean;
+	};
 }
 
-export type PresetId = 'safe-research' | 'rag-reader' | 'workspace-assistant' | 'automation-agent';
+export type PresetId =
+	| 'safe-research' | 'rag-reader' | 'workspace-assistant' | 'automation-agent'
+	| 'safe' | 'strict' | 'research';
 
 // ── Load shared policy spec ──────────────────────────────────────────
 
@@ -67,6 +73,7 @@ function buildPreset(spec: PolicySpec, presetId: string): Preset {
 		description: raw.description,
 		capabilities: raw.capabilities,
 		policies: raw.policies.map((p) => resolvePolicy(p, spec.policyFragments)),
+		runStatePolicy: (raw as any).runStatePolicy,
 	};
 }
 
@@ -79,6 +86,9 @@ export const PRESETS: Record<PresetId, Preset> = {
 	'rag-reader': buildPreset(spec, 'rag-reader'),
 	'workspace-assistant': buildPreset(spec, 'workspace-assistant'),
 	'automation-agent': buildPreset(spec, 'automation-agent'),
+	'safe': buildPreset(spec, 'safe'),
+	'strict': buildPreset(spec, 'strict'),
+	'research': buildPreset(spec, 'research'),
 };
 
 export function getPreset(id: PresetId): Preset {
