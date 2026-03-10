@@ -10,7 +10,8 @@ from typing import Any
 
 import httpx
 
-from .types import ExecuteResult, Grant, TaintLabel, ToolCallDenied
+from .types import ExecuteResult, Grant, TaintLabel
+from .runtime.kernel import ToolCallDenied
 
 
 def _taint_to_dict(label: TaintLabel) -> dict[str, Any]:

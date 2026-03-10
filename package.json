@@ -55,6 +55,7 @@
     "demo:python": "python examples/python-basic-agent.py",
     "demo:python:openai": "python examples/python-openai-tools.py",
     "demo:python:quarantine": "python examples/python-behavioral-quarantine.py",
+    "test:proof": "pnpm --filter @arikernel/benchmarks-agentdojo test && pnpm --filter @arikernel/middleware test && pnpm --filter @arikernel/sidecar test && pnpm --filter @arikernel/runtime test",
     "test:live": "vitest run --config examples/demo-real-agent/vitest.config.ts",
     "benchmark:agentdojo": "npx tsx packages/benchmarks-agentdojo/src/index.ts"
   },

@@ -13,6 +13,9 @@ pnpm clean && pnpm build
 # All TypeScript tests
 pnpm test
 
+# High-signal proof tests (attacks, middleware, sidecar, runtime — 284 tests)
+pnpm test:proof
+
 # Python tests
 cd python && python -m pytest tests/ -v && cd ..
 
@@ -20,7 +23,7 @@ cd python && python -m pytest tests/ -v && cd ..
 pnpm test:live
 ```
 
-**Pass criteria**: All build tasks succeed (currently 14). All test suites pass (currently 28 tasks). CI runs automatically on push/PR via `.github/workflows/ci.yml` (includes npm pack smoke test and Python pytest).
+**Pass criteria**: All build tasks succeed (currently 14). All test suites pass (currently 28 tasks). Proof tests pass (284 tests across benchmarks, middleware, sidecar, runtime). CI runs automatically on push/PR via `.github/workflows/ci.yml` (includes ESM smoke test and Python pytest).
 
 ---
 

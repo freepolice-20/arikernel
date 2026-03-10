@@ -28,15 +28,28 @@ jobs:
 
       - run: pnpm lint
 
-      # Smoke test: verify core package works when installed from pack
+      # Smoke test: verify packages work when installed from pack
       - name: Package smoke test
         run: |
-          cd packages/core && npm pack --pack-destination /tmp
-          TARBALL=$(ls /tmp/arikernel-core-*.tgz)
           mkdir /tmp/smoke && cd /tmp/smoke
           npm init -y
-          npm install "$TARBALL"
-          node -e "const c = require('@arikernel/core'); console.log('Presets:', Object.keys(c.PRESETS).length); if (!Object.keys(c.PRESETS).length) process.exit(1)"
+          # Set ESM mode since @arikernel packages are ESM-only
+          node -e "const p=require('./package.json'); p.type='module'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2))"
+          # Pack and install core
+          cd $GITHUB_WORKSPACE/packages/core && npm pack --pack-destination /tmp/smoke
+          cd /tmp/smoke && npm install ./arikernel-core-*.tgz
+          # Verify core: presets load, generateId works, schema validation available
+          node -e "
+            import { PRESETS, getPreset, generateId } from '@arikernel/core';
+            const presetCount = Object.keys(PRESETS).length;
+            console.log('Presets:', presetCount);
+            if (presetCount < 7) { console.error('Expected >= 7 presets'); process.exit(1); }
+            const safe = getPreset('safe');
+            if (!safe.capabilities?.length) { console.error('safe preset missing capabilities'); process.exit(1); }
+            const id = generateId();
+            if (!id) { console.error('generateId() failed'); process.exit(1); }
+            console.log('Core smoke test passed');
+          "
 
   python:
     runs-on: ubuntu-latest

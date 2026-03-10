@@ -438,8 +438,10 @@ pnpm demo:python              # basic agent with protect_tool decorator
 pnpm demo:python:quarantine   # behavioral quarantine in Python
 
 # Tests
-pnpm test                     # all TypeScript tests
+pnpm test                     # all TypeScript tests (28 packages)
+pnpm test:proof               # high-signal proof tests: attacks, middleware, sidecar, runtime (284 tests)
 pnpm test:live                # live integration tests (requires OPENAI_API_KEY)
+pnpm benchmark:agentdojo      # 5 attack scenarios — 100% exfiltration prevented
 ```
 
 ---
