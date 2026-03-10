@@ -102,12 +102,12 @@ export class FileExecutor implements ToolExecutor {
 					}
 				}
 				case "write": {
-					// SECURITY: For writes we also use descriptor-based access.
+					// SECURITY: Open WITHOUT O_TRUNC first — truncation before
+					// post-open validation would destroy data if checks fail.
 					// O_CREAT allows creating new files; O_NOFOLLOW prevents symlink writes.
-					const flags =
+					const writeFlags =
 						constants.O_WRONLY |
 						constants.O_CREAT |
-						constants.O_TRUNC |
 						(constants.O_NOFOLLOW ?? 0);
 
 					const allowedRoot = getAllowedRoot();
@@ -119,20 +119,38 @@ export class FileExecutor implements ToolExecutor {
 						throw new Error(`Path traversal blocked: ${filePath} is outside allowed root`);
 					}
 
-					const handle = await open(resolved, flags, 0o644);
+					const handle = await open(resolved, writeFlags, 0o644);
 					try {
+						// Post-open validation: same checks as secureOpen (read path)
 						const stat = await handle.stat();
 						if (stat.isSymbolicLink()) {
 							throw new Error(`Symlink rejected: ${filePath}`);
 						}
+						if (!stat.isFile() && stat.size > 0) {
+							throw new Error(`Not a regular file: ${filePath}`);
+						}
+
+						// SECURITY: Verify realpath is within allowed root (matches read path)
+						const realFile = await realpath(resolved);
+						const realRoot = await realpath(allowedRoot);
+						if (!realFile.startsWith(realRoot + path.sep) && realFile !== realRoot) {
+							throw new Error(`Path escapes allowed root after resolution: ${filePath}`);
+						}
+
+						// Now safe to truncate and write — all checks passed on this fd
+						await handle.truncate(0);
 						await handle.writeFile(content ?? "", encoding ?? "utf-8");
 						const result = makeResult(toolCall.id, true, start, {
 							path: filePath,
 							bytesWritten: (content ?? "").length,
 						});
 						return { ...result, taintLabels: [] };
-					} finally {
+					} catch (err) {
 						await handle.close();
+						throw err;
+					} finally {
+						// close is idempotent; safe to call even if catch already closed
+						await handle.close().catch(() => {});
 					}
 				}
 				default: {

@@ -11,8 +11,12 @@
  * Characters that should never appear in security-critical input.
  * Includes zero-width characters, bidi overrides, and other invisible
  * Unicode control characters that can be used for obfuscation.
+ *
+ * Two forms: non-global for .test() (avoids lastIndex state bugs),
+ * global for .replace() (strips ALL occurrences, not just the first).
  */
-const DANGEROUS_UNICODE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/;
+const DANGEROUS_UNICODE_DETECT = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/;
+const DANGEROUS_UNICODE_STRIP = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/g;
 
 /**
  * Normalize a string to NFKC form and strip dangerous invisible characters.
@@ -34,7 +38,7 @@ const DANGEROUS_UNICODE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]
 export function normalizeInput(input: string): string {
 	return input
 		.normalize("NFKC")
-		.replace(DANGEROUS_UNICODE, "");
+		.replace(DANGEROUS_UNICODE_STRIP, "");
 }
 
 /**
@@ -43,5 +47,5 @@ export function normalizeInput(input: string): string {
  * for obfuscation attacks (zero-width, bidi overrides, etc.).
  */
 export function containsDangerousUnicode(input: string): boolean {
-	return DANGEROUS_UNICODE.test(input);
+	return DANGEROUS_UNICODE_DETECT.test(input);
 }
