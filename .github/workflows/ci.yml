@@ -61,8 +61,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Python runtime
-        run: pip install -e python/
+      - name: Install Python runtime and test deps
+        run: pip install -e "python/[dev,server]"
 
       - name: Run Python tests
         run: cd python && python -m pytest tests/ -v

@@ -61,7 +61,7 @@ export class LangChainAdapter implements FrameworkAdapter {
 				const dynamicTaint = opts.taintFrom?.(params);
 				const mergedOpts: WrapToolOptions = {
 					...opts,
-					taintLabels: [...(opts.taintLabels ?? []), ...dynamicTaint],
+					taintLabels: [...(opts.taintLabels ?? []), ...(dynamicTaint ?? [])],
 				};
 				return wrapTool(this.firewall, toolClass, action, mergedOpts)(params);
 			};
