@@ -58,10 +58,25 @@ export interface BenchmarkSummary {
 }
 
 /**
+ * Reproducibility metadata captured at benchmark execution time.
+ */
+export interface BenchmarkEnvironment {
+	/** AriKernel package version. */
+	ariKernelVersion: string;
+	/** Git commit SHA (short). */
+	gitSha: string;
+	/** Node.js version. */
+	nodeVersion: string;
+	/** OS platform (e.g., 'linux', 'darwin', 'win32'). */
+	platform: string;
+}
+
+/**
  * Full benchmark report written to disk and console.
  */
 export interface BenchmarkReport {
 	generatedAt: string;
+	environment: BenchmarkEnvironment;
 	scenarios: ScenarioResult[];
 	summary: BenchmarkSummary;
 }

@@ -11,7 +11,7 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { benchmark } from './runner.js';
-import { buildReport, defaultResultsPaths, printConsoleSummary, writeJsonReport, writeMarkdownReport } from './results.js';
+import { buildReport, defaultResultsPaths, printConsoleSummary, writeJsonReport, writeJsonlReport, writeMarkdownReport } from './results.js';
 import type { ScenarioResult } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,4 +34,5 @@ const paths = defaultResultsPaths(REPO_ROOT);
 
 printConsoleSummary(report);
 writeJsonReport(report, paths.json);
+writeJsonlReport(report, paths.jsonl);
 writeMarkdownReport(report, paths.markdown);

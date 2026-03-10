@@ -106,6 +106,34 @@ After `maxDeniedSensitiveActions` (5) denials, the run-state tracker enters rest
 
 ---
 
+## Scenario manifest
+
+The machine-readable scenario manifest at `packages/benchmarks-agentdojo/scenarios.json` declares every scenario's metadata, attack taxonomy, enforcement mechanism, and expected outcome. External tools can consume this file to validate results, generate CI dashboards, or compare across versions.
+
+---
+
+## Output formats
+
+| File | Format | Purpose |
+|------|--------|---------|
+| `benchmarks/results/latest.json` | JSON | Full report with environment metadata, all scenarios, and aggregate metrics |
+| `benchmarks/results/latest.jsonl` | JSONL | One JSON object per scenario per line — designed for CI pipeline ingestion |
+| `benchmarks/results/latest.md` | Markdown | Human-readable report with summary tables and per-scenario details |
+| `benchmarks/results/<id>.db` | SQLite | Per-scenario audit log, replayable with `arikernel replay` |
+
+### Reproducibility metadata
+
+Every JSON and Markdown report includes environment metadata:
+
+- **AriKernel version**: package version at time of execution
+- **Git SHA**: commit hash for exact code state
+- **Node.js version**: runtime version
+- **Platform**: OS platform
+
+This ensures any result can be reproduced or compared across environments.
+
+---
+
 ## How to run
 
 ```bash
@@ -144,6 +172,25 @@ The replay output shows every tool call, decision (ALLOW/DENY), taint labels, an
 | Exfiltration prevented | % of scenarios (with an exfil step) where the pipeline denied the write/exec |
 
 A high "attacks blocked" score means the enforcement pipeline consistently interrupted the attack before the goal was achieved. Quarantine is a leading indicator — once quarantined, subsequent attack steps are automatically blocked regardless of policy.
+
+---
+
+## Adding a new scenario
+
+1. Create `packages/benchmarks-agentdojo/src/scenarios/scenario-N-<name>.ts` following the pattern in existing scenarios:
+   - Export `SCENARIO_ID`, `SCENARIO_NAME`, `ATTACK_CLASS`
+   - Export `async function run(dbPath: string): Promise<ScenarioResult>`
+   - Create an isolated `Firewall` with the policies your attack targets
+   - Execute the attack step sequence, catching `ToolCallDeniedError` for denied steps
+   - Return a `ScenarioResult` with accurate `blockedBy`, `wasQuarantined`, and prevention flags
+
+2. Register in `packages/benchmarks-agentdojo/src/scenarios/index.ts` — add to the `SCENARIOS` array.
+
+3. Add an entry to `packages/benchmarks-agentdojo/scenarios.json` with the scenario's metadata, attack taxonomy, and expected outcomes.
+
+4. Add a test in `packages/benchmarks-agentdojo/__tests__/runner.test.ts` verifying deterministic results.
+
+5. Document the scenario in this file under the "Scenarios" section.
 
 ---
 

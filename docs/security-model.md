@@ -143,6 +143,59 @@ Ari Kernel provides an `onOutputFilter` hook for scanning tool results before th
 
 For OS and container-level hardening recommendations (network segmentation, filesystem isolation, secrets management, runtime monitoring), see [Execution Hardening](execution-hardening.md).
 
+## Taint Propagation Boundaries
+
+Ari Kernel's taint model has two enforcement modes with different taint propagation characteristics. Understanding the boundary is important for security architecture decisions.
+
+### Full Pipeline (direct `firewall.execute()`)
+
+When tool calls go through the full pipeline with real executors:
+
+- **Input taint propagates forward**: upstream taint labels flow to downstream calls via `TaintTracker.propagate()`
+- **Auto-taint on results**: specialized executors (HttpExecutor, McpDispatchExecutor) automatically label their output with provenance taint (e.g., `web:<hostname>`, `rag:<source>`)
+- **Result taint is accessible**: callers receive `ToolResult.taintLabels` with merged auto-taint and propagated input taint
+
+This is the highest-fidelity taint mode, used when Ari Kernel manages the full tool execution lifecycle.
+
+### Middleware Gate (framework adapters)
+
+When using middleware wrappers (`protectLangChainAgent`, `protectCrewAITools`, etc.):
+
+- **Input taint is evaluated**: the pipeline checks taint labels, evaluates policies, and triggers behavioral rules before permitting execution
+- **Behavioral detection works**: taint_observed → egress/shell/sensitive-read patterns are detected and can trigger quarantine
+- **Run-state taint persists**: once the run processes untrusted data, the persistent taint flag is set and influences all future decisions
+
+However:
+
+- **Auto-taint is not applied**: middleware uses stub executors that return `taintLabels: []`. The real tool executes outside the firewall pipeline, so executor-level provenance labels (e.g., `web:<host>`) are not generated
+- **Result taint is not surfaced**: the `ToolResult` from the firewall pipeline is used only for security decisions — the original tool's return value is passed through to the caller without taint metadata
+
+This is by design. Middleware wrappers provide **permit-or-deny enforcement** with zero architecture changes to the host framework. They do not transform tool results or insert themselves into the framework's data flow.
+
+### Implications
+
+| Scenario | Full Pipeline | Middleware |
+|----------|--------------|------------|
+| Policy evaluation with taint | Yes | Yes |
+| Behavioral quarantine | Yes | Yes |
+| Auto-taint on HTTP responses | Yes | No |
+| Taint labels on tool results | Yes | No |
+| Multi-hop taint propagation | Yes | Input taint only |
+
+**Recommendation**: For maximum taint fidelity, use the full pipeline with real executors. For drop-in framework protection where the priority is blocking dangerous actions, middleware provides equivalent policy and behavioral enforcement without requiring architectural changes.
+
+For agents that need both framework integration and full taint propagation, supply taint labels explicitly on tool call requests:
+
+```typescript
+// Middleware provides the security gate; explicit labels provide provenance
+firewall.execute({
+  toolClass: "http",
+  action: "get",
+  parameters: { url },
+  taintLabels: [{ source: "web", origin: url }],
+});
+```
+
 ## What Ari Kernel Does NOT Do
 
 - **Prompt filtering** — it does not inspect model input/output text

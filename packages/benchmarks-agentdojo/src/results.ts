@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
-import type { BenchmarkReport, BenchmarkSummary, ScenarioResult } from './types.js';
+import type { BenchmarkEnvironment, BenchmarkReport, BenchmarkSummary, ScenarioResult } from './types.js';
 
 const PASS = '✓';
 const FAIL = '✗';
@@ -35,6 +36,7 @@ export function printConsoleSummary(report: BenchmarkReport): void {
 	console.log('──────────────────────────────────────────────\n');
 	console.log(`  Audit logs: benchmarks/results/<scenario-id>.db`);
 	console.log(`  JSON report: benchmarks/results/latest.json`);
+	console.log(`  JSONL report: benchmarks/results/latest.jsonl`);
 	console.log(`  Markdown report: benchmarks/results/latest.md\n`);
 }
 
@@ -54,8 +56,17 @@ export function writeMarkdownReport(report: BenchmarkReport, outPath: string): v
 	const s = report.summary;
 	const lines: string[] = [];
 
+	const env = report.environment;
 	lines.push('# AriKernel — AgentDojo Benchmark Results\n');
 	lines.push(`Generated: ${report.generatedAt}\n`);
+	lines.push('## Environment\n');
+	lines.push(`| Property | Value |`);
+	lines.push(`|----------|-------|`);
+	lines.push(`| AriKernel version | ${env.ariKernelVersion} |`);
+	lines.push(`| Git SHA | \`${env.gitSha}\` |`);
+	lines.push(`| Node.js | ${env.nodeVersion} |`);
+	lines.push(`| Platform | ${env.platform} |`);
+	lines.push('');
 	lines.push('## Summary\n');
 	lines.push(`| Metric | Value |`);
 	lines.push(`|--------|-------|`);
@@ -100,6 +111,29 @@ export function writeMarkdownReport(report: BenchmarkReport, outPath: string): v
 }
 
 /**
+ * Capture reproducibility metadata from the current environment.
+ */
+export function captureEnvironment(): BenchmarkEnvironment {
+	let gitSha = 'unknown';
+	try {
+		gitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+	} catch { /* not in a git repo or git not available */ }
+
+	let ariKernelVersion = 'unknown';
+	try {
+		const pkg = execSync('node -e "console.log(require(\'@arikernel/core/package.json\').version)"', { encoding: 'utf8' }).trim();
+		if (pkg) ariKernelVersion = pkg;
+	} catch { /* package resolution failed */ }
+
+	return {
+		ariKernelVersion,
+		gitSha,
+		nodeVersion: process.version,
+		platform: process.platform,
+	};
+}
+
+/**
  * Build the full BenchmarkReport from scenario results.
  */
 export function buildReport(
@@ -108,9 +142,26 @@ export function buildReport(
 ): BenchmarkReport {
 	return {
 		generatedAt: new Date().toISOString(),
+		environment: captureEnvironment(),
 		scenarios: results,
 		summary,
 	};
+}
+
+/**
+ * Write JSONL output — one JSON object per line, one line per scenario.
+ * Designed for CI/CD pipeline consumption and streaming analysis.
+ */
+export function writeJsonlReport(report: BenchmarkReport, outPath: string): void {
+	mkdirSync(dirname(outPath), { recursive: true });
+	const lines = report.scenarios.map((r) =>
+		JSON.stringify({
+			timestamp: report.generatedAt,
+			gitSha: report.environment.gitSha,
+			...r,
+		}),
+	);
+	writeFileSync(outPath, lines.join('\n') + '\n', 'utf8');
 }
 
 /**
@@ -118,10 +169,12 @@ export function buildReport(
  */
 export function defaultResultsPaths(repoRoot: string): {
 	json: string;
+	jsonl: string;
 	markdown: string;
 } {
 	return {
 		json: join(repoRoot, 'benchmarks', 'results', 'latest.json'),
+		jsonl: join(repoRoot, 'benchmarks', 'results', 'latest.jsonl'),
 		markdown: join(repoRoot, 'benchmarks', 'results', 'latest.md'),
 	};
 }
