@@ -4,6 +4,8 @@
 **Date**: 2026-03-10
 **Audience**: Security researchers, red-teamers, system architects
 
+> See also: [Threat Model](threat-model.md) (attacker assumptions, scope, limitations) | [Reference Monitor](reference-monitor.md) (formal enforcement architecture) | [Architecture](../ARCHITECTURE.md) (implementation)
+
 ---
 
 ## Table of Contents
@@ -101,7 +103,7 @@ The security goal is **containment**, not prevention. A compromised agent must n
 | SQL injection from web data | Taint + Behavioral | `tainted_database_write` rule blocks tainted DB mutations |
 | Privilege escalation probing | Behavioral Detection | `denied_capability_then_escalation` pattern → quarantine |
 | Credential theft + exfil | Behavioral Detection | `secret_access_then_any_egress` pattern → quarantine |
-| Regex DoS in policy rules | Policy Engine | 5ms timeout on pattern evaluation (CWE-1333) |
+| Regex DoS in policy rules | Policy Engine | Input length cap (8192 bytes), fail-closed `UnsafeMatchError` on invalid/oversized patterns (CWE-1333) |
 | HTTP method confusion | Tool Executor | Action-derived method; mismatch with `params.method` rejected |
 | Audit log tampering | Audit Log | SHA-256 hash chain; tamper-evident on replay |
 
@@ -375,15 +377,19 @@ Once the run processes untrusted external data, the `tainted` flag is set perman
 
 ### 4.6 Taint Propagation Boundaries
 
-| Property | Full Pipeline | Middleware Mode |
-|----------|--------------|-----------------|
+| Property | Full Pipeline (Embedded/Sidecar) | Middleware Mode |
+|----------|----------------------------------|-----------------|
 | Policy evaluation with taint | Yes | Yes |
 | Behavioral quarantine on taint | Yes | Yes |
-| Auto-taint on HTTP responses | Yes | Optional (`autoTaint: true`) |
-| Taint labels on tool results | Yes | No |
+| Auto-taint on HTTP responses | Yes | Yes — via `observeToolOutput()` |
+| Content scanning of tool output | Yes | Yes — via `observeToolOutput()` |
+| Taint labels on tool results | Yes | Yes — via `observeToolOutput()` |
 | Multi-hop taint propagation | Yes | Input taint only |
+| Taint fidelity | Authoritative — kernel executes tools directly | Cooperative — adapters feed output back via observation hook |
 
-Middleware mode provides permit-or-deny enforcement with zero architecture changes. For maximum taint fidelity — full provenance chain across multi-hop tool sequences — use the full pipeline with real executors.
+**Middleware mode** provides permit-or-deny enforcement with zero architecture changes. Built-in adapters (LangChain, CrewAI, AutoGen, OpenAI Agents) call `observeToolOutput()` after each tool execution, closing the taint gap for content scanning and auto-taint derivation. Custom adapters that do not call `observeToolOutput()` continue operating in degraded mode (pre-execution policy checks only).
+
+**Sidecar mode** provides the highest taint fidelity — the kernel executes tools in a separate process, inspects all output authoritatively, and the agent has no way to bypass observation. For maximum assurance, use sidecar mode.
 
 ---
 

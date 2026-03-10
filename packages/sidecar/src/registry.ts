@@ -1,10 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Capability, PolicyRule } from "@arikernel/core";
+import type { Capability, PolicyRule, SigningKey } from "@arikernel/core";
 import { getPreset } from "@arikernel/core";
 import type { PresetId } from "@arikernel/core";
 import { type Firewall, createFirewall } from "@arikernel/runtime";
-import type { RunStatePolicy } from "@arikernel/runtime";
+import type { RunStatePolicy, SecurityMode } from "@arikernel/runtime";
 import {
 	DatabaseExecutor,
 	FileExecutor,
@@ -31,6 +31,8 @@ export interface RegistryConfig {
 	policies: string | PolicyRule[];
 	capabilities?: Capability[];
 	runStatePolicy?: RunStatePolicy;
+	signingKey?: SigningKey;
+	securityMode?: SecurityMode;
 }
 
 /**
@@ -42,6 +44,8 @@ export function resolveRegistryConfig(config: {
 	preset?: PresetId;
 	capabilities?: Capability[];
 	runStatePolicy?: RunStatePolicy;
+	signingKey?: SigningKey;
+	securityMode?: SecurityMode;
 }): RegistryConfig {
 	if (config.preset) {
 		const preset = getPreset(config.preset);
@@ -49,6 +53,8 @@ export function resolveRegistryConfig(config: {
 			policies: config.policy ?? preset.policies,
 			capabilities: config.capabilities ?? preset.capabilities,
 			runStatePolicy: config.runStatePolicy ?? preset.runStatePolicy,
+			signingKey: config.signingKey,
+			securityMode: config.securityMode,
 		};
 	}
 
@@ -60,6 +66,8 @@ export function resolveRegistryConfig(config: {
 		policies: config.policy,
 		capabilities: config.capabilities,
 		runStatePolicy: config.runStatePolicy,
+		signingKey: config.signingKey,
+		securityMode: config.securityMode,
 	};
 }
 
@@ -73,6 +81,8 @@ export class PrincipalRegistry {
 	private readonly policies: string | PolicyRule[];
 	private readonly capabilities: Capability[];
 	private readonly runStatePolicy?: RunStatePolicy;
+	private readonly signingKey?: SigningKey;
+	private readonly securityMode?: SecurityMode;
 
 	constructor(auditDir: string, registryConfig: RegistryConfig) {
 		mkdirSync(auditDir, { recursive: true });
@@ -80,6 +90,8 @@ export class PrincipalRegistry {
 		this.policies = registryConfig.policies;
 		this.capabilities = registryConfig.capabilities ?? defaultCapabilities();
 		this.runStatePolicy = registryConfig.runStatePolicy;
+		this.signingKey = registryConfig.signingKey;
+		this.securityMode = registryConfig.securityMode;
 	}
 
 	getOrCreate(principalId: string): Firewall {
@@ -97,6 +109,8 @@ export class PrincipalRegistry {
 			policies: this.policies,
 			auditLog,
 			runStatePolicy: this.runStatePolicy,
+			signingKey: this.signingKey,
+			securityMode: this.securityMode,
 		});
 
 		attachExecutors(firewall);
@@ -104,9 +118,29 @@ export class PrincipalRegistry {
 		return firewall;
 	}
 
+	/** Number of firewalls owned by a specific principal (0 or 1 in current model). */
+	principalFirewallCount(principalId: string): number {
+		return this.firewalls.has(principalId) ? 1 : 0;
+	}
+
+	/** Total number of active firewall instances across all principals. */
+	get totalFirewallCount(): number {
+		return this.firewalls.size;
+	}
+
 	/** Check if a principal has an active firewall (without creating one). */
 	has(principalId: string): boolean {
 		return this.firewalls.has(principalId);
+	}
+
+	/** The signing key used for token verification, if configured. */
+	getSigningKey(): SigningKey | undefined {
+		return this.signingKey;
+	}
+
+	/** The security mode for this registry. */
+	getSecurityMode(): SecurityMode | undefined {
+		return this.securityMode;
 	}
 
 	closeAll(): void {

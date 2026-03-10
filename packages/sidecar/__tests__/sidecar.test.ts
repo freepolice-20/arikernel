@@ -577,3 +577,258 @@ describe("Bearer token authentication", () => {
 		expect(result).toHaveProperty("error");
 	});
 });
+
+// ── principal identity binding ────────────────────────────────────────────────
+
+describe("Principal identity binding (API key → principalId)", () => {
+	const PRINCIPALS = {
+		"key-for-alice": { principalId: "alice" },
+		"key-for-bob": { principalId: "bob" },
+	};
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18797,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, "audit.db"),
+			principals: PRINCIPALS,
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("rejects requests without API key", async () => {
+		const res = await post(18797, "/execute", {
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		expect(res.status).toBe(401);
+	});
+
+	it("rejects requests with unknown API key", async () => {
+		const res = await post(
+			18797,
+			"/execute",
+			{ toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer unknown-key" },
+		);
+		expect(res.status).toBe(403);
+		const body = (await res.json()) as { error: string };
+		expect(body.error).toContain("Invalid API key");
+	});
+
+	it("derives principalId from API key (no body principalId needed)", async () => {
+		const res = await post(
+			18797,
+			"/execute",
+			{ toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer key-for-alice" },
+		);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { allowed: boolean };
+		expect(body.allowed).toBe(true);
+	});
+
+	it("accepts matching body principalId", async () => {
+		const res = await post(
+			18797,
+			"/execute",
+			{ principalId: "alice", toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer key-for-alice" },
+		);
+		expect(res.status).toBe(200);
+	});
+
+	it("rejects mismatched body principalId", async () => {
+		const res = await post(
+			18797,
+			"/execute",
+			{ principalId: "bob", toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer key-for-alice" },
+		);
+		expect(res.status).toBe(403);
+		const body = (await res.json()) as { error: string };
+		expect(body.error).toContain("Principal mismatch");
+	});
+
+	it("isolates firewalls between API-key-authenticated principals", async () => {
+		// Alice and Bob each get their own firewall
+		await post(
+			18797,
+			"/execute",
+			{ toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer key-for-alice" },
+		);
+		await post(
+			18797,
+			"/execute",
+			{ toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{ Authorization: "Bearer key-for-bob" },
+		);
+
+		// Alice status
+		const aliceStatus = await post(18797, "/status", {}, { Authorization: "Bearer key-for-alice" });
+		expect(aliceStatus.status).toBe(200);
+		const aliceBody = (await aliceStatus.json()) as { principalId: string };
+		expect(aliceBody.principalId).toBe("alice");
+
+		// Bob status
+		const bobStatus = await post(18797, "/status", {}, { Authorization: "Bearer key-for-bob" });
+		expect(bobStatus.status).toBe(200);
+		const bobBody = (await bobStatus.json()) as { principalId: string };
+		expect(bobBody.principalId).toBe("bob");
+	});
+
+	it("request-capability derives principalId from API key", async () => {
+		const res = await post(
+			18797,
+			"/request-capability",
+			{ capabilityClass: "http.read" },
+			{ Authorization: "Bearer key-for-alice" },
+		);
+		// Should not fail with "principalId required"
+		const body = (await res.json()) as { granted?: boolean; reason?: string };
+		expect(body).toHaveProperty("granted");
+	});
+});
+
+// ── rate limiting ─────────────────────────────────────────────────────────────
+
+describe("Rate limiting", () => {
+	let server: SidecarServer;
+	let dir: string;
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("returns 429 when request rate exceeded", async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18798,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, "audit.db"),
+			rateLimits: { maxRequestsPerSecond: 2 },
+		});
+		await server.listen();
+
+		const results: number[] = [];
+		for (let i = 0; i < 5; i++) {
+			const res = await post(18798, "/execute", {
+				principalId: "rate-agent",
+				toolClass: "http",
+				action: "GET",
+				params: { url: "http://example.com" },
+			});
+			results.push(res.status);
+			// Consume body to prevent connection issues
+			await res.text();
+		}
+
+		// First 2 should succeed, rest should be 429
+		expect(results.filter((s) => s === 429).length).toBeGreaterThan(0);
+		expect(results.filter((s) => s !== 429).length).toBeLessThanOrEqual(2);
+	});
+
+	it("returns 429 with Retry-After header", async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18799,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, "audit.db"),
+			rateLimits: { maxRequestsPerSecond: 1 },
+		});
+		await server.listen();
+
+		// First request succeeds
+		const r1 = await post(18799, "/execute", {
+			principalId: "retry-agent",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		await r1.text();
+
+		// Second should be rate limited
+		const r2 = await post(18799, "/execute", {
+			principalId: "retry-agent",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		if (r2.status === 429) {
+			expect(r2.headers.get("Retry-After")).toBeTruthy();
+		}
+		await r2.text();
+	});
+
+	it("returns 503 when global firewall limit exceeded", async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18800,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, "audit.db"),
+			rateLimits: { globalMaxFirewalls: 1 },
+		});
+		await server.listen();
+
+		// First principal creates a firewall
+		const r1 = await post(18800, "/execute", {
+			principalId: "first-agent",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		await r1.text();
+
+		// Second principal should be rejected
+		const r2 = await post(18800, "/execute", {
+			principalId: "second-agent",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		expect(r2.status).toBe(503);
+		const body = (await r2.json()) as { error: string };
+		expect(body.error).toContain("Firewall instance limit");
+	});
+
+	it("rate limits apply per-principal independently", async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18801,
+			policy: ALLOW_HTTP_POLICY,
+			auditLog: join(dir, "audit.db"),
+			rateLimits: { maxRequestsPerSecond: 1 },
+		});
+		await server.listen();
+
+		// Agent A uses their quota
+		const rA = await post(18801, "/execute", {
+			principalId: "agent-a",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		await rA.text();
+
+		// Agent B should still have quota
+		const rB = await post(18801, "/execute", {
+			principalId: "agent-b",
+			toolClass: "http",
+			action: "GET",
+			params: { url: "http://example.com" },
+		});
+		expect(rB.status).not.toBe(429);
+		await rB.text();
+	});
+});

@@ -91,6 +91,8 @@ export interface CapabilityGrant {
 	lease: CapabilityLease;
 	taintContext: TaintLabel[];
 	revoked: boolean;
+	/** Cryptographic nonce to prevent replay attacks. */
+	nonce?: string;
 }
 
 export interface IssuanceDecision {

@@ -1,6 +1,6 @@
 import type { Capability, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RULES, DENY_ALL_RULE, PolicyEngine, matchesRule } from "../src/index.js";
+import { DEFAULT_RULES, DENY_ALL_RULE, PolicyEngine, UnsafeMatchError, matchesRule } from "../src/index.js";
 
 function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 	return {
@@ -360,6 +360,78 @@ describe("matchesRule", () => {
 		const tc = makeToolCall({ parameters: {} });
 		expect(matchesRule({ parameters: { missing: { in: [""] } } }, tc, [])).toBe(true);
 		expect(matchesRule({ parameters: { missing: { in: ["something"] } } }, tc, [])).toBe(false);
+	});
+});
+
+describe("fail-closed regex matching", () => {
+	it("throws UnsafeMatchError on invalid regex pattern", () => {
+		const tc = makeToolCall({ parameters: { url: "https://example.com" } });
+		expect(() =>
+			matchesRule({ parameters: { url: { pattern: "[invalid" } } }, tc, []),
+		).toThrow(UnsafeMatchError);
+	});
+
+	it("throws UnsafeMatchError on oversized input", () => {
+		const oversized = "a".repeat(10000);
+		const tc = makeToolCall({ parameters: { url: oversized } });
+		expect(() =>
+			matchesRule({ parameters: { url: { pattern: "a+" } } }, tc, []),
+		).toThrow(UnsafeMatchError);
+	});
+
+	it("engine denies on invalid regex in deny rule (fail-closed)", () => {
+		const denyRule: PolicyRule = {
+			id: "deny-evil",
+			name: "Deny evil URLs",
+			priority: 1,
+			match: { toolClass: "http", parameters: { url: { pattern: "[invalid" } } },
+			decision: "deny",
+			reason: "Evil URL blocked",
+		};
+		const engine = new PolicyEngine([denyRule]);
+		const tc = makeToolCall({ parameters: { url: "https://example.com" } });
+		const decision = engine.evaluate(tc, [], [makeCapability()]);
+		expect(decision.verdict).toBe("deny");
+		expect(decision.reason).toContain("unsafe match");
+	});
+
+	it("engine denies on invalid regex in allow rule (fail-closed)", () => {
+		// Even if the broken rule is an allow rule, UnsafeMatchError → deny
+		const allowRule: PolicyRule = {
+			id: "allow-good",
+			name: "Allow good URLs",
+			priority: 1,
+			match: { toolClass: "http", parameters: { url: { pattern: "[invalid" } } },
+			decision: "allow",
+			reason: "Good URL allowed",
+		};
+		const engine = new PolicyEngine([allowRule]);
+		const tc = makeToolCall({ parameters: { url: "https://example.com" } });
+		const decision = engine.evaluate(tc, [], [makeCapability()]);
+		expect(decision.verdict).toBe("deny");
+	});
+
+	it("engine denies on oversized input targeting deny rule", () => {
+		const denyRule: PolicyRule = {
+			id: "deny-pattern",
+			name: "Deny pattern",
+			priority: 1,
+			match: { toolClass: "http", parameters: { url: { pattern: "evil" } } },
+			decision: "deny",
+			reason: "Denied",
+		};
+		const engine = new PolicyEngine([denyRule]);
+		const oversized = "a".repeat(10000);
+		const tc = makeToolCall({ parameters: { url: oversized } });
+		const decision = engine.evaluate(tc, [], [makeCapability()]);
+		expect(decision.verdict).toBe("deny");
+		expect(decision.reason).toContain("exceeds maximum safe length");
+	});
+
+	it("normal regex matching still works for valid patterns and inputs", () => {
+		const tc = makeToolCall({ parameters: { url: "https://evil.com/steal" } });
+		expect(matchesRule({ parameters: { url: { pattern: "evil\\.com" } } }, tc, [])).toBe(true);
+		expect(matchesRule({ parameters: { url: { pattern: "good\\.com" } } }, tc, [])).toBe(false);
 	});
 });
 

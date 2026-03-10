@@ -190,7 +190,7 @@ When properly integrated, Ari Kernel guarantees:
 
 These guarantees cover file access, database queries, HTTP requests, shell execution, and external tool calls (including MCP).
 
-These guarantees assume all tool calls are routed through the kernel. In embedded mode, enforcement is cooperative — if agent framework code bypasses the kernel, guarantees are void. In sidecar mode, the process boundary provides stronger mediation. See [docs/security-model.md](docs/security-model.md) for the formal threat model, deployment mode guarantees, and known limitations.
+These guarantees assume all tool calls are routed through the kernel. In embedded mode, enforcement is cooperative — if agent framework code bypasses the kernel, guarantees are void. In sidecar mode, the process boundary provides stronger mediation. See [docs/security-model.md](docs/security-model.md) for enforcement mechanisms and [docs/threat-model.md](docs/threat-model.md) for attacker assumptions, trust boundaries, and residual risks.
 
 ## Non-Goals
 

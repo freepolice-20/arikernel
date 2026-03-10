@@ -87,34 +87,86 @@ Response (denied):
 }
 ```
 
-## Trust boundary
+## Enforcement modes
 
-The sidecar enforces a **process-level trust boundary**:
+AriKernel supports two enforcement modes that control where tool execution happens:
+
+### Embedded mode (default)
+
+Tools execute in-process. The host process has direct access to executors.
+Security is **cooperative** — the host could bypass the pipeline by calling
+executors directly. Suitable for trusted environments or development.
+
+### Sidecar mode (recommended for production)
+
+Tools execute **only via the sidecar HTTP API**. The host process's
+`ExecutorRegistry` is populated with `SidecarProxyExecutor` instances that
+delegate all execution to the sidecar. The host **cannot register local
+executors** or execute tools directly.
 
 ```
-┌────────────────────┐       HTTP        ┌──────────────────────────┐
-│   Agent process    │  ──────────────►  │   Sidecar process        │
-│   (untrusted)      │  POST /execute    │   (trusted)              │
-│                    │  ◄──────────────  │                          │
-│   Has no access    │    JSON result    │   Owns: policy engine,   │
-│   to policy engine │                   │   run-state, taint graph,│
-│   or run-state     │                   │   audit DB, quarantine   │
-└────────────────────┘                   └──────────────────────────┘
+┌────────────────────────────┐       HTTP        ┌──────────────────────────┐
+│   Agent + Runtime          │  ──────────────►  │   Sidecar process        │
+│   (SidecarProxyExecutors)  │  POST /execute    │   (trusted)              │
+│                            │  ◄──────────────  │                          │
+│   No real executors        │    JSON result    │   Owns: real executors,  │
+│   No direct tool access    │                   │   policy engine,         │
+│   registerExecutor() →     │                   │   run-state, taint graph,│
+│     throws Error           │                   │   audit DB, quarantine   │
+└────────────────────────────┘                   └──────────────────────────┘
 ```
 
-The agent can only submit tool calls and read its enforcement state.
-It cannot modify policy, reset quarantine, or bypass capability checks.
+The sidecar is the **authoritative enforcement boundary**. The agent can
+only submit tool calls and read its enforcement state. It cannot modify
+policy, reset quarantine, bypass capability checks, or execute tools directly.
+
+### Setting the enforcement mode
+
+```typescript
+import { createKernel } from '@arikernel/runtime';
+
+const kernel = createKernel({
+  preset: 'safe',
+  mode: 'sidecar',
+  sidecar: {
+    baseUrl: 'http://localhost:8787',
+    authToken: process.env.SIDECAR_TOKEN,
+  },
+});
+
+const firewall = kernel.createFirewall();
+// firewall.registerExecutor() → throws Error in sidecar mode
+// firewall.execute() → proxied to sidecar HTTP API
+```
+
+Or directly with `createFirewall`:
+
+```typescript
+import { createFirewall } from '@arikernel/runtime';
+
+const firewall = createFirewall({
+  principal: { name: 'my-agent', capabilities: [...] },
+  policies: [...],
+  mode: 'sidecar',
+  sidecar: {
+    baseUrl: 'http://localhost:8787',
+    authToken: process.env.SIDECAR_TOKEN,
+  },
+});
+```
 
 ## Embedded vs sidecar: when to use which
 
-| Criterion | Embedded (`createKernel`) | Sidecar |
-|-----------|--------------------------|---------|
+| Criterion | Embedded (`mode: "embedded"`) | Sidecar (`mode: "sidecar"`) |
+|-----------|-------------------------------|----------------------------|
 | Latency | ~0ms (in-process) | ~1ms (localhost HTTP) |
-| Language | TypeScript/JavaScript or Python (native runtimes) | Any language with HTTP |
+| Language | TypeScript/JavaScript or Python | Any language with HTTP |
 | Isolation | Agent can inspect internals | Policy state is opaque |
-| Quarantine bypass | Agent could theoretically tamper with in-process state | Agent has no way to reset quarantine |
+| Executor access | Direct — host can bypass pipeline | None — host has proxy executors only |
+| Quarantine bypass | Agent could tamper with in-process state | Agent has no way to reset quarantine |
+| registerExecutor() | Works normally | Throws Error |
 | Deployment | Single process | Two processes (or containers) |
-| Best for | Trusted first-party agents | Untrusted/third-party agents, polyglot environments |
+| Best for | Trusted first-party agents, dev | Untrusted/third-party agents, production |
 
 ## API reference
 
@@ -134,6 +186,40 @@ HTTP status codes:
 - `401` — missing or malformed Authorization header (when auth is enabled)
 - `403` — call denied by policy, quarantine, or invalid auth token
 - `500` — internal error during execution
+
+### `POST /request-capability`
+
+Request a capability grant from the sidecar. Returns a `grantId` that can be
+used in subsequent `/execute` calls for protected actions.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `principalId` | string | yes | Agent identifier |
+| `capabilityClass` | string | yes | Capability class (e.g. `http.write`, `file.read`, `shell.exec`) |
+| `constraints` | object | no | Optional constraints to narrow the grant (e.g. `{ allowedHosts: ["api.example.com"] }`) |
+| `justification` | string | no | Why the capability is needed |
+
+Response (granted):
+```json
+{
+  "granted": true,
+  "grantId": "grant_01JABCDE...",
+  "reason": "Capability granted for http.write"
+}
+```
+
+Response (denied):
+```json
+{
+  "granted": false,
+  "reason": "Principal lacks http.write capability"
+}
+```
+
+HTTP status codes:
+- `200` — capability granted
+- `400` — malformed request
+- `403` — capability denied by policy
 
 ### `POST /status`
 
@@ -194,6 +280,14 @@ const client = new SidecarClient({
 const result = await client.execute('http', 'GET', { url: 'https://api.example.com/data' });
 if (!result.allowed) {
   console.error('Denied:', result.error);
+}
+
+// Request a capability grant for protected actions
+const cap = await client.requestCapability('http.write', {
+  constraints: { allowedHosts: ['api.example.com'] },
+});
+if (cap.granted) {
+  console.log('Grant ID:', cap.grantId);
 }
 
 // Check enforcement state (quarantine, counters)

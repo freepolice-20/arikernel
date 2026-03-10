@@ -1,5 +1,7 @@
 export { Firewall, createFirewall } from "./firewall.js";
-export type { FirewallOptions } from "./config.js";
+export type { FirewallOptions, SecurityMode, EnforcementMode, SidecarConnectionOptions } from "./config.js";
+export { SidecarProxyExecutor, createSidecarProxies } from "./sidecar-proxy.js";
+export type { SidecarProxyConfig } from "./sidecar-proxy.js";
 export type { FirewallHooks } from "./hooks.js";
 export { CapabilityIssuer, setUntrustedSources, getUntrustedSources } from "./issuer.js";
 export { RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";

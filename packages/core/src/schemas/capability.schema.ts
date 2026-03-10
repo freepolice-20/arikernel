@@ -36,4 +36,5 @@ export const capabilityGrantSchema = z.object({
 	lease: capabilityLeaseSchema,
 	taintContext: z.array(taintLabelSchema),
 	revoked: z.boolean(),
+	nonce: z.string().optional(),
 });

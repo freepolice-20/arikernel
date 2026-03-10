@@ -98,7 +98,13 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 				const params =
 					typeof args[0] === "object" && args[0] !== null ? args[0] : { input: args[0] };
 				await wrapped(params);
-				return original.apply(tool, args);
+				const result = await original.apply(tool, args);
+				firewall.observeToolOutput({
+					toolClass: mapping.toolClass,
+					action: mapping.action,
+					data: result,
+				});
+				return result;
 			};
 		}
 
@@ -107,7 +113,13 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 			tool.invoke = async (input: any, config?: any) => {
 				const params = typeof input === "object" && input !== null ? input : { input };
 				await wrapped(params);
-				return original.call(tool, input, config);
+				const result = await original.call(tool, input, config);
+				firewall.observeToolOutput({
+					toolClass: mapping.toolClass,
+					action: mapping.action,
+					data: result,
+				});
+				return result;
 			};
 		}
 	}

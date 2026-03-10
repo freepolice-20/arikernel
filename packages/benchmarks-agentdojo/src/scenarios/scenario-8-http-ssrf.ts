@@ -20,7 +20,7 @@
  *   - blockedBy: 'capability_denial'
  */
 
-import { ToolCallDeniedError, now } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
 import { createFirewall } from "@arikernel/runtime";
 import type { ScenarioResult } from "../types.js";
 
@@ -90,9 +90,6 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 				toolClass: "http",
 				action: "get",
 				parameters: { url: target },
-				taintLabels: [
-					{ source: "web" as const, origin: "attacker.com", confidence: 1.0, addedAt: now() },
-				],
 			});
 			// If we reach here, the request was allowed (bad)
 			allowedCount++;

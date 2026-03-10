@@ -17,6 +17,7 @@ export {
 	verifyCapabilityToken,
 	serializeCapabilityToken,
 	deserializeCapabilityToken,
+	generateNonce,
 	type SigningAlgorithm,
 	type SigningKey,
 	type HmacSigningKey,

@@ -1,5 +1,5 @@
-import type { TaintLabel } from "@arikernel/core";
-import type { ExecuteRequest, ExecuteResponse, StatusResponse } from "./types.js";
+import type { CapabilityConstraint, TaintLabel } from "@arikernel/core";
+import type { ExecuteRequest, ExecuteResponse, RequestCapabilityResponse, StatusResponse } from "./types.js";
 
 export interface SidecarClientOptions {
 	/** Base URL of the sidecar server. Default: http://localhost:8787 */
@@ -34,6 +34,7 @@ export class SidecarClient {
 		action: string,
 		params: Record<string, unknown>,
 		taint?: TaintLabel[],
+		capabilityToken?: string,
 	): Promise<ExecuteResponse> {
 		const body: ExecuteRequest = {
 			principalId: this.principalId,
@@ -41,6 +42,7 @@ export class SidecarClient {
 			action,
 			params,
 			taint,
+			capabilityToken,
 		};
 
 		const res = await fetch(`${this.endpoint}/execute`, {
@@ -50,6 +52,53 @@ export class SidecarClient {
 		});
 
 		return res.json() as Promise<ExecuteResponse>;
+	}
+
+	/**
+	 * Request a capability and execute in one step.
+	 * Requests a signed capability token, then immediately uses it to execute.
+	 * This is the recommended secure workflow for agents.
+	 */
+	async secureExecute(
+		toolClass: ExecuteRequest["toolClass"],
+		action: string,
+		params: Record<string, unknown>,
+		taint?: TaintLabel[],
+	): Promise<ExecuteResponse> {
+		const cap = await this.requestCapability(
+			`${toolClass}.${action === "get" || action === "head" || action === "options" || action === "read" || action === "query" ? "read" : "write"}`,
+		);
+		if (!cap.granted) {
+			return { allowed: false, error: cap.reason ?? "Capability denied" };
+		}
+		return this.execute(toolClass, action, params, taint, cap.capabilityToken);
+	}
+
+	/**
+	 * Request a capability grant from the sidecar.
+	 * Returns a grantId that can be passed to execute() for protected actions.
+	 */
+	async requestCapability(
+		capabilityClass: string,
+		options?: {
+			constraints?: CapabilityConstraint;
+			justification?: string;
+		},
+	): Promise<RequestCapabilityResponse> {
+		const body = {
+			principalId: this.principalId,
+			capabilityClass,
+			constraints: options?.constraints,
+			justification: options?.justification,
+		};
+
+		const res = await fetch(`${this.endpoint}/request-capability`, {
+			method: "POST",
+			headers: this.headers,
+			body: JSON.stringify(body),
+		});
+
+		return res.json() as Promise<RequestCapabilityResponse>;
 	}
 
 	/** Query this principal's enforcement state (quarantine, counters). */
