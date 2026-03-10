@@ -4,6 +4,10 @@ Ari Kernel enforces security at the tool execution boundary — between an AI ag
 
 > See also: [Threat Model](threat-model.md) | [Agent Reference Monitor](agent-reference-monitor.md) | [Architecture](../ARCHITECTURE.md)
 
+<p align="center">
+  <img src="diagrams/attack-containment.svg" alt="Prompt Injection Attack Containment" width="600"/>
+</p>
+
 ## Capability Tokens
 
 Agents do not receive ambient tool access. Every protected tool call requires a **capability token** — a short-lived grant scoped to a specific tool class and action.

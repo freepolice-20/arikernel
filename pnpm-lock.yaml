@@ -62,6 +62,9 @@ importers:
       '@arikernel/audit-log':
         specifier: workspace:*
         version: link:../../packages/audit-log
+      '@arikernel/benchmarks':
+        specifier: workspace:*
+        version: link:../../packages/benchmarks
       '@arikernel/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -136,6 +139,25 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/benchmarks:
+    dependencies:
+      '@arikernel/audit-log':
+        specifier: workspace:*
+        version: link:../audit-log
+      '@arikernel/core':
+        specifier: workspace:*
+        version: link:../core
+      '@arikernel/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@25.3.5)
 
   packages/benchmarks-agentdojo:
     dependencies:

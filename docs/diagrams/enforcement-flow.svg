@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 880" font-family="'SF Mono','Consolas','Monaco',monospace" font-size="12">
+  <title>Ari Kernel Enforcement Flow</title>
+  <rect width="720" height="880" fill="#fff"/>
+
+  <!-- Title -->
+  <text x="360" y="32" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a1a">Ari Kernel Enforcement Flow</text>
+
+  <!-- Agent / Framework -->
+  <rect x="230" y="56" width="260" height="48" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="360" y="76" text-anchor="middle" font-weight="bold" fill="#1a1a1a">Agent / Framework</text>
+  <text x="360" y="92" text-anchor="middle" font-size="10" fill="#666">LangChain · OpenAI Agents · CrewAI · Custom</text>
+
+  <!-- Arrow -->
+  <line x1="360" y1="104" x2="360" y2="132" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Tool Request -->
+  <rect x="220" y="132" width="280" height="44" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="360" y="150" text-anchor="middle" fill="#1a1a1a">Tool Request</text>
+  <text x="360" y="166" text-anchor="middle" font-size="10" fill="#666">toolClass · action · params · taintLabels</text>
+
+  <!-- Arrow -->
+  <line x1="360" y1="176" x2="360" y2="204" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Ari Kernel (main box) -->
+  <rect x="140" y="204" width="440" height="260" rx="6" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="360" y="226" text-anchor="middle" font-weight="bold" font-size="13" fill="#1a1a1a">Ari Kernel — Runtime Reference Monitor</text>
+
+  <!-- Three internal blocks -->
+  <rect x="160" y="244" width="128" height="56" rx="3" fill="#f0f0f0" stroke="#555" stroke-width="1"/>
+  <text x="224" y="268" text-anchor="middle" font-weight="bold" font-size="11" fill="#1a1a1a">Policy Engine</text>
+  <text x="224" y="284" text-anchor="middle" font-size="9" fill="#666">YAML rules, priorities</text>
+
+  <rect x="296" y="244" width="128" height="56" rx="3" fill="#f0f0f0" stroke="#555" stroke-width="1"/>
+  <text x="360" y="268" text-anchor="middle" font-weight="bold" font-size="11" fill="#1a1a1a">Capability Tokens</text>
+  <text x="360" y="284" text-anchor="middle" font-size="9" fill="#666">Scoped, time-limited</text>
+
+  <rect x="432" y="244" width="128" height="56" rx="3" fill="#f0f0f0" stroke="#555" stroke-width="1"/>
+  <text x="496" y="268" text-anchor="middle" font-weight="bold" font-size="11" fill="#1a1a1a">Behavioral Rules</text>
+  <text x="496" y="284" text-anchor="middle" font-size="9" fill="#666">Sliding window, quarantine</text>
+
+  <!-- Taint Tracker -->
+  <rect x="160" y="316" width="196" height="40" rx="3" fill="#f0f0f0" stroke="#555" stroke-width="1"/>
+  <text x="258" y="340" text-anchor="middle" font-weight="bold" font-size="11" fill="#1a1a1a">Taint Tracker</text>
+
+  <!-- Constraint Intersection -->
+  <rect x="364" y="316" width="196" height="40" rx="3" fill="#f0f0f0" stroke="#555" stroke-width="1"/>
+  <text x="462" y="340" text-anchor="middle" font-weight="bold" font-size="11" fill="#1a1a1a">Constraint Intersection</text>
+
+  <!-- Internal arrows to decision -->
+  <line x1="224" y1="300" x2="224" y2="376" stroke="#888" stroke-width="1"/>
+  <line x1="360" y1="300" x2="360" y2="376" stroke="#888" stroke-width="1"/>
+  <line x1="496" y1="300" x2="496" y2="376" stroke="#888" stroke-width="1"/>
+  <line x1="224" y1="376" x2="496" y2="376" stroke="#888" stroke-width="1"/>
+  <line x1="360" y1="376" x2="360" y2="396" stroke="#888" stroke-width="1"/>
+
+  <!-- Decision box -->
+  <rect x="260" y="396" width="200" height="52" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="360" y="418" text-anchor="middle" font-weight="bold" fill="#1a1a1a">Decision</text>
+  <text x="360" y="436" text-anchor="middle" font-size="10" fill="#666">allow · deny · quarantine</text>
+
+  <!-- Decision branches -->
+  <!-- Allow path (left) -->
+  <line x1="300" y1="448" x2="200" y2="504" stroke="#2d8a4e" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+  <text x="232" y="476" text-anchor="middle" font-size="10" font-weight="bold" fill="#2d8a4e">allow</text>
+
+  <!-- Deny path (right) -->
+  <line x1="420" y1="448" x2="520" y2="504" stroke="#c9362c" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+  <text x="488" y="476" text-anchor="middle" font-size="10" font-weight="bold" fill="#c9362c">deny / quarantine</text>
+
+  <!-- Tool Executor -->
+  <rect x="120" y="504" width="160" height="48" rx="4" fill="#e8f5e9" stroke="#2d8a4e" stroke-width="1.5"/>
+  <text x="200" y="524" text-anchor="middle" font-weight="bold" fill="#1a1a1a">Tool Executor</text>
+  <text x="200" y="540" text-anchor="middle" font-size="10" fill="#666">HTTP · File · Shell · DB</text>
+
+  <!-- Blocked -->
+  <rect x="440" y="504" width="160" height="48" rx="4" fill="#fce4e4" stroke="#c9362c" stroke-width="1.5"/>
+  <text x="520" y="524" text-anchor="middle" font-weight="bold" fill="#c9362c">Blocked</text>
+  <text x="520" y="540" text-anchor="middle" font-size="10" fill="#888">ToolCallDeniedError</text>
+
+  <!-- Arrow from executor to result -->
+  <line x1="200" y1="552" x2="200" y2="592" stroke="#2d8a4e" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Tool Result -->
+  <rect x="120" y="592" width="160" height="40" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="200" y="616" text-anchor="middle" fill="#1a1a1a">Tool Result + Taint Labels</text>
+
+  <!-- Arrow from blocked to audit -->
+  <line x1="520" y1="552" x2="520" y2="592" stroke="#c9362c" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+
+  <!-- Both paths converge to audit -->
+  <line x1="200" y1="632" x2="200" y2="660" stroke="#333" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="200" y1="660" x2="360" y2="660" stroke="#333" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="520" y1="632" x2="520" y2="660" stroke="#333" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="520" y1="660" x2="360" y2="660" stroke="#333" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="360" y1="660" x2="360" y2="680" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Audit Log -->
+  <rect x="440" y="592" width="160" height="40" rx="4" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="520" y="616" text-anchor="middle" font-weight="bold" fill="#1a1a1a">Audit Event</text>
+
+  <!-- Audit + Replay -->
+  <rect x="220" y="680" width="280" height="48" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="360" y="700" text-anchor="middle" font-weight="bold" fill="#1a1a1a">Audit Log</text>
+  <text x="360" y="716" text-anchor="middle" font-size="10" fill="#666">SHA-256 hash chain · deterministic replay</text>
+
+  <!-- Arrow to taint update -->
+  <line x1="360" y1="728" x2="360" y2="760" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Taint Update -->
+  <rect x="230" y="760" width="260" height="40" rx="4" fill="#f8f8f8" stroke="#333" stroke-width="1.5"/>
+  <text x="360" y="784" text-anchor="middle" fill="#1a1a1a">Taint Propagation · Replay Trace</text>
+
+  <!-- Footer -->
+  <text x="360" y="836" text-anchor="middle" font-size="10" fill="#999">Every tool call passes through the kernel. No bypass path exists.</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2d8a4e"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c9362c"/>
+    </marker>
+  </defs>
+</svg>

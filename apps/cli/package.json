@@ -44,6 +44,7 @@
 		"@arikernel/policy-engine": "workspace:*",
 		"@arikernel/audit-log": "workspace:*",
 		"@arikernel/attack-sim": "workspace:*",
+		"@arikernel/benchmarks": "workspace:*",
 		"@arikernel/sidecar": "workspace:*",
 		"citty": "^0.1.6"
 	},

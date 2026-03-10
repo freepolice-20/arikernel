@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { DEFAULT_HOST, DEFAULT_PORT } from "@arikernel/sidecar";
 import { defineCommand, runMain } from "citty";
+import { runBenchmark } from "./commands/benchmark.js";
 import { runInit } from "./commands/init.js";
 import { runPolicyList, runPolicyShow, runPolicyValidate } from "./commands/policy.js";
 import { runReplayTrace } from "./commands/replay-trace.js";
@@ -138,6 +139,17 @@ const sidecar = defineCommand({
 		}),
 });
 
+const benchmarkCmd = defineCommand({
+	meta: { name: "benchmark", description: "Run reproducible attack benchmark suite" },
+	args: {
+		resultsDir: {
+			type: "string",
+			description: "Output directory for results",
+		},
+	},
+	run: ({ args }) => runBenchmark(args.resultsDir),
+});
+
 const replayTrace = defineCommand({
 	meta: { name: "replay-trace", description: "Replay a JSON trace file through the kernel" },
 	args: {
@@ -164,7 +176,17 @@ const replayTrace = defineCommand({
 
 const main = defineCommand({
 	meta: { name: "arikernel", version: "0.1.1", description: "Security runtime for AI agents" },
-	subCommands: { init, policy, replay, "replay-trace": replayTrace, run, simulate, trace, sidecar },
+	subCommands: {
+		benchmark: benchmarkCmd,
+		init,
+		policy,
+		replay,
+		"replay-trace": replayTrace,
+		run,
+		simulate,
+		trace,
+		sidecar,
+	},
 });
 
 runMain(main);

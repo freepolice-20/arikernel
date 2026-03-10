@@ -28,6 +28,9 @@
     "ari:init": "node apps/cli/dist/main.js init",
     "server": "node apps/server/dist/main.js",
     "server:dev": "tsx apps/server/src/main.ts",
+    "example:quickstart": "tsx examples/quickstart/agent.ts",
+    "example:prompt-injection": "tsx examples/prompt-injection-demo/agent.ts",
+    "example:real-agent": "tsx examples/demo-real-agent/agent.ts",
     "demo": "tsx examples/demo.ts",
     "demo:capability": "tsx examples/demo-capability.ts",
     "demo:attack": "tsx examples/demo-attack.ts",
@@ -55,9 +58,11 @@
     "demo:python": "python examples/python-basic-agent.py",
     "demo:python:openai": "python examples/python-openai-tools.py",
     "demo:python:quarantine": "python examples/python-behavioral-quarantine.py",
-    "test:proof": "pnpm --filter @arikernel/benchmarks-agentdojo test && pnpm --filter @arikernel/middleware test && pnpm --filter @arikernel/sidecar test && pnpm --filter @arikernel/runtime test",
+    "test:proof": "pnpm --filter @arikernel/benchmarks test && pnpm --filter @arikernel/benchmarks-agentdojo test && pnpm --filter @arikernel/middleware test && pnpm --filter @arikernel/sidecar test && pnpm --filter @arikernel/runtime test",
     "test:live": "vitest run --config examples/demo-real-agent/vitest.config.ts",
-    "benchmark:agentdojo": "npx tsx packages/benchmarks-agentdojo/src/index.ts"
+    "benchmark": "npx tsx packages/benchmarks/src/run.ts",
+    "benchmark:agentdojo": "npx tsx packages/benchmarks-agentdojo/src/index.ts",
+    "ari:benchmark": "node apps/cli/dist/main.js benchmark"
   },
   "devDependencies": {
     "@arikernel/adapters": "workspace:*",

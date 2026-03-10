@@ -210,7 +210,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 const server = createServer(async (req, res) => {
 	try {
-		// Use X-Forwarded-For when behind a trusted proxy, fall back to socket address
+		// Use X-Forwarded-For when behind a trusted proxy, fall back to socket address.
+		// WARNING: X-Forwarded-For should only be trusted when deployed behind a
+		// reverse proxy. Direct clients can spoof this header to bypass rate limiting.
 		const forwarded = req.headers["x-forwarded-for"];
 		const ip =
 			(typeof forwarded === "string" ? forwarded.split(",")[0].trim() : undefined) ??
