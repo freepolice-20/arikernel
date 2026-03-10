@@ -6,6 +6,7 @@ export const TAINT_SOURCES = [
 	"model-generated",
 	"user-provided",
 	"tool-output",
+	"derived-sensitive",
 ] as const;
 
 export type TaintSource = (typeof TAINT_SOURCES)[number];

@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { dirname, normalize, resolve } from "node:path";
+import { containsDangerousUnicode, normalizeInput } from "./unicode-safety.js";
 
 /**
  * Resolve and canonicalize a file path for security comparison.
@@ -11,7 +12,12 @@ import { dirname, normalize, resolve } from "node:path";
  * a symlink at that location pointing outside the allowed directory).
  */
 export function canonicalizePath(inputPath: string, cwd?: string): string {
-	let p = inputPath;
+	// SECURITY: Reject invisible Unicode characters that can disguise paths
+	if (containsDangerousUnicode(inputPath)) {
+		throw new Error(`Path contains dangerous invisible Unicode characters: '${inputPath}'. Access denied.`);
+	}
+	// SECURITY: Normalize to NFKC to collapse fullwidth chars (／ → /) before path resolution
+	let p = normalizeInput(inputPath);
 	if (p.startsWith("~/") || p === "~") {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? "/";
 		p = p === "~" ? home : resolve(home, p.slice(2));
@@ -38,8 +44,12 @@ export function canonicalizePath(inputPath: string, cwd?: string): string {
 			const filename = normalized.slice(parent.length);
 			return realParent + filename;
 		}
-	} catch {
-		// If realpath fails (permissions, etc.), fall back to normalized path
+	} catch (err) {
+		// SECURITY: Fail closed — if we cannot canonicalize, deny access.
+		// Falling back to the normalized path could allow symlink bypass.
+		throw new Error(
+			`Path canonicalization failed for '${inputPath}': ${err instanceof Error ? err.message : String(err)}. Access denied (fail-closed).`,
+		);
 	}
 	return normalized;
 }

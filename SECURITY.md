@@ -58,4 +58,12 @@ AriKernel's design draws on the reference monitor concept (Anderson, 1972), adap
 - **Least privilege**: Capability grants use intersection semantics (can only narrow, never broaden)
 - **Tamper-evident audit**: Every decision is logged in a SHA-256 hash-chained store. The chain detects modification after the fact but does not prevent it — see [Security Model § Hash Chain Limitations](docs/security-model.md#24-audit-and-tamper-evidence).
 
+## Security Documentation
+
+- [Threat Model](docs/threat-model.md) — attacker assumptions, trust boundaries, in-scope/out-of-scope attacks, residual risks
+- [Security Model](docs/security-model.md) — enforcement mechanisms: capability tokens, taint propagation, behavioral detection
+- [Reference Monitor](docs/reference-monitor.md) — formal enforcement architecture (Anderson, 1972)
+- [Sidecar Mode](docs/sidecar-mode.md) — process-isolated deployment for production
+- [Security Overview](docs/security-overview.md) — how the security documents relate to each other
+
 For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).

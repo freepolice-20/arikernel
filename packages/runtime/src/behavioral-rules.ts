@@ -38,12 +38,12 @@ export function evaluateBehavioralRules(state: RunStateTracker): BehavioralRuleM
 	if (events.length < 2) return null;
 
 	return (
-		checkWebTaintSensitiveProbe(events) ??
+		checkWebTaintSensitiveProbe(events, state) ??
 		checkDeniedCapabilityThenEscalation(events) ??
-		checkSensitiveReadThenEgress(events) ??
-		checkTaintedDatabaseWrite(events) ??
-		checkTaintedShellWithData(events) ??
-		checkSecretAccessThenAnyEgress(events)
+		checkSensitiveReadThenEgress(events, state) ??
+		checkTaintedDatabaseWrite(events, state) ??
+		checkTaintedShellWithData(events, state) ??
+		checkSecretAccessThenAnyEgress(events, state)
 	);
 }
 
@@ -63,21 +63,24 @@ export function applyBehavioralRule(
 // If untrusted web taint was recently observed, and shortly after the run
 // attempts sensitive file reads, shell exec, or outbound egress → quarantine.
 
-function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
+	// Check window for taint event, OR consult sticky flag
 	const taintEvent = findRecent(
 		events,
 		(e) =>
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	if (!taintEvent) return null;
+	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	if (!taintEvent && !hasTaintSticky) return null;
 
-	const taintIdx = events.indexOf(taintEvent);
+	// If taint event is in window, look for dangerous follow-up after it
+	// If taint was evicted from window but sticky flag is set, any dangerous event in window triggers
+	const searchFromIdx = taintEvent ? events.indexOf(taintEvent) : -1;
 
-	// Look for dangerous follow-up actions AFTER the taint observation
 	const dangerousFollowup = findAfter(
 		events,
-		taintIdx,
+		searchFromIdx,
 		(e) =>
 			e.type === "sensitive_read_attempt" ||
 			(e.type === "tool_call_denied" && e.toolClass === "shell") ||
@@ -140,26 +143,41 @@ function checkDeniedCapabilityThenEscalation(
 
 function checkSensitiveReadThenEgress(
 	events: readonly SecurityEvent[],
+	state: RunStateTracker,
 ): BehavioralRuleMatch | null {
 	const sensitiveRead = findRecent(
 		events,
 		(e) => e.type === "sensitive_read_attempt" || e.type === "sensitive_read_allowed",
 	);
-	if (!sensitiveRead) return null;
 
-	const readIdx = events.indexOf(sensitiveRead);
+	// If sensitive read is in window, look for egress after it
+	// If sensitive read was evicted but sticky flag is set, any egress in window triggers
+	if (sensitiveRead) {
+		const readIdx = events.indexOf(sensitiveRead);
+		const egress = findAfter(events, readIdx, (e) => e.type === "egress_attempt");
+		if (!egress) return null;
 
-	const egress = findAfter(events, readIdx, (e) => e.type === "egress_attempt");
+		const path = (sensitiveRead.metadata?.path as string) ?? "sensitive file";
+		return {
+			ruleId: "sensitive_read_then_egress",
+			reason: `Read of ${path} was followed by outbound ${egress.action ?? "write"} attempt`,
+			matchedEvents: [sensitiveRead, egress],
+		};
+	}
 
-	if (!egress) return null;
+	// Sticky flag: sensitive read happened earlier but was evicted from window
+	if (state.sensitiveReadObserved) {
+		const egress = findRecent(events, (e) => e.type === "egress_attempt");
+		if (!egress) return null;
 
-	const path = (sensitiveRead.metadata?.path as string) ?? "sensitive file";
+		return {
+			ruleId: "sensitive_read_then_egress",
+			reason: `Previous sensitive file read was followed by outbound ${egress.action ?? "write"} attempt`,
+			matchedEvents: [egress],
+		};
+	}
 
-	return {
-		ruleId: "sensitive_read_then_egress",
-		reason: `Read of ${path} was followed by outbound ${egress.action ?? "write"} attempt`,
-		matchedEvents: [sensitiveRead, egress],
-	};
+	return null;
 }
 
 // ── Rule 4: tainted_database_write ─────────────────────────────────
@@ -169,20 +187,21 @@ function checkSensitiveReadThenEgress(
 
 const DB_WRITE_ACTIONS = new Set(["exec", "write", "insert", "update", "delete", "mutate"]);
 
-function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+function checkTaintedDatabaseWrite(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
 	const taintEvent = findRecent(
 		events,
 		(e) =>
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	if (!taintEvent) return null;
+	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	if (!taintEvent && !hasTaintSticky) return null;
 
-	const taintIdx = events.indexOf(taintEvent);
+	const searchFromIdx = taintEvent ? events.indexOf(taintEvent) : -1;
 
 	const dbWrite = findAfter(
 		events,
-		taintIdx,
+		searchFromIdx,
 		(e) => e.toolClass === "database" && DB_WRITE_ACTIONS.has(e.action ?? ""),
 	);
 	if (!dbWrite) return null;
@@ -190,7 +209,7 @@ function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): Behavioral
 	return {
 		ruleId: "tainted_database_write",
 		reason: `Untrusted input was followed by database ${dbWrite.action} attempt`,
-		matchedEvents: [taintEvent, dbWrite],
+		matchedEvents: taintEvent ? [taintEvent, dbWrite] : [dbWrite],
 	};
 }
 
@@ -202,18 +221,19 @@ function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): Behavioral
 
 const SHELL_DATA_CMD_LENGTH = 100;
 
-function checkTaintedShellWithData(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+function checkTaintedShellWithData(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
 	const taintEvent = findRecent(
 		events,
 		(e) =>
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	if (!taintEvent) return null;
+	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	if (!taintEvent && !hasTaintSticky) return null;
 
-	const taintIdx = events.indexOf(taintEvent);
+	const searchFromIdx = taintEvent ? events.indexOf(taintEvent) : -1;
 
-	const shellWithData = findAfter(events, taintIdx, (e) => {
+	const shellWithData = findAfter(events, searchFromIdx, (e) => {
 		if (e.toolClass !== "shell") return false;
 		const cmdLen = (e.metadata?.commandLength as number) ?? 0;
 		return cmdLen > SHELL_DATA_CMD_LENGTH;
@@ -223,7 +243,7 @@ function checkTaintedShellWithData(events: readonly SecurityEvent[]): Behavioral
 	return {
 		ruleId: "tainted_shell_with_data",
 		reason: `Untrusted input was followed by shell exec with long command (${(shellWithData.metadata?.commandLength as number) ?? "?"} chars)`,
-		matchedEvents: [taintEvent, shellWithData],
+		matchedEvents: taintEvent ? [taintEvent, shellWithData] : [shellWithData],
 	};
 }
 
@@ -238,6 +258,7 @@ const SECRETS_URL_PATTERNS = /vault|secrets|credentials|\.well-known\/keys/i;
 
 function checkSecretAccessThenAnyEgress(
 	events: readonly SecurityEvent[],
+	state: RunStateTracker,
 ): BehavioralRuleMatch | null {
 	// Look for database queries or HTTP GETs that touched secrets-like resources
 	const secretAccess = findRecent(events, (e) => {
@@ -251,22 +272,39 @@ function checkSecretAccessThenAnyEgress(
 		}
 		return false;
 	});
-	if (!secretAccess) return null;
 
-	const accessIdx = events.indexOf(secretAccess);
-	const egress = findAfter(events, accessIdx, (e) => e.type === "egress_attempt");
-	if (!egress) return null;
+	// Set sticky flag whenever we detect secret access, even if no egress follows yet
+	if (secretAccess) {
+		state.markSecretAccess();
+		const accessIdx = events.indexOf(secretAccess);
+		const egress = findAfter(events, accessIdx, (e) => e.type === "egress_attempt");
+		if (!egress) return null;
 
-	const resource =
-		secretAccess.toolClass === "database"
-			? "database query"
-			: `HTTP ${secretAccess.action} to ${(secretAccess.metadata?.url as string) ?? "unknown"}`;
+		const resource =
+			secretAccess.toolClass === "database"
+				? "database query"
+				: `HTTP ${secretAccess.action} to ${(secretAccess.metadata?.url as string) ?? "unknown"}`;
 
-	return {
-		ruleId: "secret_access_then_any_egress",
-		reason: `${resource} accessing secrets was followed by ${egress.action ?? "egress"} attempt`,
-		matchedEvents: [secretAccess, egress],
-	};
+		return {
+			ruleId: "secret_access_then_any_egress",
+			reason: `${resource} accessing secrets was followed by ${egress.action ?? "egress"} attempt`,
+			matchedEvents: [secretAccess, egress],
+		};
+	}
+
+	// Sticky flag: secret access happened earlier but was evicted from window
+	if (state.secretAccessObserved) {
+		const egress = findRecent(events, (e) => e.type === "egress_attempt");
+		if (!egress) return null;
+
+		return {
+			ruleId: "secret_access_then_any_egress",
+			reason: `Previous secret access was followed by ${egress.action ?? "egress"} attempt`,
+			matchedEvents: [egress],
+		};
+	}
+
+	return null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

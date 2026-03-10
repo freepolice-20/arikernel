@@ -612,16 +612,25 @@ AriKernel/
 
 ## Documentation
 
-- [Security Model](docs/security-model.md) — capability tokens, taint tracking, behavioral rules, quarantine
-- [Middleware](docs/middleware.md) — drop-in framework wrappers, presets, tool mapping
+### Security Documentation
+
+For security researchers, red-teamers, and auditors — start here:
+
+- [Security Overview](docs/security-overview.md) — how the security documents relate to each other
+- [Threat Model](docs/threat-model.md) — attacker assumptions, trust boundaries, in-scope/out-of-scope attacks, residual risks
+- [Security Model](docs/security-model.md) — enforcement mechanisms: capability tokens, taint propagation, behavioral detection, quarantine
+- [Reference Monitor](docs/reference-monitor.md) — formal enforcement architecture (Anderson, 1972)
+- [Sidecar Mode](docs/sidecar-mode.md) — process-isolated deployment with enforcement modes
+
+### General Documentation
+
 - [Architecture](ARCHITECTURE.md) — enforcement pipeline, run-state model, deployment modes
+- [Middleware](docs/middleware.md) — drop-in framework wrappers, presets, tool mapping
 - [Agent Reference Monitor](docs/agent-reference-monitor.md) — the reference monitor concept applied to AI agents
-- [Threat Model](docs/threat-model.md) — what Ari Kernel mitigates and what it doesn't
 - [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
 - [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 9-scenario reproducible attack harness
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
 - [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
-- [Sidecar Mode](docs/sidecar-mode.md) — language-agnostic HTTP enforcement proxy
 - [Execution Hardening](docs/execution-hardening.md) — OS and container-level security recommendations
 
 ---

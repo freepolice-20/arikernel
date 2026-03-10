@@ -355,7 +355,7 @@ describe("database constraint: substring bypass prevention", () => {
 // ── 6. Policy regex: fail closed ────────────────────────────────────────────
 
 describe("policy regex safety: fail closed on invalid or slow regex", () => {
-	it("invalid regex in policy match returns false (fail closed)", () => {
+	it("invalid regex in policy match fails closed (returns false or throws UnsafeMatchError)", () => {
 		const tc = {
 			id: "tc-1",
 			runId: "run-1",
@@ -368,9 +368,16 @@ describe("policy regex safety: fail closed on invalid or slow regex", () => {
 			taintLabels: [],
 		};
 
-		// Invalid regex pattern with unbalanced parenthesis
-		const result = matchesRule({ parameters: { url: { pattern: "(((unclosed" } } }, tc, []);
-		expect(result).toBe(false);
+		// Invalid regex pattern with unbalanced parenthesis.
+		// The policy engine may either return false (soft fail-closed) or
+		// throw UnsafeMatchError (hard fail-closed). Both are safe behaviors —
+		// the key property is that it never returns true.
+		try {
+			const result = matchesRule({ parameters: { url: { pattern: "(((unclosed" } } }, tc, []);
+			expect(result).toBe(false);
+		} catch (err) {
+			expect((err as Error).name).toBe("UnsafeMatchError");
+		}
 	});
 
 	it("valid regex that matches returns true", () => {

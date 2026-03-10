@@ -100,9 +100,20 @@ export function pinnedRequest(
 			...(isHttps ? { servername: parsed.hostname } : {}),
 		};
 
+		const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 		const req = mod.request(options, (res) => {
 			const chunks: Buffer[] = [];
-			res.on("data", (chunk: Buffer) => chunks.push(chunk));
+			let totalBytes = 0;
+			res.on("data", (chunk: Buffer) => {
+				totalBytes += chunk.length;
+				if (totalBytes > MAX_RESPONSE_BYTES) {
+					res.destroy();
+					reject(new Error(`Response body exceeds ${MAX_RESPONSE_BYTES} bytes limit`));
+					return;
+				}
+				chunks.push(chunk);
+			});
 			res.on("end", () => {
 				const responseBody = Buffer.concat(chunks).toString("utf-8");
 				const responseHeaders: Record<string, string> = {};

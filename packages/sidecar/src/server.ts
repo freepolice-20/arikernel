@@ -46,6 +46,9 @@ export class SidecarServer {
 			runStatePolicy: config.runStatePolicy,
 			signingKey: config.signingKey,
 			securityMode: config.securityMode,
+			sharedStoreConfig: config.sharedStoreConfig,
+			correlatorConfig: config.correlatorConfig,
+			onCrossPrincipalAlert: config.onCrossPrincipalAlert,
 		});
 
 		const auditDir = dirname(resolve(config.auditLog ?? "./sidecar-audit.db"));

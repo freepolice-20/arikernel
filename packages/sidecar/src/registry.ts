@@ -1,10 +1,19 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Capability, PolicyRule, SigningKey } from "@arikernel/core";
-import { getPreset } from "@arikernel/core";
+import { getPreset, now } from "@arikernel/core";
 import type { PresetId } from "@arikernel/core";
 import { type Firewall, createFirewall } from "@arikernel/runtime";
 import type { RunStatePolicy, SecurityMode } from "@arikernel/runtime";
+import {
+	type AlertHandler,
+	type CorrelatorConfig,
+	CrossPrincipalCorrelator,
+} from "./correlator.js";
+import {
+	type SharedStoreConfig,
+	SharedTaintRegistry,
+} from "./shared-taint-registry.js";
 import {
 	DatabaseExecutor,
 	FileExecutor,
@@ -33,6 +42,9 @@ export interface RegistryConfig {
 	runStatePolicy?: RunStatePolicy;
 	signingKey?: SigningKey;
 	securityMode?: SecurityMode;
+	sharedStoreConfig?: SharedStoreConfig;
+	correlatorConfig?: CorrelatorConfig;
+	onCrossPrincipalAlert?: AlertHandler;
 }
 
 /**
@@ -46,6 +58,9 @@ export function resolveRegistryConfig(config: {
 	runStatePolicy?: RunStatePolicy;
 	signingKey?: SigningKey;
 	securityMode?: SecurityMode;
+	sharedStoreConfig?: SharedStoreConfig;
+	correlatorConfig?: CorrelatorConfig;
+	onCrossPrincipalAlert?: AlertHandler;
 }): RegistryConfig {
 	if (config.preset) {
 		const preset = getPreset(config.preset);
@@ -55,6 +70,9 @@ export function resolveRegistryConfig(config: {
 			runStatePolicy: config.runStatePolicy ?? preset.runStatePolicy,
 			signingKey: config.signingKey,
 			securityMode: config.securityMode,
+			sharedStoreConfig: config.sharedStoreConfig,
+			correlatorConfig: config.correlatorConfig,
+			onCrossPrincipalAlert: config.onCrossPrincipalAlert,
 		};
 	}
 
@@ -68,6 +86,9 @@ export function resolveRegistryConfig(config: {
 		runStatePolicy: config.runStatePolicy,
 		signingKey: config.signingKey,
 		securityMode: config.securityMode,
+		sharedStoreConfig: config.sharedStoreConfig,
+		correlatorConfig: config.correlatorConfig,
+		onCrossPrincipalAlert: config.onCrossPrincipalAlert,
 	};
 }
 
@@ -83,6 +104,8 @@ export class PrincipalRegistry {
 	private readonly runStatePolicy?: RunStatePolicy;
 	private readonly signingKey?: SigningKey;
 	private readonly securityMode?: SecurityMode;
+	private readonly sharedTaint: SharedTaintRegistry;
+	private readonly correlator: CrossPrincipalCorrelator;
 
 	constructor(auditDir: string, registryConfig: RegistryConfig) {
 		mkdirSync(auditDir, { recursive: true });
@@ -92,6 +115,21 @@ export class PrincipalRegistry {
 		this.runStatePolicy = registryConfig.runStatePolicy;
 		this.signingKey = registryConfig.signingKey;
 		this.securityMode = registryConfig.securityMode;
+		this.sharedTaint = new SharedTaintRegistry(registryConfig.sharedStoreConfig);
+		this.correlator = new CrossPrincipalCorrelator(registryConfig.correlatorConfig);
+		if (registryConfig.onCrossPrincipalAlert) {
+			this.correlator.onAlert(registryConfig.onCrossPrincipalAlert);
+		}
+	}
+
+	/** The cross-principal correlator for this registry. */
+	getCorrelator(): CrossPrincipalCorrelator {
+		return this.correlator;
+	}
+
+	/** The shared taint registry for this registry. */
+	getSharedTaintRegistry(): SharedTaintRegistry {
+		return this.sharedTaint;
 	}
 
 	getOrCreate(principalId: string): Firewall {

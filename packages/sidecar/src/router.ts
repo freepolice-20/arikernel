@@ -1,3 +1,4 @@
+import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
 	ApprovalRequiredError,
@@ -214,7 +215,7 @@ export async function handleExecute(
 					if (e instanceof ToolCallDeniedError || e instanceof ApprovalRequiredError) {
 						return jsonResponse(res, 403, { allowed: false, error: e.message, callId: e.toolCall.id });
 					}
-					return jsonResponse(res, 500, { allowed: false, error: (e as Error).message });
+					return jsonResponse(res, 500, { allowed: false, error: "Internal server error" });
 				}
 			} catch {
 				return jsonResponse(res, 400, { allowed: false, error: "Invalid capability token encoding" });
@@ -258,7 +259,7 @@ export async function handleExecute(
 				};
 				return jsonResponse(res, 403, response);
 			}
-			return jsonResponse(res, 500, { allowed: false, error: (e as Error).message });
+			return jsonResponse(res, 500, { allowed: false, error: "Internal server error" });
 		}
 	} finally {
 		rateLimiter.release(principalId);
@@ -479,19 +480,15 @@ export function rejectUnauthorized(
 	return false;
 }
 
-/** Constant-time string comparison to prevent timing side-channels. */
+/** Constant-time string comparison using Node.js crypto.timingSafeEqual. */
 function timingSafeEqual(a: string, b: string): boolean {
-	if (a.length !== b.length) {
-		// Compare against b anyway to avoid length-based timing leak
-		let result = a.length ^ b.length;
-		for (let i = 0; i < a.length; i++) {
-			result |= a.charCodeAt(i) ^ (b.charCodeAt(i % b.length) || 0);
-		}
-		return result === 0; // always false when lengths differ
+	const bufA = Buffer.from(a, "utf-8");
+	const bufB = Buffer.from(b, "utf-8");
+	if (bufA.length !== bufB.length) {
+		// Prevent length oracle: compare a against itself to consume constant time,
+		// then return false. The allocation cost for different-length inputs is unavoidable.
+		cryptoTimingSafeEqual(bufA, bufA);
+		return false;
 	}
-	let result = 0;
-	for (let i = 0; i < a.length; i++) {
-		result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-	}
-	return result === 0;
+	return cryptoTimingSafeEqual(bufA, bufB);
 }

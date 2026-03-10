@@ -61,6 +61,22 @@
 			"decision": "allow",
 			"reason": "File reads are allowed (grant constraints enforce path limits)"
 		},
+		"deny-derived-sensitive-egress": {
+			"id": "deny-derived-sensitive-egress",
+			"name": "Deny egress with derived-sensitive taint",
+			"priority": 5,
+			"match": { "toolClass": "http", "taintSources": ["derived-sensitive"] },
+			"decision": "deny",
+			"reason": "Egress blocked: data derived from sensitive file reads cannot leave the system"
+		},
+		"deny-derived-sensitive-shared-write": {
+			"id": "deny-derived-sensitive-shared-write",
+			"name": "Deny shared store writes with derived-sensitive taint",
+			"priority": 5,
+			"match": { "toolClass": "database", "taintSources": ["derived-sensitive"] },
+			"decision": "deny",
+			"reason": "Shared store writes blocked for data derived from sensitive file reads"
+		},
 		"deny-all": {
 			"id": "__builtin_deny_all",
 			"name": "Deny All (default)",
@@ -318,6 +334,54 @@
 			],
 			"runStatePolicy": {
 				"maxDeniedSensitiveActions": 3,
+				"behavioralRules": true
+			}
+		},
+
+		"anti-collusion": {
+			"id": "anti-collusion",
+			"name": "Anti-Collusion",
+			"description": "Lightweight cross-principal collusion mitigations. Blocks egress and shared-store writes when data is tainted as derived-sensitive. Not full collusion prevention — lightweight provenance for shared stores.",
+			"capabilities": [
+				{ "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+				{
+					"toolClass": "file",
+					"actions": ["read"],
+					"constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] }
+				},
+				{ "toolClass": "database", "actions": ["query"] }
+			],
+			"policies": [
+				"deny-derived-sensitive-egress",
+				"deny-derived-sensitive-shared-write",
+				"deny-tainted-shell",
+				"deny-http-write",
+				"deny-file-write",
+				"deny-shell",
+				"allow-http-get",
+				"allow-file-read",
+				{
+					"id": "allow-db-query-anti-collusion",
+					"name": "Allow DB queries",
+					"priority": 100,
+					"match": { "toolClass": "database", "action": "query" },
+					"decision": "allow",
+					"reason": "Read-only database queries are allowed"
+				},
+				{
+					"id": "deny-db-write-anti-collusion",
+					"name": "Deny DB mutations",
+					"priority": 20,
+					"match": {
+						"toolClass": "database",
+						"action": ["exec", "mutate", "write", "insert", "update", "delete"]
+					},
+					"decision": "deny",
+					"reason": "Database mutations are blocked in anti-collusion mode"
+				}
+			],
+			"runStatePolicy": {
+				"maxDeniedSensitiveActions": 5,
 				"behavioralRules": true
 			}
 		},

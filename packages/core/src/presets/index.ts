@@ -21,7 +21,8 @@ export type PresetId =
 	| "automation-agent"
 	| "safe"
 	| "strict"
-	| "research";
+	| "research"
+	| "anti-collusion";
 
 // ── Policy spec types ────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export const PRESETS: Record<PresetId, Preset> = {
 	safe: buildPreset(spec, "safe"),
 	strict: buildPreset(spec, "strict"),
 	research: buildPreset(spec, "research"),
+	"anti-collusion": buildPreset(spec, "anti-collusion"),
 };
 
 export function getPreset(id: PresetId): Preset {

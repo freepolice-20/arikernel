@@ -10,6 +10,12 @@ import { DEFAULT_TIMEOUT_MS, makeResult } from "./base.js";
 const SHELL_METACHARACTERS = /[;&|`$\n\r\\><(){}\[\]!#~]/;
 
 /**
+ * Dangerous invisible Unicode characters that can disguise shell input.
+ * Zero-width spaces, bidi overrides, word joiners, etc.
+ */
+const DANGEROUS_UNICODE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/;
+
+/**
  * Shells and interpreters that must never be invoked directly.
  * Prevents spawning a shell as the executable, which would
  * re-introduce injection risk even with shell: false.
@@ -29,6 +35,10 @@ const BLOCKED_EXECUTABLES = new Set([
 	"powershell.exe",
 	"pwsh",
 	"pwsh.exe",
+	// Environment inspection commands — can leak secrets from process.env
+	"env",
+	"printenv",
+	"set",
 ]);
 
 /**
@@ -41,8 +51,22 @@ export function validateCommand(executable: string, args: readonly string[]): vo
 		throw new Error("Command executable must not be empty");
 	}
 
+	// SECURITY: Reject invisible Unicode characters that could disguise commands
+	if (DANGEROUS_UNICODE.test(executable)) {
+		throw new Error(`Command executable contains dangerous invisible Unicode characters: "${executable}"`);
+	}
+	for (let i = 0; i < args.length; i++) {
+		if (DANGEROUS_UNICODE.test(args[i])) {
+			throw new Error(`Argument ${i} contains dangerous invisible Unicode characters: "${args[i]}"`);
+		}
+	}
+
+	// SECURITY: Normalize to NFKC to catch fullwidth metacharacter bypass (＄ → $)
+	const normalizedExe = executable.normalize("NFKC");
+	const normalizedArgs = args.map((a) => a.normalize("NFKC"));
+
 	// Block shell interpreters as executables
-	const base = executable.split("/").pop()?.split("\\").pop() ?? executable;
+	const base = normalizedExe.split("/").pop()?.split("\\").pop() ?? normalizedExe;
 	if (BLOCKED_EXECUTABLES.has(base.toLowerCase())) {
 		throw new Error(
 			`Blocked shell interpreter: "${executable}". Commands must be executed directly, not through a shell.`,
@@ -50,13 +74,13 @@ export function validateCommand(executable: string, args: readonly string[]): vo
 	}
 
 	// Reject metacharacters in executable name
-	if (SHELL_METACHARACTERS.test(executable)) {
+	if (SHELL_METACHARACTERS.test(normalizedExe)) {
 		throw new Error(`Command executable contains shell metacharacters: "${executable}"`);
 	}
 
 	// Reject metacharacters in arguments
-	for (let i = 0; i < args.length; i++) {
-		if (SHELL_METACHARACTERS.test(args[i])) {
+	for (let i = 0; i < normalizedArgs.length; i++) {
+		if (SHELL_METACHARACTERS.test(normalizedArgs[i])) {
 			throw new Error(`Argument ${i} contains shell metacharacters: "${args[i]}"`);
 		}
 	}
@@ -68,7 +92,11 @@ export function validateCommand(executable: string, args: readonly string[]): vo
  * Rejects anything containing shell metacharacters.
  */
 export function parseCommandString(command: string): { executable: string; args: string[] } {
-	if (SHELL_METACHARACTERS.test(command)) {
+	if (DANGEROUS_UNICODE.test(command)) {
+		throw new Error(`Command string contains dangerous invisible Unicode characters: "${command}"`);
+	}
+	const normalizedCommand = command.normalize("NFKC");
+	if (SHELL_METACHARACTERS.test(normalizedCommand)) {
 		throw new Error(`Command string contains shell metacharacters: "${command}"`);
 	}
 	const parts = command.trim().split(/\s+/);
@@ -131,12 +159,26 @@ function spawnSafe(
 	options: { timeout: number; cwd: string; maxBuffer: number },
 ): Promise<{ stdout: string; stderr: string }> {
 	return new Promise((resolve, reject) => {
+		// SECURITY: Sanitize environment — strip known secret-carrying variables
+		// to prevent leaking sidecar credentials to child processes.
+		const sanitizedEnv = { ...process.env };
+		const SECRET_ENV_PATTERNS = [
+			"SECRET", "TOKEN", "KEY", "PASSWORD", "CREDENTIAL",
+			"AUTH", "API_KEY", "PRIVATE", "SIGNING",
+		];
+		for (const key of Object.keys(sanitizedEnv)) {
+			const upper = key.toUpperCase();
+			if (SECRET_ENV_PATTERNS.some((p) => upper.includes(p))) {
+				delete sanitizedEnv[key];
+			}
+		}
+
 		const child = spawn(executable, args, {
 			cwd: options.cwd,
 			shell: false,
 			timeout: options.timeout,
 			stdio: ["ignore", "pipe", "pipe"],
-			env: process.env,
+			env: sanitizedEnv,
 		});
 
 		const stdoutChunks: Buffer[] = [];

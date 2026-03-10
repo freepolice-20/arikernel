@@ -162,4 +162,18 @@ export interface SidecarConfig {
 	 * request rates.
 	 */
 	rateLimits?: RateLimitConfig;
+	/**
+	 * Shared store configuration for cross-principal taint tracking.
+	 * Identifies which file paths, databases, and tables are shared between principals.
+	 */
+	sharedStoreConfig?: import("./shared-taint-registry.js").SharedStoreConfig;
+	/**
+	 * Cross-principal correlator configuration.
+	 */
+	correlatorConfig?: import("./correlator.js").CorrelatorConfig;
+	/**
+	 * Callback fired when the cross-principal correlator detects a suspicious pattern.
+	 * Alerting only — does not block execution.
+	 */
+	onCrossPrincipalAlert?: import("./correlator.js").AlertHandler;
 }

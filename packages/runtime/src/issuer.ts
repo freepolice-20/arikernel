@@ -170,6 +170,7 @@ export class CapabilityIssuer {
 			"database.read",
 			"database.write",
 			"file.write",
+			"http.write",
 		];
 
 		return sensitiveClasses.includes(capabilityClass);
