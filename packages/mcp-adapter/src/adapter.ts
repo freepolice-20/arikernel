@@ -1,6 +1,6 @@
-import type { Firewall } from '@arikernel/runtime';
-import { McpDispatchExecutor } from './executor.js';
-import type { MCPAdapter, MCPTool } from './types.js';
+import type { Firewall } from "@arikernel/runtime";
+import { McpDispatchExecutor } from "./executor.js";
+import type { MCPAdapter, MCPTool } from "./types.js";
 
 /**
  * Wrap a set of MCP tools with AriKernel enforcement.
@@ -30,7 +30,7 @@ export function protectMCPTools(firewall: Firewall, tools: MCPTool[]): MCPAdapte
 	return {
 		async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
 			const result = await firewall.execute({
-				toolClass: 'mcp',
+				toolClass: "mcp",
 				action: name,
 				parameters: args,
 			});
@@ -42,7 +42,7 @@ export function protectMCPTools(firewall: Firewall, tools: MCPTool[]): MCPAdapte
 			return result.data;
 		},
 
-		listTools(): Array<Omit<MCPTool, 'execute'>> {
+		listTools(): Array<Omit<MCPTool, "execute">> {
 			return executor.list();
 		},
 	};

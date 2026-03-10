@@ -1,11 +1,11 @@
 export const TAINT_SOURCES = [
-	'web',
-	'rag',
-	'email',
-	'retrieved-doc',
-	'model-generated',
-	'user-provided',
-	'tool-output',
+	"web",
+	"rag",
+	"email",
+	"retrieved-doc",
+	"model-generated",
+	"user-provided",
+	"tool-output",
 ] as const;
 
 export type TaintSource = (typeof TAINT_SOURCES)[number];

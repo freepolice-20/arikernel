@@ -1,15 +1,15 @@
-import type { PolicyRule } from './policy.js';
-import type { TaintLabel } from './taint.js';
-import type { ToolClass } from './principal.js';
+import type { PolicyRule } from "./policy.js";
+import type { ToolClass } from "./principal.js";
+import type { TaintLabel } from "./taint.js";
 
 export const CAPABILITY_CLASSES = [
-	'http.read',
-	'http.write',
-	'shell.exec',
-	'database.read',
-	'database.write',
-	'file.read',
-	'file.write',
+	"http.read",
+	"http.write",
+	"shell.exec",
+	"database.read",
+	"database.write",
+	"file.read",
+	"file.write",
 ] as const;
 
 export type CapabilityClass = (typeof CAPABILITY_CLASSES)[number];
@@ -20,13 +20,13 @@ export interface CapabilityClassMapping {
 }
 
 export const CAPABILITY_CLASS_MAP: Record<CapabilityClass, CapabilityClassMapping> = {
-	'http.read': { toolClass: 'http', actions: ['get', 'head', 'options'] },
-	'http.write': { toolClass: 'http', actions: ['post', 'put', 'patch', 'delete'] },
-	'shell.exec': { toolClass: 'shell', actions: ['exec'] },
-	'database.read': { toolClass: 'database', actions: ['query'] },
-	'database.write': { toolClass: 'database', actions: ['exec', 'mutate'] },
-	'file.read': { toolClass: 'file', actions: ['read'] },
-	'file.write': { toolClass: 'file', actions: ['write'] },
+	"http.read": { toolClass: "http", actions: ["get", "head", "options"] },
+	"http.write": { toolClass: "http", actions: ["post", "put", "patch", "delete"] },
+	"shell.exec": { toolClass: "shell", actions: ["exec"] },
+	"database.read": { toolClass: "database", actions: ["query"] },
+	"database.write": { toolClass: "database", actions: ["exec", "mutate"] },
+	"file.read": { toolClass: "file", actions: ["read"] },
+	"file.write": { toolClass: "file", actions: ["write"] },
 };
 
 /**
@@ -36,7 +36,10 @@ export const CAPABILITY_CLASS_MAP: Record<CapabilityClass, CapabilityClassMappin
  * Actions are stored lowercase; callers' input is lowercased before lookup.
  */
 const INVERSE_MAP = new Map<string, CapabilityClass>();
-for (const [capClass, mapping] of Object.entries(CAPABILITY_CLASS_MAP) as [CapabilityClass, CapabilityClassMapping][]) {
+for (const [capClass, mapping] of Object.entries(CAPABILITY_CLASS_MAP) as [
+	CapabilityClass,
+	CapabilityClassMapping,
+][]) {
 	for (const action of mapping.actions) {
 		INVERSE_MAP.set(`${mapping.toolClass}:${action}`, capClass);
 	}

@@ -7,20 +7,16 @@ import type {
 	IssuanceDecision,
 	Principal,
 	TaintLabel,
-} from '@arikernel/core';
-import {
-	CAPABILITY_CLASS_MAP,
-	generateId,
-	now,
-} from '@arikernel/core';
-import { PolicyEngine, matchesRule } from '@arikernel/policy-engine';
-import { TaintTracker } from '@arikernel/taint-tracker';
-import { TokenStore } from './token-store.js';
+} from "@arikernel/core";
+import { CAPABILITY_CLASS_MAP, generateId, now } from "@arikernel/core";
+import { type PolicyEngine, matchesRule } from "@arikernel/policy-engine";
+import type { TaintTracker } from "@arikernel/taint-tracker";
+import type { TokenStore } from "./token-store.js";
 
 const DEFAULT_LEASE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_MAX_CALLS = 10;
 
-const UNTRUSTED_SOURCES = ['web', 'rag', 'email', 'retrieved-doc'] as const;
+const UNTRUSTED_SOURCES = ["web", "rag", "email", "retrieved-doc"] as const;
 
 /**
  * Intersect two optional string arrays using capability narrowing semantics.
@@ -37,9 +33,9 @@ function intersectStringLists(
 	if (a === undefined) return b;
 	if (b === undefined) return a;
 	// If base grants wildcard, request values are the constraint
-	if (b.includes('*')) return a;
+	if (b.includes("*")) return a;
 	// If request is wildcard, base values are the constraint
-	if (a.includes('*')) return b;
+	if (a.includes("*")) return b;
 	// Intersection: only values present in both
 	const bSet = new Set(b);
 	return a.filter((v) => bSet.has(v));
@@ -52,47 +48,45 @@ export class CapabilityIssuer {
 		private readonly tokenStore: TokenStore,
 	) {}
 
-	evaluate(
-		request: CapabilityRequest,
-		principal: Principal,
-	): IssuanceDecision {
+	evaluate(request: CapabilityRequest, principal: Principal): IssuanceDecision {
 		const timestamp = now();
 		const mapping = CAPABILITY_CLASS_MAP[request.capabilityClass];
 
 		// Step 1: does the principal have base capability for this tool class?
-		const baseCap = principal.capabilities.find(
-			(c) => c.toolClass === mapping.toolClass,
-		);
+		const baseCap = principal.capabilities.find((c) => c.toolClass === mapping.toolClass);
 
 		if (!baseCap) {
-			return this.deny(request, timestamp,
+			return this.deny(
+				request,
+				timestamp,
 				`Principal '${principal.name}' has no capability for ${mapping.toolClass}`,
 			);
 		}
 
 		// Step 2: check if any requested actions are outside the base capability
 		if (baseCap.actions && baseCap.actions.length > 0) {
-			const allowed = mapping.actions.some((a) => baseCap.actions!.includes(a));
+			const allowed = mapping.actions.some((a) => baseCap.actions?.includes(a));
 			if (!allowed) {
-				return this.deny(request, timestamp,
-					`Actions [${mapping.actions.join(', ')}] not permitted. Allowed: [${baseCap.actions.join(', ')}]`,
+				return this.deny(
+					request,
+					timestamp,
+					`Actions [${mapping.actions.join(", ")}] not permitted. Allowed: [${baseCap.actions.join(", ")}]`,
 				);
 			}
 		}
 
 		// Step 3: taint-based denial — untrusted provenance blocks sensitive capabilities
-		const hasTaintRisk = this.assessTaintRisk(
-			request.taintLabels,
-			request.capabilityClass,
-		);
+		const hasTaintRisk = this.assessTaintRisk(request.taintLabels, request.capabilityClass);
 
 		if (hasTaintRisk) {
 			const sources = request.taintLabels
 				.filter((t) => (UNTRUSTED_SOURCES as readonly string[]).includes(t.source))
 				.map((t) => `${t.source}:${t.origin}`)
-				.join(', ');
+				.join(", ");
 
-			return this.deny(request, timestamp,
+			return this.deny(
+				request,
+				timestamp,
 				`Capability '${request.capabilityClass}' denied: untrusted taint [${sources}] in provenance chain`,
 			);
 		}
@@ -100,7 +94,7 @@ export class CapabilityIssuer {
 		// Step 4: evaluate policy rules directly (skip constraint check — constraints apply at execution time)
 		const syntheticToolCall = {
 			id: generateId(),
-			runId: '',
+			runId: "",
 			sequence: 0,
 			timestamp,
 			principalId: request.principalId,
@@ -113,7 +107,7 @@ export class CapabilityIssuer {
 		let matchedRule = undefined;
 		for (const rule of this.policyEngine.getRules()) {
 			if (matchesRule(rule.match, syntheticToolCall, request.taintLabels)) {
-				if (rule.decision === 'deny') {
+				if (rule.decision === "deny") {
 					return this.deny(request, timestamp, rule.reason, rule);
 				}
 				matchedRule = rule;
@@ -136,10 +130,7 @@ export class CapabilityIssuer {
 		};
 	}
 
-	private assessTaintRisk(
-		taintLabels: TaintLabel[],
-		capabilityClass: CapabilityClass,
-	): boolean {
+	private assessTaintRisk(taintLabels: TaintLabel[], capabilityClass: CapabilityClass): boolean {
 		const hasUntrustedTaint = taintLabels.some((t) =>
 			(UNTRUSTED_SOURCES as readonly string[]).includes(t.source),
 		);
@@ -148,10 +139,10 @@ export class CapabilityIssuer {
 
 		// Sensitive capabilities that must not be issued with untrusted taint
 		const sensitiveClasses: CapabilityClass[] = [
-			'shell.exec',
-			'database.read',
-			'database.write',
-			'file.write',
+			"shell.exec",
+			"database.read",
+			"database.write",
+			"file.write",
 		];
 
 		return sensitiveClasses.includes(capabilityClass);
@@ -163,15 +154,10 @@ export class CapabilityIssuer {
 		timestamp: string,
 	): CapabilityGrant {
 		const issuedAt = timestamp;
-		const expiresAt = new Date(
-			new Date(issuedAt).getTime() + DEFAULT_LEASE_TTL_MS,
-		).toISOString();
+		const expiresAt = new Date(new Date(issuedAt).getTime() + DEFAULT_LEASE_TTL_MS).toISOString();
 
 		// Merge constraints: request constraints narrowed by base capability constraints
-		const constraints = this.mergeConstraints(
-			request.constraints ?? {},
-			baseCap.constraints ?? {},
-		);
+		const constraints = this.mergeConstraints(request.constraints ?? {}, baseCap.constraints ?? {});
 
 		return {
 			id: generateId(),
@@ -200,7 +186,7 @@ export class CapabilityIssuer {
 	 */
 	private mergeConstraints(
 		requested: CapabilityConstraint,
-		base: Capability['constraints'] & {},
+		base: Capability["constraints"] & {},
 	): CapabilityConstraint {
 		return {
 			allowedHosts: intersectStringLists(requested.allowedHosts, base.allowedHosts),
@@ -215,7 +201,7 @@ export class CapabilityIssuer {
 		request: CapabilityRequest,
 		timestamp: string,
 		reason: string,
-		matchedRule?: import('@arikernel/core').PolicyRule,
+		matchedRule?: import("@arikernel/core").PolicyRule,
 	): IssuanceDecision {
 		return {
 			requestId: request.id,

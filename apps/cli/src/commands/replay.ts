@@ -1,5 +1,5 @@
-import { AuditStore, replayRun } from '@arikernel/audit-log';
-import { printAuditEvent, printRunHeader, printReplaySummary } from '../output.js';
+import { AuditStore, replayRun } from "@arikernel/audit-log";
+import { printAuditEvent, printReplaySummary, printRunHeader } from "../output.js";
 
 export interface ReplayOptions {
 	latest?: boolean;
@@ -11,7 +11,11 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function runReplay(dbPath: string, runId: string | undefined, options: ReplayOptions = {}): Promise<void> {
+export async function runReplay(
+	dbPath: string,
+	runId: string | undefined,
+	options: ReplayOptions = {},
+): Promise<void> {
 	const store = new AuditStore(dbPath);
 
 	try {
@@ -20,7 +24,7 @@ export async function runReplay(dbPath: string, runId: string | undefined, optio
 		if (options.latest || !resolvedRunId) {
 			const runs = store.listRuns();
 			if (runs.length === 0) {
-				console.error('No runs found in database.');
+				console.error("No runs found in database.");
 				process.exit(1);
 			}
 			resolvedRunId = runs[0].runId;
@@ -38,8 +42,8 @@ export async function runReplay(dbPath: string, runId: string | undefined, optio
 		printRunHeader(result.runContext);
 
 		if (options.step) {
-			const DIM = '\x1b[2m';
-			const RESET = '\x1b[0m';
+			const DIM = "\x1b[2m";
+			const RESET = "\x1b[0m";
 
 			for (let i = 0; i < result.events.length; i++) {
 				const event = result.events[i];

@@ -1,4 +1,4 @@
-import type { TaintLabel, ToolClass } from '@arikernel/core';
+import type { TaintLabel, ToolClass } from "@arikernel/core";
 
 export interface ExecuteRequest {
 	/** Who is making the call. Resolved to a sidecar-managed principal. */
@@ -53,11 +53,11 @@ export interface SidecarConfig {
 	 */
 	host?: string;
 	/** Path to policy file, or inline rules array. Required. */
-	policy: string | import('@arikernel/core').PolicyRule[];
+	policy: string | import("@arikernel/core").PolicyRule[];
 	/** Path for the audit SQLite database. Default: ./sidecar-audit.db */
 	auditLog?: string;
 	/** Run-state policy options */
-	runStatePolicy?: import('@arikernel/runtime').RunStatePolicy;
+	runStatePolicy?: import("@arikernel/runtime").RunStatePolicy;
 	/**
 	 * Shared secret for authenticating requests. When set, all requests must
 	 * include an `Authorization: Bearer <token>` header matching this value.

@@ -1,11 +1,17 @@
-import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
-import { createFirewall, type Firewall } from '@arikernel/runtime';
-import { HttpExecutor, FileExecutor, ShellExecutor, DatabaseExecutor, RetrievalExecutor } from '@arikernel/tool-executors';
-import type { PolicyRule } from '@arikernel/core';
-import type { RunStatePolicy } from '@arikernel/runtime';
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import type { PolicyRule } from "@arikernel/core";
+import { type Firewall, createFirewall } from "@arikernel/runtime";
+import type { RunStatePolicy } from "@arikernel/runtime";
+import {
+	DatabaseExecutor,
+	FileExecutor,
+	HttpExecutor,
+	RetrievalExecutor,
+	ShellExecutor,
+} from "@arikernel/tool-executors";
 
-const ALL_TOOL_CLASSES = ['http', 'file', 'shell', 'database', 'retrieval'] as const;
+const ALL_TOOL_CLASSES = ["http", "file", "shell", "database", "retrieval"] as const;
 
 function buildCapabilities() {
 	return ALL_TOOL_CLASSES.map((toolClass) => ({ toolClass }));
@@ -40,7 +46,7 @@ export class PrincipalRegistry {
 		const existing = this.firewalls.get(principalId);
 		if (existing) return existing;
 
-		const sanitized = principalId.replace(/[^a-zA-Z0-9_-]/g, '_');
+		const sanitized = principalId.replace(/[^a-zA-Z0-9_-]/g, "_");
 		const auditLog = join(this.auditDir, `${sanitized}.db`);
 
 		const firewall = createFirewall({
@@ -65,7 +71,11 @@ export class PrincipalRegistry {
 
 	closeAll(): void {
 		for (const fw of this.firewalls.values()) {
-			try { fw.close(); } catch { /* ignore */ }
+			try {
+				fw.close();
+			} catch {
+				/* ignore */
+			}
 		}
 		this.firewalls.clear();
 	}

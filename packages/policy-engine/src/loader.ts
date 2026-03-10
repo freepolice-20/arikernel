@@ -1,17 +1,14 @@
-import { readFileSync } from 'node:fs';
-import { PolicyValidationError, policySetSchema, type PolicyRule } from '@arikernel/core';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync } from "node:fs";
+import { type PolicyRule, PolicyValidationError, policySetSchema } from "@arikernel/core";
+import { parse as parseYaml } from "yaml";
 
 export function loadPolicyFile(filePath: string): PolicyRule[] {
-	const content = readFileSync(filePath, 'utf-8');
+	const content = readFileSync(filePath, "utf-8");
 	const raw = parseYaml(content);
 	const result = policySetSchema.safeParse(raw);
 
 	if (!result.success) {
-		throw new PolicyValidationError(
-			`Invalid policy file: ${filePath}`,
-			result.error.errors,
-		);
+		throw new PolicyValidationError(`Invalid policy file: ${filePath}`, result.error.errors);
 	}
 
 	return result.data.rules;

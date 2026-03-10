@@ -1,5 +1,5 @@
-import { existsSync, realpathSync } from 'node:fs';
-import { resolve, normalize } from 'node:path';
+import { existsSync, realpathSync } from "node:fs";
+import { normalize, resolve } from "node:path";
 
 /**
  * Resolve and canonicalize a file path for security comparison.
@@ -10,9 +10,9 @@ import { resolve, normalize } from 'node:path';
  */
 export function canonicalizePath(inputPath: string, cwd?: string): string {
 	let p = inputPath;
-	if (p.startsWith('~/') || p === '~') {
-		const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-		p = p === '~' ? home : resolve(home, p.slice(2));
+	if (p.startsWith("~/") || p === "~") {
+		const home = process.env.HOME ?? process.env.USERPROFILE ?? "/";
+		p = p === "~" ? home : resolve(home, p.slice(2));
 	}
 	const normalized = normalize(resolve(cwd ?? process.cwd(), p));
 
@@ -39,9 +39,12 @@ export function isPathAllowed(
 	const canonical = canonicalizePath(inputPath, cwd);
 
 	const allowed = allowedPatterns.some((pattern) => {
-		if (pattern.endsWith('/**')) {
+		if (pattern.endsWith("/**")) {
 			const base = canonicalizePath(pattern.slice(0, -3), cwd);
-			return canonical === base || canonical.startsWith(base + (process.platform === 'win32' ? '\\' : '/'));
+			return (
+				canonical === base ||
+				canonical.startsWith(base + (process.platform === "win32" ? "\\" : "/"))
+			);
 		}
 		const canonicalPattern = canonicalizePath(pattern, cwd);
 		return canonical === canonicalPattern;

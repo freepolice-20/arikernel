@@ -1,3 +1,4 @@
+import type { AuditStore } from "@arikernel/audit-log";
 import type {
 	AuditEvent,
 	Decision,
@@ -5,7 +6,7 @@ import type {
 	ToolCall,
 	ToolCallRequest,
 	ToolResult,
-} from '@arikernel/core';
+} from "@arikernel/core";
 import {
 	ApprovalRequiredError,
 	CAPABILITY_CLASS_MAP,
@@ -13,17 +14,16 @@ import {
 	generateId,
 	now,
 	toolCallRequestSchema,
-} from '@arikernel/core';
-import type { AuditStore } from '@arikernel/audit-log';
-import { PolicyEngine } from '@arikernel/policy-engine';
-import { TaintTracker } from '@arikernel/taint-tracker';
-import { ExecutorRegistry } from '@arikernel/tool-executors';
-import type { FirewallHooks } from './hooks.js';
-import { isPathAllowed } from './path-security.js';
-import { validateCommand } from './command-security.js';
-import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
-import { isSuspiciousGetExfil, type RunStateTracker } from './run-state.js';
-import type { TokenStore } from './token-store.js';
+} from "@arikernel/core";
+import type { PolicyEngine } from "@arikernel/policy-engine";
+import type { TaintTracker } from "@arikernel/taint-tracker";
+import type { ExecutorRegistry } from "@arikernel/tool-executors";
+import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
+import { validateCommand } from "./command-security.js";
+import type { FirewallHooks } from "./hooks.js";
+import { isPathAllowed } from "./path-security.js";
+import { type RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";
+import type { TokenStore } from "./token-store.js";
 
 /**
  * Precompute a lookup: toolClass -> Set of actions that are covered by
@@ -79,11 +79,16 @@ export class Pipeline {
 
 		// Step 1.5a: Run-state restriction — if the run is quarantined, only safe read-only actions pass
 		if (this.runState?.restricted) {
-			const isSafeAction = this.runState.isAllowedInRestrictedMode(toolCall.toolClass, toolCall.action);
+			const isSafeAction = this.runState.isAllowedInRestrictedMode(
+				toolCall.toolClass,
+				toolCall.action,
+			);
 
 			// Even safe GET/HEAD is blocked if the URL carries suspicious exfil patterns
-			const isGetExfil = isSafeAction && toolCall.toolClass === 'http' &&
-				isSuspiciousGetExfil(String(toolCall.parameters.url ?? ''));
+			const isGetExfil =
+				isSafeAction &&
+				toolCall.toolClass === "http" &&
+				isSuspiciousGetExfil(String(toolCall.parameters.url ?? ""));
 
 			if (!isSafeAction || isGetExfil) {
 				const reason = isGetExfil
@@ -91,7 +96,7 @@ export class Pipeline {
 					: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
 						`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
 				const decision: Decision = {
-					verdict: 'deny',
+					verdict: "deny",
 					matchedRule: null,
 					reason,
 					taintLabels: toolCall.taintLabels,
@@ -112,78 +117,85 @@ export class Pipeline {
 				}
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
-					type: 'taint_observed',
+					type: "taint_observed",
 					toolClass: toolCall.toolClass,
 					action: toolCall.action,
 					taintSources: toolCall.taintLabels.map((t) => t.source),
 				});
 				if (this.checkBehavioralRules(toolCall)) {
-					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by tainted input');
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by tainted input");
 				}
 			}
 
-			if (toolCall.toolClass === 'http') {
+			if (toolCall.toolClass === "http") {
 				const isWriteEgress = this.runState.isEgressAction(toolCall.action);
-				const isGetExfil = !isWriteEgress &&
-					(toolCall.action === 'get' || toolCall.action === 'head') &&
-					isSuspiciousGetExfil(String(toolCall.parameters.url ?? ''));
+				const isGetExfil =
+					!isWriteEgress &&
+					(toolCall.action === "get" || toolCall.action === "head") &&
+					isSuspiciousGetExfil(String(toolCall.parameters.url ?? ""));
 
 				if (isWriteEgress || isGetExfil) {
 					this.runState.recordEgressAttempt();
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,
-						type: 'egress_attempt',
+						type: "egress_attempt",
 						toolClass: toolCall.toolClass,
 						action: toolCall.action,
 						metadata: { url: toolCall.parameters.url, getExfil: isGetExfil || undefined },
 					});
 					if (this.checkBehavioralRules(toolCall)) {
-						this.denyQuarantinedAction(toolCall, isGetExfil
-							? 'behavioral rule triggered by suspicious GET exfiltration'
-							: 'behavioral rule triggered by egress attempt');
+						this.denyQuarantinedAction(
+							toolCall,
+							isGetExfil
+								? "behavioral rule triggered by suspicious GET exfiltration"
+								: "behavioral rule triggered by egress attempt",
+						);
 					}
 				}
 			}
-			if (toolCall.toolClass === 'file') {
-				const path = String(toolCall.parameters.path ?? '');
+			if (toolCall.toolClass === "file") {
+				const path = String(toolCall.parameters.path ?? "");
 				if (this.runState.isSensitivePath(path)) {
 					this.runState.recordSensitiveFileAttempt();
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,
-						type: 'sensitive_read_attempt',
+						type: "sensitive_read_attempt",
 						toolClass: toolCall.toolClass,
 						action: toolCall.action,
 						metadata: { path },
 					});
 					if (this.checkBehavioralRules(toolCall)) {
-						this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by sensitive file access');
+						this.denyQuarantinedAction(
+							toolCall,
+							"behavioral rule triggered by sensitive file access",
+						);
 					}
 				}
 			}
-			if (toolCall.toolClass === 'shell') {
-				const command = String(toolCall.parameters.command ?? '');
+			if (toolCall.toolClass === "shell") {
+				const command = String(toolCall.parameters.command ?? "");
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
-					type: 'tool_call_allowed',
-					toolClass: 'shell',
+					type: "tool_call_allowed",
+					toolClass: "shell",
 					action: toolCall.action,
 					metadata: { commandLength: command.length },
 				});
 				if (this.checkBehavioralRules(toolCall)) {
-					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by shell command');
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by shell command");
 				}
 			}
-			if (toolCall.toolClass === 'database') {
-				const query = String(toolCall.parameters.query ?? '');
+			if (toolCall.toolClass === "database") {
+				const query = String(toolCall.parameters.query ?? "");
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
-					type: 'tool_call_allowed',
-					toolClass: 'database',
+					type: "tool_call_allowed",
+					toolClass: "database",
 					action: toolCall.action,
 					metadata: { query: query.slice(0, 200) },
 				});
 				if (this.checkBehavioralRules(toolCall)) {
-					this.denyQuarantinedAction(toolCall, 'behavioral rule triggered by database operation');
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");
 				}
 			}
 		}
@@ -194,10 +206,9 @@ export class Pipeline {
 				this.validateToken(toolCall, request.grantId);
 			} else if (isProtected(toolCall.toolClass, toolCall.action)) {
 				const decision: Decision = {
-					verdict: 'deny',
+					verdict: "deny",
 					matchedRule: null,
-					reason: `Capability token required for protected action '${toolCall.toolClass}.${toolCall.action}'. ` +
-						'Request a capability grant before executing this tool call.',
+					reason: `Capability token required for protected action '${toolCall.toolClass}.${toolCall.action}'. Request a capability grant before executing this tool call.`,
 					taintLabels: toolCall.taintLabels,
 					timestamp: now(),
 				};
@@ -211,24 +222,20 @@ export class Pipeline {
 		const inputTaints = this.taintTracker.collectInputTaints(toolCall);
 
 		// Step 3: Evaluate policy
-		const decision = this.policyEngine.evaluate(
-			toolCall,
-			inputTaints,
-			this.principal.capabilities,
-		);
+		const decision = this.policyEngine.evaluate(toolCall, inputTaints, this.principal.capabilities);
 
 		this.hooks.onDecision?.(toolCall, decision);
 
 		// Step 4: Enforce decision
-		if (decision.verdict === 'deny') {
+		if (decision.verdict === "deny") {
 			this.runState?.recordDeniedAction();
 			if (this.runState) {
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
-					type: 'tool_call_denied',
+					type: "tool_call_denied",
 					toolClass: toolCall.toolClass,
 					action: toolCall.action,
-					verdict: 'deny',
+					verdict: "deny",
 				});
 				// Behavioral rules may trigger quarantine here, but the action is
 				// already being denied by policy — no extra denial needed.
@@ -238,12 +245,12 @@ export class Pipeline {
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
 
-		if (decision.verdict === 'require-approval') {
+		if (decision.verdict === "require-approval") {
 			const approved = await this.hooks.onApprovalRequired?.(toolCall, decision);
 			if (!approved) {
 				const deniedDecision: Decision = {
 					...decision,
-					verdict: 'deny',
+					verdict: "deny",
 					reason: `${decision.reason} (approval denied by user)`,
 				};
 				this.runState?.recordDeniedAction();
@@ -256,7 +263,7 @@ export class Pipeline {
 		const executor = this.executorRegistry.get(toolCall.toolClass);
 		if (!executor) {
 			const noExecDecision: Decision = {
-				verdict: 'deny',
+				verdict: "deny",
 				matchedRule: null,
 				reason: `No executor registered for tool class: ${toolCall.toolClass}`,
 				taintLabels: inputTaints,
@@ -285,10 +292,10 @@ export class Pipeline {
 		if (this.runState) {
 			this.runState.pushEvent({
 				timestamp: toolCall.timestamp,
-				type: 'tool_call_allowed',
+				type: "tool_call_allowed",
 				toolClass: toolCall.toolClass,
 				action: toolCall.action,
-				verdict: 'allow',
+				verdict: "allow",
 			});
 			// Post-execution quarantine check — result is already produced but
 			// future actions will be blocked. We don't deny the current result
@@ -303,29 +310,35 @@ export class Pipeline {
 	}
 
 	private validateToken(toolCall: ToolCall, grantId: string): void {
-		const validation = this.tokenStore!.validate(grantId);
+		const validation = this.tokenStore?.validate(grantId);
 
 		if (!validation.valid) {
 			this.denyAndThrow(toolCall, `Capability token invalid: ${validation.reason}`);
 		}
 
-		const grant = this.tokenStore!.get(grantId)!;
+		const grant = this.tokenStore?.get(grantId)!;
 
 		if (grant.principalId !== toolCall.principalId) {
-			this.denyAndThrow(toolCall,
-				`Capability token principal '${grant.principalId}' does not match caller '${toolCall.principalId}'`);
+			this.denyAndThrow(
+				toolCall,
+				`Capability token principal '${grant.principalId}' does not match caller '${toolCall.principalId}'`,
+			);
 		}
 
 		const mapping = CAPABILITY_CLASS_MAP[grant.capabilityClass];
 
 		if (mapping.toolClass !== toolCall.toolClass) {
-			this.denyAndThrow(toolCall,
-				`Token for '${grant.capabilityClass}' cannot be used for tool class '${toolCall.toolClass}'`);
+			this.denyAndThrow(
+				toolCall,
+				`Token for '${grant.capabilityClass}' cannot be used for tool class '${toolCall.toolClass}'`,
+			);
 		}
 
 		if (!mapping.actions.includes(toolCall.action)) {
-			this.denyAndThrow(toolCall,
-				`Token for '${grant.capabilityClass}' does not permit action '${toolCall.action}'`);
+			this.denyAndThrow(
+				toolCall,
+				`Token for '${grant.capabilityClass}' does not permit action '${toolCall.action}'`,
+			);
 		}
 
 		const constraintViolation = this.checkGrantConstraints(toolCall, grant.constraints);
@@ -334,7 +347,7 @@ export class Pipeline {
 		}
 
 		// Consume one use from the lease
-		this.tokenStore!.consume(grantId);
+		this.tokenStore?.consume(grantId);
 	}
 
 	/**
@@ -344,10 +357,9 @@ export class Pipeline {
 	 */
 	private denyQuarantinedAction(toolCall: ToolCall, context: string): never {
 		const decision: Decision = {
-			verdict: 'deny',
+			verdict: "deny",
 			matchedRule: null,
-			reason: `Action '${toolCall.toolClass}.${toolCall.action}' denied: ${context}. ` +
-				`Run has been quarantined.`,
+			reason: `Action '${toolCall.toolClass}.${toolCall.action}' denied: ${context}. Run has been quarantined.`,
 			taintLabels: toolCall.taintLabels,
 			timestamp: now(),
 		};
@@ -358,7 +370,7 @@ export class Pipeline {
 
 	private denyAndThrow(toolCall: ToolCall, reason: string): never {
 		const decision: Decision = {
-			verdict: 'deny',
+			verdict: "deny",
 			matchedRule: null,
 			reason,
 			taintLabels: toolCall.taintLabels,
@@ -371,41 +383,44 @@ export class Pipeline {
 
 	private checkGrantConstraints(
 		toolCall: ToolCall,
-		constraints: import('@arikernel/core').CapabilityConstraint,
+		constraints: import("@arikernel/core").CapabilityConstraint,
 	): string | null {
-		if (constraints.allowedHosts && toolCall.toolClass === 'http') {
-			const url = String(toolCall.parameters.url ?? '');
+		if (constraints.allowedHosts && toolCall.toolClass === "http") {
+			const url = String(toolCall.parameters.url ?? "");
 			try {
 				const hostname = new URL(url).hostname;
-				if (!constraints.allowedHosts.includes('*') && !constraints.allowedHosts.includes(hostname)) {
-					return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(', ')}`;
+				if (
+					!constraints.allowedHosts.includes("*") &&
+					!constraints.allowedHosts.includes(hostname)
+				) {
+					return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(", ")}`;
 				}
 			} catch {
 				return `Invalid URL: ${url}`;
 			}
 		}
 
-		if (constraints.allowedCommands && toolCall.toolClass === 'shell') {
-			const command = String(toolCall.parameters.command ?? '');
+		if (constraints.allowedCommands && toolCall.toolClass === "shell") {
+			const command = String(toolCall.parameters.command ?? "");
 			const violation = validateCommand(command, constraints.allowedCommands);
 			if (violation) {
 				return violation;
 			}
 		}
 
-		if (constraints.allowedPaths && toolCall.toolClass === 'file') {
-			const path = String(toolCall.parameters.path ?? '');
+		if (constraints.allowedPaths && toolCall.toolClass === "file") {
+			const path = String(toolCall.parameters.path ?? "");
 			const { allowed, canonicalPath } = isPathAllowed(path, constraints.allowedPaths);
 			if (!allowed) {
-				return `Path '${canonicalPath}' not in allowed paths: ${constraints.allowedPaths.join(', ')}`;
+				return `Path '${canonicalPath}' not in allowed paths: ${constraints.allowedPaths.join(", ")}`;
 			}
 		}
 
-		if (constraints.allowedDatabases && toolCall.toolClass === 'database') {
-			const query = String(toolCall.parameters.query ?? '');
+		if (constraints.allowedDatabases && toolCall.toolClass === "database") {
+			const query = String(toolCall.parameters.query ?? "");
 			const dbMatch = constraints.allowedDatabases.some((db) => query.includes(db));
 			if (!dbMatch) {
-				return `Query does not reference any allowed database: ${constraints.allowedDatabases.join(', ')}`;
+				return `Query does not reference any allowed database: ${constraints.allowedDatabases.join(", ")}`;
 			}
 		}
 
@@ -426,7 +441,7 @@ export class Pipeline {
 			this.auditStore.appendSystemEvent(
 				toolCall.runId,
 				toolCall.principalId,
-				'quarantine',
+				"quarantine",
 				quarantine.reason,
 				{
 					triggerType: quarantine.triggerType,

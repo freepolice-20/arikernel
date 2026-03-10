@@ -1,61 +1,59 @@
 {
-  "name": "@arikernel/adapters",
-  "version": "0.1.1",
-  "description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./langchain": {
-      "types": "./dist/langchain.d.ts",
-      "import": "./dist/langchain.js"
-    },
-    "./openai": {
-      "types": "./dist/openai.d.ts",
-      "import": "./dist/openai.js"
-    },
-    "./crewai": {
-      "types": "./dist/crewai.d.ts",
-      "import": "./dist/crewai.js"
-    },
-    "./vercel-ai": {
-      "types": "./dist/vercel-ai.d.ts",
-      "import": "./dist/vercel-ai.js"
-    },
-    "./openai-agents": {
-      "types": "./dist/openai-agents.d.ts",
-      "import": "./dist/openai-agents.js"
-    },
-    "./llamaindex": {
-      "types": "./dist/llamaindex.d.ts",
-      "import": "./dist/llamaindex.js"
-    },
-    "./openclaw": {
-      "types": "./dist/openclaw.d.ts",
-      "import": "./dist/openclaw.js"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup src/index.ts src/langchain.ts src/openai.ts src/crewai.ts src/vercel-ai.ts src/openai-agents.ts src/llamaindex.ts src/openclaw.ts --format esm --dts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
+	"name": "@arikernel/adapters",
+	"version": "0.1.1",
+	"description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./langchain": {
+			"types": "./dist/langchain.d.ts",
+			"import": "./dist/langchain.js"
+		},
+		"./openai": {
+			"types": "./dist/openai.d.ts",
+			"import": "./dist/openai.js"
+		},
+		"./crewai": {
+			"types": "./dist/crewai.d.ts",
+			"import": "./dist/crewai.js"
+		},
+		"./vercel-ai": {
+			"types": "./dist/vercel-ai.d.ts",
+			"import": "./dist/vercel-ai.js"
+		},
+		"./openai-agents": {
+			"types": "./dist/openai-agents.d.ts",
+			"import": "./dist/openai-agents.js"
+		},
+		"./llamaindex": {
+			"types": "./dist/llamaindex.d.ts",
+			"import": "./dist/llamaindex.js"
+		},
+		"./openclaw": {
+			"types": "./dist/openclaw.d.ts",
+			"import": "./dist/openclaw.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsup src/index.ts src/langchain.ts src/openai.ts src/crewai.ts src/vercel-ai.ts src/openai-agents.ts src/llamaindex.ts src/openclaw.ts --format esm --dts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2"
+	}
 }

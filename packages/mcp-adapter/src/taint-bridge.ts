@@ -6,8 +6,8 @@
  * enforcement pipeline and back.
  */
 
-import type { TaintLabel, ToolCallRequest } from '@arikernel/core';
-import type { MCPTool } from './types.js';
+import type { TaintLabel, ToolCallRequest } from "@arikernel/core";
+import type { MCPTool } from "./types.js";
 
 export interface TaintBridgeOptions {
 	/** Tool name exposed via MCP. */
@@ -40,7 +40,10 @@ export interface TaintBridgeOptions {
  * ```
  */
 export function createTaintBridgeTool(options: TaintBridgeOptions): MCPTool & {
-	executeWithTaint: (args: Record<string, unknown>, upstreamTaint: TaintLabel[]) => Promise<unknown>;
+	executeWithTaint: (
+		args: Record<string, unknown>,
+		upstreamTaint: TaintLabel[],
+	) => Promise<unknown>;
 } {
 	return {
 		name: options.name,
@@ -54,7 +57,10 @@ export function createTaintBridgeTool(options: TaintBridgeOptions): MCPTool & {
 		},
 
 		// Extended execute with upstream taint propagation
-		async executeWithTaint(args: Record<string, unknown>, upstreamTaint: TaintLabel[]): Promise<unknown> {
+		async executeWithTaint(
+			args: Record<string, unknown>,
+			upstreamTaint: TaintLabel[],
+		): Promise<unknown> {
 			const request = options.buildRequest(args);
 			request.taintLabels = [...(request.taintLabels ?? []), ...upstreamTaint];
 			return options.execute(request);

@@ -17,5 +17,5 @@ export interface MCPAdapter {
 	/** Call a tool by name. Throws if the call is denied or the tool errors. */
 	callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
 	/** List registered tools (name, description, inputSchema — no execute). */
-	listTools(): Array<Omit<MCPTool, 'execute'>>;
+	listTools(): Array<Omit<MCPTool, "execute">>;
 }

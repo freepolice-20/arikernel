@@ -1,8 +1,8 @@
-import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
-import { SCENARIOS, type ScenarioDef } from './scenarios/index.js';
-import { aggregateMetrics } from './metrics.js';
-import type { ScenarioResult } from './types.js';
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { aggregateMetrics } from "./metrics.js";
+import { SCENARIOS, type ScenarioDef } from "./scenarios/index.js";
+import type { ScenarioResult } from "./types.js";
 
 /**
  * Run a single scenario, writing its audit DB to resultsDir/<scenarioId>.db.

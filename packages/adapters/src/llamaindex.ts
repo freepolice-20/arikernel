@@ -23,9 +23,9 @@
  * ```
  */
 
-import type { TaintLabel, ToolResult } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type WrapToolOptions, type ProtectedTool } from './adapter.js';
+import type { TaintLabel, ToolResult } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type ProtectedTool, type WrapToolOptions, wrapTool } from "./adapter.js";
 
 /** Options for wrapping a LlamaIndex tool. */
 export interface LlamaIndexToolOptions extends WrapToolOptions {
@@ -49,7 +49,7 @@ export interface LlamaIndexToolMapping {
  * capability checks, taint tracking, policy evaluation, behavioral rules.
  */
 export class LlamaIndexAdapter {
-	readonly framework = 'llamaindex';
+	readonly framework = "llamaindex";
 	private readonly firewall: Firewall;
 
 	constructor(firewall: Firewall) {
@@ -81,9 +81,7 @@ export class LlamaIndexAdapter {
 	 *
 	 * Returns a map of tool name → protected function.
 	 */
-	protectTools(
-		mappings: Record<string, LlamaIndexToolMapping>,
-	): Record<string, ProtectedTool> {
+	protectTools(mappings: Record<string, LlamaIndexToolMapping>): Record<string, ProtectedTool> {
 		const result: Record<string, ProtectedTool> = {};
 		for (const [name, mapping] of Object.entries(mappings)) {
 			result[name] = this.tool(mapping.toolClass, mapping.action, {

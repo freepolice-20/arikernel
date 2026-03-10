@@ -1,21 +1,21 @@
 {
-  "name": "@arikernel/server",
-  "version": "0.1.0",
-  "description": "HTTP decision server for AriKernel",
-  "type": "module",
-  "scripts": {
-    "build": "tsup src/main.ts --format esm --dts",
-    "start": "node dist/main.js",
-    "dev": "tsx src/main.ts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
+	"name": "@arikernel/server",
+	"version": "0.1.0",
+	"description": "HTTP decision server for AriKernel",
+	"type": "module",
+	"scripts": {
+		"build": "tsup src/main.ts --format esm --dts",
+		"start": "node dist/main.js",
+		"dev": "tsx src/main.ts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2"
+	}
 }

@@ -1,6 +1,6 @@
-import type { TaintLabel, TaintSource, ToolCall } from '@arikernel/core';
-import { createTaintLabel, hasTaint, mergeTaints } from './labels.js';
-import { propagateTaints } from './propagation.js';
+import type { TaintLabel, TaintSource, ToolCall } from "@arikernel/core";
+import { createTaintLabel, hasTaint, mergeTaints } from "./labels.js";
+import { propagateTaints } from "./propagation.js";
 
 export class TaintTracker {
 	attach(source: TaintSource, origin: string, confidence = 1.0): TaintLabel {

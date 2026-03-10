@@ -1,28 +1,28 @@
-import { describe, it, expect } from 'vitest';
-import { aggregateMetrics } from '../src/metrics.js';
-import type { ScenarioResult } from '../src/types.js';
+import { describe, expect, it } from "vitest";
+import { aggregateMetrics } from "../src/metrics.js";
+import type { ScenarioResult } from "../src/types.js";
 
 function makeResult(overrides: Partial<ScenarioResult>): ScenarioResult {
 	return {
-		scenarioId: 'test',
-		scenarioName: 'Test Scenario',
-		attackClass: 'prompt_injection',
+		scenarioId: "test",
+		scenarioName: "Test Scenario",
+		attackClass: "prompt_injection",
 		blockedBy: null,
 		wasQuarantined: false,
 		sensitiveReadPrevented: null,
 		exfiltrationPrevented: null,
 		deniedCount: 0,
 		allowedCount: 1,
-		runId: 'run-1',
-		auditDbPath: './test.db',
+		runId: "run-1",
+		auditDbPath: "./test.db",
 		durationMs: 10,
-		outcomeNote: 'test',
+		outcomeNote: "test",
 		...overrides,
 	};
 }
 
-describe('aggregateMetrics', () => {
-	it('returns zeros for empty results', () => {
+describe("aggregateMetrics", () => {
+	it("returns zeros for empty results", () => {
 		const s = aggregateMetrics([]);
 		expect(s.totalScenarios).toBe(0);
 		expect(s.attacksBlocked).toBe(0);
@@ -32,7 +32,7 @@ describe('aggregateMetrics', () => {
 		expect(s.exfiltrationPreventedPct).toBe(0);
 	});
 
-	it('counts quarantined runs correctly', () => {
+	it("counts quarantined runs correctly", () => {
 		const results = [
 			makeResult({ wasQuarantined: true }),
 			makeResult({ wasQuarantined: false }),
@@ -43,7 +43,7 @@ describe('aggregateMetrics', () => {
 		expect(s.quarantinedRunsPct).toBe(67);
 	});
 
-	it('counts attacksBlocked: quarantine counts as blocked', () => {
+	it("counts attacksBlocked: quarantine counts as blocked", () => {
 		const results = [
 			makeResult({ wasQuarantined: true }),
 			makeResult({ wasQuarantined: false, exfiltrationPrevented: false }),
@@ -53,7 +53,7 @@ describe('aggregateMetrics', () => {
 		expect(s.attacksBlockedPct).toBe(50);
 	});
 
-	it('counts attacksBlocked: exfil prevented counts as blocked', () => {
+	it("counts attacksBlocked: exfil prevented counts as blocked", () => {
 		const results = [
 			makeResult({ exfiltrationPrevented: true }),
 			makeResult({ exfiltrationPrevented: false }),
@@ -62,9 +62,9 @@ describe('aggregateMetrics', () => {
 		expect(s.attacksBlocked).toBe(1);
 	});
 
-	it('ignores null sensitiveReadPrevented in percentage', () => {
+	it("ignores null sensitiveReadPrevented in percentage", () => {
 		const results = [
-			makeResult({ sensitiveReadPrevented: null }),  // not applicable
+			makeResult({ sensitiveReadPrevented: null }), // not applicable
 			makeResult({ sensitiveReadPrevented: true }),
 			makeResult({ sensitiveReadPrevented: false }),
 		];
@@ -73,7 +73,7 @@ describe('aggregateMetrics', () => {
 		expect(s.sensitiveReadsPreventedPct).toBe(50);
 	});
 
-	it('reports 100% exfil prevented when all are blocked', () => {
+	it("reports 100% exfil prevented when all are blocked", () => {
 		const results = [
 			makeResult({ exfiltrationPrevented: true }),
 			makeResult({ exfiltrationPrevented: true }),
@@ -83,9 +83,9 @@ describe('aggregateMetrics', () => {
 		expect(s.exfiltrationPreventedPct).toBe(100);
 	});
 
-	it('handles mixed null and non-null exfil correctly', () => {
+	it("handles mixed null and non-null exfil correctly", () => {
 		const results = [
-			makeResult({ exfiltrationPrevented: null }),  // N/A
+			makeResult({ exfiltrationPrevented: null }), // N/A
 			makeResult({ exfiltrationPrevented: true }),
 			makeResult({ exfiltrationPrevented: false }),
 		];

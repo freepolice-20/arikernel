@@ -23,9 +23,9 @@
  * const result = await adapter.execute("search_tool", { url: "https://example.com" });
  * ```
  */
-import type { TaintLabel, ToolResult } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type FrameworkAdapter, type WrapToolOptions } from './adapter.js';
+import type { TaintLabel, ToolResult } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type FrameworkAdapter, type WrapToolOptions, wrapTool } from "./adapter.js";
 
 export interface CrewAIToolRegistration {
 	toolClass: string;
@@ -34,7 +34,7 @@ export interface CrewAIToolRegistration {
 }
 
 export class CrewAIAdapter implements FrameworkAdapter {
-	readonly framework = 'crewai';
+	readonly framework = "crewai";
 	private readonly firewall: Firewall;
 	private readonly tools = new Map<
 		string,
@@ -48,12 +48,7 @@ export class CrewAIAdapter implements FrameworkAdapter {
 	/**
 	 * Register a CrewAI tool name with its AriKernel tool class and action.
 	 */
-	register(
-		toolName: string,
-		toolClass: string,
-		action: string,
-		opts?: WrapToolOptions,
-	): this {
+	register(toolName: string, toolClass: string, action: string, opts?: WrapToolOptions): this {
 		this.tools.set(toolName, wrapTool(this.firewall, toolClass, action, opts));
 		return this;
 	}
@@ -61,15 +56,11 @@ export class CrewAIAdapter implements FrameworkAdapter {
 	/**
 	 * Execute a registered tool through AriKernel enforcement.
 	 */
-	async execute(
-		toolName: string,
-		args: Record<string, unknown>,
-	): Promise<ToolResult> {
+	async execute(toolName: string, args: Record<string, unknown>): Promise<ToolResult> {
 		const fn = this.tools.get(toolName);
 		if (!fn) {
 			throw new Error(
-				`Unknown CrewAI tool "${toolName}". ` +
-				`Registered: ${[...this.tools.keys()].join(', ')}`,
+				`Unknown CrewAI tool "${toolName}". ` + `Registered: ${[...this.tools.keys()].join(", ")}`,
 			);
 		}
 		return fn(args);
@@ -86,9 +77,9 @@ export class CrewAIAdapter implements FrameworkAdapter {
 	 */
 	protect(_agent: unknown): never {
 		throw new Error(
-			'CrewAIAdapter.protect() is not supported. ' +
-			'Use adapter.register(name, toolClass, action) to register tools, ' +
-			'then adapter.execute(name, args) to call them through AriKernel.',
+			"CrewAIAdapter.protect() is not supported. " +
+				"Use adapter.register(name, toolClass, action) to register tools, " +
+				"then adapter.execute(name, args) to call them through AriKernel.",
 		);
 	}
 }

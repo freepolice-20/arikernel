@@ -24,15 +24,15 @@
  * ```
  */
 
-import type { ToolResult } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool } from '@arikernel/adapters';
+import { wrapTool } from "@arikernel/adapters";
+import type { ToolResult } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
 import {
-	createMiddlewareFirewall,
-	resolveToolMappings,
-	registerStubExecutors,
 	type MiddlewareOptions,
-} from './shared.js';
+	createMiddlewareFirewall,
+	registerStubExecutors,
+	resolveToolMappings,
+} from "./shared.js";
 
 /** A map of tool name → async execution function. */
 export type CrewAIToolMap = Record<string, (args: Record<string, unknown>) => Promise<unknown>>;
@@ -85,7 +85,7 @@ export function protectCrewAITools(
 			const fn = wrappedTools.get(toolName);
 			if (!fn) {
 				throw new Error(
-					`Unknown tool "${toolName}". Registered: ${[...wrappedTools.keys()].join(', ')}`,
+					`Unknown tool "${toolName}". Registered: ${[...wrappedTools.keys()].join(", ")}`,
 				);
 			}
 			return fn(args);

@@ -16,10 +16,10 @@
  * ```
  */
 
-import type { TaintLabel, ToolResult } from '@arikernel/core';
-import { ToolCallDeniedError } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type WrapToolOptions } from './adapter.js';
+import type { TaintLabel, ToolResult } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type WrapToolOptions, wrapTool } from "./adapter.js";
 
 /** Mapping from tool name to AriKernel tool class and action. */
 export interface AgentToolMapping {
@@ -35,7 +35,7 @@ export interface AgentToolMapping {
  * schema, and execute function.
  */
 export interface AgentToolDefinition {
-	type: 'function';
+	type: "function";
 	function: {
 		name: string;
 		description: string;

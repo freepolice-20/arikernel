@@ -18,13 +18,9 @@
  * ```
  */
 
-import type { Firewall } from '@arikernel/runtime';
-import { protectAgentTools, type AgentToolDefinition } from '@arikernel/adapters';
-import {
-	createMiddlewareFirewall,
-	resolveToolMappings,
-	type MiddlewareOptions,
-} from './shared.js';
+import { type AgentToolDefinition, protectAgentTools } from "@arikernel/adapters";
+import type { Firewall } from "@arikernel/runtime";
+import { type MiddlewareOptions, createMiddlewareFirewall, resolveToolMappings } from "./shared.js";
 
 export interface OpenAIAgentMiddlewareResult {
 	/** Protected tool definitions — same schema, enforced execute functions. */

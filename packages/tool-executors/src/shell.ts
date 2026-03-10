@@ -1,10 +1,10 @@
-import { exec } from 'node:child_process';
-import type { ToolCall, ToolResult } from '@arikernel/core';
-import type { ToolExecutor } from './base.js';
-import { DEFAULT_TIMEOUT_MS, makeResult } from './base.js';
+import { exec } from "node:child_process";
+import type { ToolCall, ToolResult } from "@arikernel/core";
+import type { ToolExecutor } from "./base.js";
+import { DEFAULT_TIMEOUT_MS, makeResult } from "./base.js";
 
 export class ShellExecutor implements ToolExecutor {
-	readonly toolClass = 'shell';
+	readonly toolClass = "shell";
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
 		const start = Date.now();

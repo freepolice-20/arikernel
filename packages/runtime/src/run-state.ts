@@ -25,30 +25,30 @@ export interface RunStateCounters {
 // ── Recent-event window types ──────────────────────────────────────
 
 export type SecurityEventType =
-	| 'capability_requested'
-	| 'capability_denied'
-	| 'capability_granted'
-	| 'tool_call_allowed'
-	| 'tool_call_denied'
-	| 'taint_observed'
-	| 'sensitive_read_attempt'
-	| 'sensitive_read_allowed'
-	| 'egress_attempt'
-	| 'quarantine_entered';
+	| "capability_requested"
+	| "capability_denied"
+	| "capability_granted"
+	| "tool_call_allowed"
+	| "tool_call_denied"
+	| "taint_observed"
+	| "sensitive_read_attempt"
+	| "sensitive_read_allowed"
+	| "egress_attempt"
+	| "quarantine_entered";
 
 export interface SecurityEvent {
 	timestamp: string;
 	type: SecurityEventType;
 	toolClass?: string;
 	action?: string;
-	verdict?: 'allow' | 'deny' | 'require-approval';
+	verdict?: "allow" | "deny" | "require-approval";
 	taintSources?: string[];
 	metadata?: Record<string, unknown>;
 }
 
 // ── Quarantine metadata ────────────────────────────────────────────
 
-export type QuarantineTrigger = 'threshold' | 'behavioral_rule';
+export type QuarantineTrigger = "threshold" | "behavioral_rule";
 
 export interface QuarantineInfo {
 	triggerType: QuarantineTrigger;
@@ -73,9 +73,9 @@ const MAX_EVENT_WINDOW = 20;
  * True egress methods (POST/PUT/PATCH/DELETE) are always blocked in quarantine.
  */
 const SAFE_READONLY_ACTIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-	['http', new Set(['get', 'head', 'options'])],
-	['file', new Set(['read'])],
-	['database', new Set(['query'])],
+	["http", new Set(["get", "head", "options"])],
+	["file", new Set(["read"])],
+	["database", new Set(["query"])],
 ]);
 
 /** Sensitive file path patterns that count toward sensitiveFileReadAttempts. */
@@ -165,10 +165,14 @@ export class RunStateTracker {
 	}
 
 	/** Enter quarantine via behavioral rule. Returns QuarantineInfo if newly quarantined. */
-	quarantineByRule(ruleId: string, reason: string, matchedEvents: SecurityEvent[]): QuarantineInfo | null {
+	quarantineByRule(
+		ruleId: string,
+		reason: string,
+		matchedEvents: SecurityEvent[],
+	): QuarantineInfo | null {
 		if (this._restricted) return null;
 		const info: QuarantineInfo = {
-			triggerType: 'behavioral_rule',
+			triggerType: "behavioral_rule",
 			ruleId,
 			reason,
 			countersSnapshot: { ...this.counters },
@@ -178,7 +182,11 @@ export class RunStateTracker {
 		this._restricted = true;
 		this._restrictedAt = info.timestamp;
 		this._quarantineInfo = info;
-		this.pushEvent({ timestamp: info.timestamp, type: 'quarantine_entered', metadata: { ruleId, reason } });
+		this.pushEvent({
+			timestamp: info.timestamp,
+			type: "quarantine_entered",
+			metadata: { ruleId, reason },
+		});
 		return info;
 	}
 
@@ -217,7 +225,7 @@ export class RunStateTracker {
 	 * Suspicious GET-based exfil is detected separately by isSuspiciousGetExfil().
 	 */
 	isEgressAction(action: string): boolean {
-		return ['post', 'put', 'patch', 'delete'].includes(action);
+		return ["post", "put", "patch", "delete"].includes(action);
 	}
 
 	private checkThreshold(): void {
@@ -227,12 +235,16 @@ export class RunStateTracker {
 			this._restricted = true;
 			this._restrictedAt = ts;
 			this._quarantineInfo = {
-				triggerType: 'threshold',
+				triggerType: "threshold",
 				reason: `Denied actions (${this.counters.deniedActions}) exceeded threshold (${this.threshold})`,
 				countersSnapshot: { ...this.counters },
 				timestamp: ts,
 			};
-			this.pushEvent({ timestamp: ts, type: 'quarantine_entered', metadata: { triggerType: 'threshold' } });
+			this.pushEvent({
+				timestamp: ts,
+				type: "quarantine_entered",
+				metadata: { triggerType: "threshold" },
+			});
 		}
 	}
 }

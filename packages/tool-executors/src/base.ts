@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '@arikernel/core';
+import type { ToolCall, ToolResult } from "@arikernel/core";
 
 export interface ToolExecutor {
 	readonly toolClass: string;
@@ -14,7 +14,7 @@ export function makeResult(
 	startTime: number,
 	data?: unknown,
 	error?: string,
-): Omit<ToolResult, 'taintLabels'> {
+): Omit<ToolResult, "taintLabels"> {
 	return {
 		callId,
 		success,

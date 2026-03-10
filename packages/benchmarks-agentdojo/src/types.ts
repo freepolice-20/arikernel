@@ -13,7 +13,7 @@ export interface ScenarioResult {
 	/** AgentDojo-aligned attack class (e.g. "prompt_injection", "privilege_escalation"). */
 	attackClass: string;
 	/** Which enforcement mechanism blocked the attack (or null if attack succeeded). */
-	blockedBy: 'behavioral_rule' | 'taint_policy' | 'capability_denial' | 'quarantine' | null;
+	blockedBy: "behavioral_rule" | "taint_policy" | "capability_denial" | "quarantine" | null;
 	/** Whether the run entered restricted mode (behavioral quarantine). */
 	wasQuarantined: boolean;
 	/**

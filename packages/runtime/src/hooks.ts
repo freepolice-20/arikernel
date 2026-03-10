@@ -5,7 +5,7 @@ import type {
 	IssuanceDecision,
 	ToolCall,
 	ToolResult,
-} from '@arikernel/core';
+} from "@arikernel/core";
 
 export interface FirewallHooks {
 	onDecision?: (toolCall: ToolCall, decision: Decision) => void;

@@ -22,14 +22,14 @@
  * ```
  */
 
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool } from '@arikernel/adapters';
+import { wrapTool } from "@arikernel/adapters";
+import type { Firewall } from "@arikernel/runtime";
 import {
-	createMiddlewareFirewall,
-	resolveToolMappings,
-	registerStubExecutors,
 	type MiddlewareOptions,
-} from './shared.js';
+	createMiddlewareFirewall,
+	registerStubExecutors,
+	resolveToolMappings,
+} from "./shared.js";
 
 /** A map of tool name → async execution function. */
 export type AutoGenToolMap = Record<string, (args: Record<string, unknown>) => Promise<unknown>>;
@@ -83,7 +83,7 @@ export function protectAutoGenTools(
 			const fn = protectedTools[toolName];
 			if (!fn) {
 				throw new Error(
-					`Unknown tool "${toolName}". Registered: ${Object.keys(protectedTools).join(', ')}`,
+					`Unknown tool "${toolName}". Registered: ${Object.keys(protectedTools).join(", ")}`,
 				);
 			}
 			return fn(args);

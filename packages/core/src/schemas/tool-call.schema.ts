@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { TAINT_SOURCES } from '../types/taint.js';
-import { TOOL_CLASSES } from '../types/principal.js';
+import { z } from "zod";
+import { TOOL_CLASSES } from "../types/principal.js";
+import { TAINT_SOURCES } from "../types/taint.js";
 
 export const taintLabelSchema = z.object({
 	source: z.enum(TAINT_SOURCES),

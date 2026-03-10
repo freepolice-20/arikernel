@@ -1,55 +1,53 @@
 {
-  "name": "@arikernel/cli",
-  "version": "0.1.1",
-  "description": "Security runtime for AI agents — intercepts tool calls, enforces capability tokens, tracks provenance, and produces tamper-evident audit logs",
-  "type": "module",
-  "license": "Apache-2.0",
-  "bin": {
-    "arikernel": "dist/main.js"
-  },
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/petermanrique101-sys/AriKernel.git",
-    "directory": "apps/cli"
-  },
-  "homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
-  "bugs": {
-    "url": "https://github.com/petermanrique101-sys/AriKernel/issues"
-  },
-  "keywords": [
-    "ai",
-    "agent",
-    "security",
-    "firewall",
-    "llm",
-    "tool-use",
-    "capability",
-    "audit",
-    "taint-tracking",
-    "reference-monitor"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup src/main.ts --format esm --dts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*",
-    "@arikernel/policy-engine": "workspace:*",
-    "@arikernel/audit-log": "workspace:*",
-    "@arikernel/attack-sim": "workspace:*",
-    "@arikernel/sidecar": "workspace:*",
-    "citty": "^0.1.6"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
+	"name": "@arikernel/cli",
+	"version": "0.1.1",
+	"description": "Security runtime for AI agents — intercepts tool calls, enforces capability tokens, tracks provenance, and produces tamper-evident audit logs",
+	"type": "module",
+	"license": "Apache-2.0",
+	"bin": {
+		"arikernel": "dist/main.js"
+	},
+	"files": ["dist"],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "apps/cli"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"firewall",
+		"llm",
+		"tool-use",
+		"capability",
+		"audit",
+		"taint-tracking",
+		"reference-monitor"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsup src/main.ts --format esm --dts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*",
+		"@arikernel/policy-engine": "workspace:*",
+		"@arikernel/audit-log": "workspace:*",
+		"@arikernel/attack-sim": "workspace:*",
+		"@arikernel/sidecar": "workspace:*",
+		"citty": "^0.1.6"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2"
+	}
 }

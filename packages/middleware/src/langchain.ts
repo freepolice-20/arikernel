@@ -15,16 +15,16 @@
  * ```
  */
 
-import { ToolCallDeniedError } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool } from '@arikernel/adapters';
+import { wrapTool } from "@arikernel/adapters";
+import { ToolCallDeniedError } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
 import {
-	createMiddlewareFirewall,
-	resolveToolMappings,
-	registerStubExecutors,
 	type MiddlewareOptions,
 	type ToolMapping,
-} from './shared.js';
+	createMiddlewareFirewall,
+	registerStubExecutors,
+	resolveToolMappings,
+} from "./shared.js";
 
 /**
  * Minimal interface for a LangChain-style tool.
@@ -95,7 +95,8 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 		if (tool.func) {
 			const original = tool.func;
 			tool.func = async (...args: any[]) => {
-				const params = typeof args[0] === 'object' && args[0] !== null ? args[0] : { input: args[0] };
+				const params =
+					typeof args[0] === "object" && args[0] !== null ? args[0] : { input: args[0] };
 				await wrapped(params);
 				return original.apply(tool, args);
 			};
@@ -104,7 +105,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 		if (tool.invoke) {
 			const original = tool.invoke;
 			tool.invoke = async (input: any, config?: any) => {
-				const params = typeof input === 'object' && input !== null ? input : { input };
+				const params = typeof input === "object" && input !== null ? input : { input };
 				await wrapped(params);
 				return original.call(tool, input, config);
 			};

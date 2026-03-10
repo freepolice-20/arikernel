@@ -1,9 +1,9 @@
-import type { Capability, PolicyRule, PresetId } from '@arikernel/core';
-import { getPreset, DEFAULT_CAPABILITIES, DEFAULT_POLICIES } from '@arikernel/core';
-import { Firewall } from './firewall.js';
-import type { FirewallHooks } from './hooks.js';
-import type { RunStatePolicy } from './run-state.js';
-import { classifyScope, type ScopeResult } from './autoscope.js';
+import type { Capability, PolicyRule, PresetId } from "@arikernel/core";
+import { DEFAULT_CAPABILITIES, DEFAULT_POLICIES, getPreset } from "@arikernel/core";
+import { type ScopeResult, classifyScope } from "./autoscope.js";
+import { Firewall } from "./firewall.js";
+import type { FirewallHooks } from "./hooks.js";
+import type { RunStatePolicy } from "./run-state.js";
 
 export interface KernelAllow {
 	httpGet?: boolean;
@@ -25,7 +25,7 @@ export interface KernelOptions {
 }
 
 export interface Kernel {
-	readonly preset: PresetId | 'custom' | 'default';
+	readonly preset: PresetId | "custom" | "default";
 	readonly autoScope: boolean;
 	selectScope(task: string): ScopeResult;
 	createFirewall(overrides?: { principal?: string; auditLog?: string }): Firewall;
@@ -40,118 +40,120 @@ function allowToCapabilitiesAndPolicies(allow: KernelAllow): {
 
 	if (allow.httpGet !== false) {
 		capabilities.push({
-			toolClass: 'http',
-			actions: ['get'],
-			constraints: { allowedHosts: ['*'] },
+			toolClass: "http",
+			actions: ["get"],
+			constraints: { allowedHosts: ["*"] },
 		});
 		policies.push({
-			id: 'allow-http-get',
-			name: 'Allow HTTP GET',
+			id: "allow-http-get",
+			name: "Allow HTTP GET",
 			priority: 100,
-			match: { toolClass: 'http', action: 'get' },
-			decision: 'allow',
-			reason: 'HTTP GET allowed',
+			match: { toolClass: "http", action: "get" },
+			decision: "allow",
+			reason: "HTTP GET allowed",
 		});
 	}
 
 	if (allow.httpPost) {
 		capabilities.push({
-			toolClass: 'http',
-			actions: ['post'],
-			constraints: { allowedHosts: ['*'] },
+			toolClass: "http",
+			actions: ["post"],
+			constraints: { allowedHosts: ["*"] },
 		});
 		policies.push({
-			id: 'allow-http-post',
-			name: 'Allow HTTP POST',
+			id: "allow-http-post",
+			name: "Allow HTTP POST",
 			priority: 100,
-			match: { toolClass: 'http', action: 'post' },
-			decision: 'allow',
-			reason: 'HTTP POST allowed',
+			match: { toolClass: "http", action: "post" },
+			decision: "allow",
+			reason: "HTTP POST allowed",
 		});
 	} else {
 		policies.push({
-			id: 'deny-http-write',
-			name: 'Deny HTTP writes',
+			id: "deny-http-write",
+			name: "Deny HTTP writes",
 			priority: 20,
-			match: { toolClass: 'http', action: ['post', 'put', 'patch', 'delete'] },
-			decision: 'deny',
-			reason: 'Outbound HTTP writes are blocked',
+			match: { toolClass: "http", action: ["post", "put", "patch", "delete"] },
+			decision: "deny",
+			reason: "Outbound HTTP writes are blocked",
 		});
 	}
 
 	if (allow.fileRead !== false) {
-		const paths = Array.isArray(allow.fileRead) ? allow.fileRead : ['./data/**', './docs/**', './workspace/**'];
+		const paths = Array.isArray(allow.fileRead)
+			? allow.fileRead
+			: ["./data/**", "./docs/**", "./workspace/**"];
 		capabilities.push({
-			toolClass: 'file',
-			actions: ['read'],
+			toolClass: "file",
+			actions: ["read"],
 			constraints: { allowedPaths: paths },
 		});
 		policies.push({
-			id: 'allow-file-read',
-			name: 'Allow file reads',
+			id: "allow-file-read",
+			name: "Allow file reads",
 			priority: 100,
-			match: { toolClass: 'file', action: 'read' },
-			decision: 'allow',
-			reason: 'File reads allowed (grant constraints enforce path limits)',
+			match: { toolClass: "file", action: "read" },
+			decision: "allow",
+			reason: "File reads allowed (grant constraints enforce path limits)",
 		});
 	}
 
 	if (allow.fileWrite) {
-		const paths = Array.isArray(allow.fileWrite) ? allow.fileWrite : ['./**'];
+		const paths = Array.isArray(allow.fileWrite) ? allow.fileWrite : ["./**"];
 		capabilities.push({
-			toolClass: 'file',
-			actions: ['write'],
+			toolClass: "file",
+			actions: ["write"],
 			constraints: { allowedPaths: paths },
 		});
 		policies.push({
-			id: 'allow-file-write',
-			name: 'Allow file writes',
+			id: "allow-file-write",
+			name: "Allow file writes",
 			priority: 100,
-			match: { toolClass: 'file', action: 'write' },
-			decision: 'allow',
-			reason: 'File writes allowed (grant constraints enforce path limits)',
+			match: { toolClass: "file", action: "write" },
+			decision: "allow",
+			reason: "File writes allowed (grant constraints enforce path limits)",
 		});
 	} else {
 		policies.push({
-			id: 'deny-file-write',
-			name: 'Deny file writes',
+			id: "deny-file-write",
+			name: "Deny file writes",
 			priority: 20,
-			match: { toolClass: 'file', action: 'write' },
-			decision: 'deny',
-			reason: 'File writes are blocked',
+			match: { toolClass: "file", action: "write" },
+			decision: "deny",
+			reason: "File writes are blocked",
 		});
 	}
 
 	if (allow.shell) {
-		capabilities.push({ toolClass: 'shell', actions: ['exec'] });
+		capabilities.push({ toolClass: "shell", actions: ["exec"] });
 		policies.push({
-			id: 'approve-shell',
-			name: 'Shell requires approval',
+			id: "approve-shell",
+			name: "Shell requires approval",
 			priority: 50,
-			match: { toolClass: 'shell' },
-			decision: 'require-approval',
-			reason: 'Shell commands require approval',
+			match: { toolClass: "shell" },
+			decision: "require-approval",
+			reason: "Shell commands require approval",
 		});
 	} else {
 		policies.push({
-			id: 'deny-shell',
-			name: 'Deny shell',
+			id: "deny-shell",
+			name: "Deny shell",
 			priority: 10,
-			match: { toolClass: 'shell' },
-			decision: 'deny',
-			reason: 'Shell execution is blocked',
+			match: { toolClass: "shell" },
+			decision: "deny",
+			reason: "Shell execution is blocked",
 		});
 	}
 
 	if (allow.database) {
-		capabilities.push({ toolClass: 'database', actions: ['query'] });
+		capabilities.push({ toolClass: "database", actions: ["query"] });
 		policies.push({
-			id: 'allow-db-query',
-			name: 'Allow DB queries',
+			id: "allow-db-query",
+			name: "Allow DB queries",
 			priority: 100,
-			match: { toolClass: 'database', action: 'query' },
-			decision: 'allow',
-			reason: 'Database queries allowed',
+			match: { toolClass: "database", action: "query" },
+			decision: "allow",
+			reason: "Database queries allowed",
 		});
 	}
 
@@ -161,12 +163,12 @@ function allowToCapabilitiesAndPolicies(allow: KernelAllow): {
 function resolveConfig(options: KernelOptions): {
 	capabilities: Capability[];
 	policies: PolicyRule[];
-	resolvedPreset: PresetId | 'custom' | 'default';
+	resolvedPreset: PresetId | "custom" | "default";
 } {
 	// Explicit allow overrides
 	if (options.allow) {
 		const { capabilities, policies } = allowToCapabilitiesAndPolicies(options.allow);
-		return { capabilities, policies, resolvedPreset: 'custom' };
+		return { capabilities, policies, resolvedPreset: "custom" };
 	}
 
 	// Named preset
@@ -183,13 +185,13 @@ function resolveConfig(options: KernelOptions): {
 	return {
 		capabilities: DEFAULT_CAPABILITIES,
 		policies: DEFAULT_POLICIES,
-		resolvedPreset: 'default',
+		resolvedPreset: "default",
 	};
 }
 
 export function createKernel(options: KernelOptions = {}): Kernel {
 	const { capabilities, policies, resolvedPreset } = resolveConfig(options);
-	const principalName = options.principal ?? 'agent';
+	const principalName = options.principal ?? "agent";
 	const auditLog = options.auditLog;
 	const hooks = options.hooks;
 	const runStatePolicy = options.runStatePolicy ?? {

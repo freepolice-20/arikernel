@@ -1,10 +1,10 @@
-import type { ToolClass } from '@arikernel/core';
-import type { ToolExecutor } from './base.js';
-import { DatabaseExecutor } from './database.js';
-import { FileExecutor } from './file.js';
-import { HttpExecutor } from './http.js';
-import { RetrievalExecutor } from './retrieval.js';
-import { ShellExecutor } from './shell.js';
+import type { ToolClass } from "@arikernel/core";
+import type { ToolExecutor } from "./base.js";
+import { DatabaseExecutor } from "./database.js";
+import { FileExecutor } from "./file.js";
+import { HttpExecutor } from "./http.js";
+import { RetrievalExecutor } from "./retrieval.js";
+import { ShellExecutor } from "./shell.js";
 
 export class ExecutorRegistry {
 	private executors = new Map<string, ToolExecutor>();

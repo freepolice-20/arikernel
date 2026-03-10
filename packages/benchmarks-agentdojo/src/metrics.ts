@@ -1,4 +1,4 @@
-import type { BenchmarkSummary, ScenarioResult } from './types.js';
+import type { BenchmarkSummary, ScenarioResult } from "./types.js";
 
 function pct(n: number, total: number): number {
 	if (total === 0) return 0;

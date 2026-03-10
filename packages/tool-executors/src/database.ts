@@ -1,9 +1,9 @@
-import type { ToolCall, ToolResult } from '@arikernel/core';
-import type { ToolExecutor } from './base.js';
-import { makeResult } from './base.js';
+import type { ToolCall, ToolResult } from "@arikernel/core";
+import type { ToolExecutor } from "./base.js";
+import { makeResult } from "./base.js";
 
 export class DatabaseExecutor implements ToolExecutor {
-	readonly toolClass = 'database';
+	readonly toolClass = "database";
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
 		const start = Date.now();
@@ -16,8 +16,8 @@ export class DatabaseExecutor implements ToolExecutor {
 		// Real implementation will support SQLite, Postgres via adapters
 		const result = makeResult(toolCall.id, true, start, {
 			query,
-			connectionString: connectionString ? '[redacted]' : undefined,
-			note: 'Database executor is a stub in MVP. Query was validated but not executed.',
+			connectionString: connectionString ? "[redacted]" : undefined,
+			note: "Database executor is a stub in MVP. Query was validated but not executed.",
 			rows: [],
 		});
 

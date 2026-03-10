@@ -1,7 +1,7 @@
-import type { AuditEvent, Decision, RunContext, ToolCall, ToolResult } from '@arikernel/core';
-import { generateId, now } from '@arikernel/core';
-import Database from 'better-sqlite3';
-import { computeHash, genesisHash } from './hash-chain.js';
+import type { AuditEvent, Decision, RunContext, ToolCall, ToolResult } from "@arikernel/core";
+import { generateId, now } from "@arikernel/core";
+import Database from "better-sqlite3";
+import { computeHash, genesisHash } from "./hash-chain.js";
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS runs (
@@ -47,8 +47,8 @@ export class AuditStore {
 
 	constructor(dbPath: string) {
 		this.db = new Database(dbPath);
-		this.db.pragma('journal_mode = WAL');
-		this.db.pragma('foreign_keys = ON');
+		this.db.pragma("journal_mode = WAL");
+		this.db.pragma("foreign_keys = ON");
 		this.db.exec(MIGRATION_001);
 		this.migrateSchema();
 
@@ -69,19 +69,17 @@ export class AuditStore {
 
 	/** Add columns that may be missing from older schema versions. */
 	private migrateSchema(): void {
-		const cols = this.db
-			.prepare("PRAGMA table_info('runs')")
-			.all() as Array<{ name: string }>;
+		const cols = this.db.prepare("PRAGMA table_info('runs')").all() as Array<{ name: string }>;
 		const colNames = new Set(cols.map((c) => c.name));
-		if (!colNames.has('start_previous_hash')) {
-			this.db.exec('ALTER TABLE runs ADD COLUMN start_previous_hash TEXT');
+		if (!colNames.has("start_previous_hash")) {
+			this.db.exec("ALTER TABLE runs ADD COLUMN start_previous_hash TEXT");
 		}
 	}
 
 	private getLastHash(): string {
-		const row = this.db
-			.prepare('SELECT hash FROM events ORDER BY rowid DESC LIMIT 1')
-			.get() as { hash: string } | undefined;
+		const row = this.db.prepare("SELECT hash FROM events ORDER BY rowid DESC LIMIT 1").get() as
+			| { hash: string }
+			| undefined;
 		return row?.hash ?? genesisHash();
 	}
 
@@ -91,26 +89,22 @@ export class AuditStore {
 
 	endRun(runId: string): void {
 		const eventCount = this.db
-			.prepare('SELECT COUNT(*) as count FROM events WHERE run_id = ?')
+			.prepare("SELECT COUNT(*) as count FROM events WHERE run_id = ?")
 			.get(runId) as { count: number };
 
 		this.db
-			.prepare('UPDATE runs SET ended_at = ?, event_count = ? WHERE run_id = ?')
+			.prepare("UPDATE runs SET ended_at = ?, event_count = ? WHERE run_id = ?")
 			.run(now(), eventCount.count, runId);
 	}
 
-	append(
-		toolCall: ToolCall,
-		decision: Decision,
-		result?: ToolResult,
-	): AuditEvent {
+	append(toolCall: ToolCall, decision: Decision, result?: ToolResult): AuditEvent {
 		const id = generateId();
 		const timestamp = now();
-		const taintSources = decision.taintLabels.map((t) => t.source).join(',');
+		const taintSources = decision.taintLabels.map((t) => t.source).join(",");
 
 		const sequence = (
 			this.db
-				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
+				.prepare("SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?")
 				.get(toolCall.runId) as { seq: number }
 		).seq;
 
@@ -165,7 +159,7 @@ export class AuditStore {
 
 		const sequence = (
 			this.db
-				.prepare('SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?')
+				.prepare("SELECT COALESCE(MAX(sequence), -1) + 1 as seq FROM events WHERE run_id = ?")
 				.get(runId) as { seq: number }
 		).seq;
 
@@ -175,14 +169,14 @@ export class AuditStore {
 			sequence,
 			timestamp,
 			principalId,
-			toolClass: '_system' as any,
+			toolClass: "_system" as any,
 			action,
 			parameters: metadata,
 			taintLabels: [],
 		};
 
 		const decision: Decision = {
-			verdict: 'deny',
+			verdict: "deny",
 			matchedRule: null,
 			reason,
 			taintLabels: [],
@@ -195,32 +189,48 @@ export class AuditStore {
 		this.lastHash = hash;
 
 		this.insertEvent.run(
-			id, runId, sequence, timestamp, principalId,
-			'_system', action,
-			JSON.stringify(toolCall), JSON.stringify(decision),
-			null, null, '', 'deny',
-			previousHash, hash,
+			id,
+			runId,
+			sequence,
+			timestamp,
+			principalId,
+			"_system",
+			action,
+			JSON.stringify(toolCall),
+			JSON.stringify(decision),
+			null,
+			null,
+			"",
+			"deny",
+			previousHash,
+			hash,
 		);
 
 		return {
-			id, runId, sequence, timestamp, principalId,
-			toolCall, decision,
-			previousHash, hash,
+			id,
+			runId,
+			sequence,
+			timestamp,
+			principalId,
+			toolCall,
+			decision,
+			previousHash,
+			hash,
 		};
 	}
 
 	queryRun(runId: string): AuditEvent[] {
 		const rows = this.db
-			.prepare('SELECT * FROM events WHERE run_id = ? ORDER BY sequence')
+			.prepare("SELECT * FROM events WHERE run_id = ? ORDER BY sequence")
 			.all(runId) as Array<Record<string, unknown>>;
 
 		return rows.map(rowToAuditEvent);
 	}
 
 	getRunContext(runId: string): RunContext | null {
-		const row = this.db
-			.prepare('SELECT * FROM runs WHERE run_id = ?')
-			.get(runId) as Record<string, unknown> | undefined;
+		const row = this.db.prepare("SELECT * FROM runs WHERE run_id = ?").get(runId) as
+			| Record<string, unknown>
+			| undefined;
 
 		if (!row) return null;
 
@@ -235,9 +245,9 @@ export class AuditStore {
 	}
 
 	listRuns(): RunContext[] {
-		const rows = this.db
-			.prepare('SELECT * FROM runs ORDER BY started_at DESC')
-			.all() as Array<Record<string, unknown>>;
+		const rows = this.db.prepare("SELECT * FROM runs ORDER BY started_at DESC").all() as Array<
+			Record<string, unknown>
+		>;
 
 		return rows.map((row) => ({
 			runId: row.run_id as string,

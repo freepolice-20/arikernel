@@ -1,6 +1,6 @@
-import type { Capability } from '../types/principal.js';
-import type { PolicyRule } from '../types/policy.js';
-import policySpec from './policy-spec.json';
+import type { PolicyRule } from "../types/policy.js";
+import type { Capability } from "../types/principal.js";
+import policySpec from "./policy-spec.json";
 
 export interface Preset {
 	id: string;
@@ -15,24 +15,32 @@ export interface Preset {
 }
 
 export type PresetId =
-	| 'safe-research' | 'rag-reader' | 'workspace-assistant' | 'automation-agent'
-	| 'safe' | 'strict' | 'research';
+	| "safe-research"
+	| "rag-reader"
+	| "workspace-assistant"
+	| "automation-agent"
+	| "safe"
+	| "strict"
+	| "research";
 
 // ── Policy spec types ────────────────────────────────────────────────
 
 interface PolicySpec {
 	policyFragments: Record<string, PolicyRule>;
-	presets: Record<string, {
-		id: string;
-		name: string;
-		description: string;
-		capabilities: Capability[];
-		policies: (string | PolicyRule)[];
-		runStatePolicy?: {
-			maxDeniedSensitiveActions?: number;
-			behavioralRules?: boolean;
-		};
-	}>;
+	presets: Record<
+		string,
+		{
+			id: string;
+			name: string;
+			description: string;
+			capabilities: Capability[];
+			policies: (string | PolicyRule)[];
+			runStatePolicy?: {
+				maxDeniedSensitiveActions?: number;
+				behavioralRules?: boolean;
+			};
+		}
+	>;
 	defaults: {
 		capabilities: Capability[];
 		policies: (string | PolicyRule)[];
@@ -46,8 +54,11 @@ export const POLICY_SPEC = spec;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function resolvePolicy(entry: string | PolicyRule, fragments: Record<string, PolicyRule>): PolicyRule {
-	if (typeof entry === 'string') {
+function resolvePolicy(
+	entry: string | PolicyRule,
+	fragments: Record<string, PolicyRule>,
+): PolicyRule {
+	if (typeof entry === "string") {
 		const frag = fragments[entry];
 		if (!frag) throw new Error(`Unknown policy fragment: "${entry}"`);
 		return frag;
@@ -71,19 +82,19 @@ function buildPreset(s: PolicySpec, presetId: string): Preset {
 // ── Presets ──────────────────────────────────────────────────────────
 
 export const PRESETS: Record<PresetId, Preset> = {
-	'safe-research': buildPreset(spec, 'safe-research'),
-	'rag-reader': buildPreset(spec, 'rag-reader'),
-	'workspace-assistant': buildPreset(spec, 'workspace-assistant'),
-	'automation-agent': buildPreset(spec, 'automation-agent'),
-	'safe': buildPreset(spec, 'safe'),
-	'strict': buildPreset(spec, 'strict'),
-	'research': buildPreset(spec, 'research'),
+	"safe-research": buildPreset(spec, "safe-research"),
+	"rag-reader": buildPreset(spec, "rag-reader"),
+	"workspace-assistant": buildPreset(spec, "workspace-assistant"),
+	"automation-agent": buildPreset(spec, "automation-agent"),
+	safe: buildPreset(spec, "safe"),
+	strict: buildPreset(spec, "strict"),
+	research: buildPreset(spec, "research"),
 };
 
 export function getPreset(id: PresetId): Preset {
 	const preset = PRESETS[id];
 	if (!preset) {
-		throw new Error(`Unknown preset: "${id}". Available: ${Object.keys(PRESETS).join(', ')}`);
+		throw new Error(`Unknown preset: "${id}". Available: ${Object.keys(PRESETS).join(", ")}`);
 	}
 	return preset;
 }
@@ -92,6 +103,6 @@ export function getPreset(id: PresetId): Preset {
 
 export const DEFAULT_CAPABILITIES: Capability[] = spec.defaults.capabilities;
 
-export const DEFAULT_POLICIES: PolicyRule[] = spec.defaults.policies.map(
-	(p) => resolvePolicy(p, spec.policyFragments),
+export const DEFAULT_POLICIES: PolicyRule[] = spec.defaults.policies.map((p) =>
+	resolvePolicy(p, spec.policyFragments),
 );

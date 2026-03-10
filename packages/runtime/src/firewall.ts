@@ -1,3 +1,4 @@
+import { AuditStore, type ReplayResult, replayRun } from "@arikernel/audit-log";
 import type {
 	AuditEvent,
 	CapabilityClass,
@@ -9,21 +10,25 @@ import type {
 	TaintLabel,
 	ToolCallRequest,
 	ToolResult,
-} from '@arikernel/core';
-import type { ToolExecutor } from '@arikernel/tool-executors';
-import { CAPABILITY_CLASS_MAP, generateId, now } from '@arikernel/core';
-import { AuditStore, replayRun, type ReplayResult } from '@arikernel/audit-log';
-import { PolicyEngine } from '@arikernel/policy-engine';
-import { TaintTracker } from '@arikernel/taint-tracker';
-import { ExecutorRegistry } from '@arikernel/tool-executors';
-import type { FirewallOptions } from './config.js';
-import { validateOptions } from './config.js';
-import type { FirewallHooks } from './hooks.js';
-import { CapabilityIssuer } from './issuer.js';
-import { Pipeline } from './pipeline.js';
-import { evaluateBehavioralRules, applyBehavioralRule } from './behavioral-rules.js';
-import { RunStateTracker, type RunStateCounters, type RunStatePolicy, type QuarantineInfo } from './run-state.js';
-import { TokenStore } from './token-store.js';
+} from "@arikernel/core";
+import { CAPABILITY_CLASS_MAP, generateId, now } from "@arikernel/core";
+import { PolicyEngine } from "@arikernel/policy-engine";
+import { TaintTracker } from "@arikernel/taint-tracker";
+import type { ToolExecutor } from "@arikernel/tool-executors";
+import { ExecutorRegistry } from "@arikernel/tool-executors";
+import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
+import type { FirewallOptions } from "./config.js";
+import { validateOptions } from "./config.js";
+import type { FirewallHooks } from "./hooks.js";
+import { CapabilityIssuer } from "./issuer.js";
+import { Pipeline } from "./pipeline.js";
+import {
+	type QuarantineInfo,
+	type RunStateCounters,
+	type RunStatePolicy,
+	RunStateTracker,
+} from "./run-state.js";
+import { TokenStore } from "./token-store.js";
 
 export class Firewall {
 	private principal: Principal;
@@ -51,21 +56,17 @@ export class Firewall {
 
 		this.policyEngine = new PolicyEngine(options.policies);
 		this.taintTracker = new TaintTracker();
-		this.auditStore = new AuditStore(options.auditLog ?? './audit.db');
+		this.auditStore = new AuditStore(options.auditLog ?? "./audit.db");
 		this.executorRegistry = new ExecutorRegistry();
 		this.tokenStore = new TokenStore();
-		this.issuer = new CapabilityIssuer(
-			this.policyEngine,
-			this.taintTracker,
-			this.tokenStore,
-		);
+		this.issuer = new CapabilityIssuer(this.policyEngine, this.taintTracker, this.tokenStore);
 
 		this._hooks = options.hooks ?? {};
 		this._runState = new RunStateTracker(options.runStatePolicy);
 
 		this.auditStore.startRun(this.runId, this.principal.id, {
 			principal: options.principal,
-			policies: Array.isArray(options.policies) ? '[inline]' : options.policies,
+			policies: Array.isArray(options.policies) ? "[inline]" : options.policies,
 		});
 
 		this.pipeline = new Pipeline(
@@ -105,8 +106,9 @@ export class Firewall {
 			const denied: IssuanceDecision = {
 				requestId: request.id,
 				granted: false,
-				reason: `Unknown capability class '${capabilityClass}'. ` +
-					`Valid classes: ${Object.keys(CAPABILITY_CLASS_MAP).join(', ')}`,
+				reason:
+					`Unknown capability class '${capabilityClass}'. ` +
+					`Valid classes: ${Object.keys(CAPABILITY_CLASS_MAP).join(", ")}`,
 				taintLabels: request.taintLabels,
 				timestamp: now(),
 			};
@@ -117,21 +119,22 @@ export class Firewall {
 		// Block non-read-only capability issuance in restricted mode
 		if (this._runState.restricted) {
 			const mapping = CAPABILITY_CLASS_MAP[capabilityClass];
-			const safeReadOnly = mapping.actions.every(
-				(a) => this._runState.isAllowedInRestrictedMode(mapping.toolClass, a),
+			const safeReadOnly = mapping.actions.every((a) =>
+				this._runState.isAllowedInRestrictedMode(mapping.toolClass, a),
 			);
 			if (!safeReadOnly) {
 				this._runState.recordCapabilityRequest(false);
 				this._runState.pushEvent({
 					timestamp: request.timestamp,
-					type: 'capability_denied',
+					type: "capability_denied",
 					toolClass: mapping.toolClass,
-					metadata: { capabilityClass, reason: 'restricted_mode' },
+					metadata: { capabilityClass, reason: "restricted_mode" },
 				});
 				const denied: IssuanceDecision = {
 					requestId: request.id,
 					granted: false,
-					reason: `Run is in restricted mode (entered at ${this._runState.restrictedAt}). ` +
+					reason:
+						`Run is in restricted mode (entered at ${this._runState.restrictedAt}). ` +
 						`Only read-only capabilities can be issued. '${capabilityClass}' is blocked.`,
 					taintLabels: request.taintLabels,
 					timestamp: now(),
@@ -145,7 +148,7 @@ export class Firewall {
 		const mapping = CAPABILITY_CLASS_MAP[capabilityClass];
 		this._runState.pushEvent({
 			timestamp: request.timestamp,
-			type: 'capability_requested',
+			type: "capability_requested",
 			toolClass: mapping.toolClass,
 			metadata: { capabilityClass },
 		});
@@ -156,7 +159,7 @@ export class Firewall {
 		// Push granted/denied event
 		this._runState.pushEvent({
 			timestamp: decision.timestamp,
-			type: decision.granted ? 'capability_granted' : 'capability_denied',
+			type: decision.granted ? "capability_granted" : "capability_denied",
 			toolClass: mapping.toolClass,
 			metadata: { capabilityClass },
 		});
@@ -222,7 +225,7 @@ export class Firewall {
 			this.auditStore.appendSystemEvent(
 				this.runId,
 				this.principal.id,
-				'quarantine',
+				"quarantine",
 				quarantine.reason,
 				{
 					triggerType: quarantine.triggerType,

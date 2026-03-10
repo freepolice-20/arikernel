@@ -5,8 +5,8 @@
  * events without duplicating business logic.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type {
 	AuditEvent,
 	CapabilityRequest,
@@ -15,18 +15,18 @@ import type {
 	ToolCall,
 	ToolCallRequest,
 	ToolResult,
-} from '@arikernel/core';
-import { now } from '@arikernel/core';
-import type { FirewallHooks } from './hooks.js';
-import type { QuarantineInfo, RunStateCounters } from './run-state.js';
+} from "@arikernel/core";
+import { now } from "@arikernel/core";
+import type { FirewallHooks } from "./hooks.js";
+import type { QuarantineInfo, RunStateCounters } from "./run-state.js";
 import {
-	TRACE_VERSION,
 	type ReplayTrace,
+	TRACE_VERSION,
 	type TraceDecision,
 	type TraceEvent,
 	type TraceMetadata,
 	type TraceQuarantine,
-} from './trace-types.js';
+} from "./trace-types.js";
 
 interface PendingEvent {
 	request: ToolCallRequest;
@@ -81,7 +81,10 @@ export class TraceRecorder {
 			},
 			onAudit: (event: AuditEvent) => {
 				// Detect quarantine system events
-				if ((event.toolCall.toolClass as string) === '_system' && event.toolCall.action === 'quarantine') {
+				if (
+					(event.toolCall.toolClass as string) === "_system" &&
+					event.toolCall.action === "quarantine"
+				) {
 					this.recordQuarantine(event);
 					return;
 				}
@@ -100,7 +103,7 @@ export class TraceRecorder {
 		this.pendingCapabilities.delete(toolCall.principalId);
 
 		const traceDecision: TraceDecision = {
-			verdict: decision.verdict === 'require-approval' ? 'deny' : decision.verdict,
+			verdict: decision.verdict === "require-approval" ? "deny" : decision.verdict,
 			reason: decision.reason,
 			matchedRule: decision.matchedRule?.id,
 			taintLabels: decision.taintLabels.map((t) => ({ source: t.source, origin: t.origin })),
@@ -129,7 +132,7 @@ export class TraceRecorder {
 		this.pendingCapabilities.delete(event.toolCall.principalId);
 
 		const traceDecision: TraceDecision = {
-			verdict: event.decision.verdict === 'require-approval' ? 'deny' : event.decision.verdict,
+			verdict: event.decision.verdict === "require-approval" ? "deny" : event.decision.verdict,
 			reason: event.decision.reason,
 			matchedRule: event.decision.matchedRule?.id,
 			taintLabels: event.decision.taintLabels.map((t) => ({ source: t.source, origin: t.origin })),
@@ -158,7 +161,7 @@ export class TraceRecorder {
 		const quarantine: TraceQuarantine = {
 			triggeredAtSequence: this.events.length - 1,
 			timestamp: event.timestamp,
-			triggerType: (params.triggerType as 'behavioral_rule' | 'threshold') ?? 'behavioral_rule',
+			triggerType: (params.triggerType as "behavioral_rule" | "threshold") ?? "behavioral_rule",
 			ruleId: params.ruleId as string | undefined,
 			reason: event.decision.reason,
 			matchedEvents: Array.isArray(params.matchedEvents)
@@ -178,11 +181,7 @@ export class TraceRecorder {
 	 * Record a capability-level denial that never reached firewall.execute().
 	 * Use this when requestCapability() returns granted=false (e.g. quarantine blocks).
 	 */
-	recordCapabilityDenial(
-		capabilityClass: string,
-		request: ToolCallRequest,
-		reason: string,
-	): void {
+	recordCapabilityDenial(capabilityClass: string, request: ToolCallRequest, reason: string): void {
 		const traceEvent: TraceEvent = {
 			sequence: this.events.length,
 			timestamp: now(),
@@ -190,7 +189,7 @@ export class TraceRecorder {
 			capabilityClass,
 			capabilityGranted: false,
 			decision: {
-				verdict: 'deny',
+				verdict: "deny",
 				reason,
 				taintLabels: [],
 			},
@@ -208,8 +207,8 @@ export class TraceRecorder {
 		quarantineInfo: QuarantineInfo | null,
 		finalCounters: RunStateCounters,
 	): ReplayTrace {
-		const allowed = this.events.filter((e) => e.decision.verdict === 'allow').length;
-		const denied = this.events.filter((e) => e.decision.verdict === 'deny').length;
+		const allowed = this.events.filter((e) => e.decision.verdict === "allow").length;
+		const denied = this.events.filter((e) => e.decision.verdict === "deny").length;
 
 		return {
 			traceVersion: TRACE_VERSION,
@@ -236,15 +235,15 @@ export function writeTrace(trace: ReplayTrace, filePath: string): void {
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true });
 	}
-	writeFileSync(filePath, JSON.stringify(trace, null, 2), 'utf-8');
+	writeFileSync(filePath, JSON.stringify(trace, null, 2), "utf-8");
 }
 
 /** Read a trace from a JSON file. */
 export function readTrace(filePath: string): ReplayTrace {
-	const content = readFileSync(filePath, 'utf-8');
+	const content = readFileSync(filePath, "utf-8");
 	const trace = JSON.parse(content) as ReplayTrace;
 	if (!trace.traceVersion) {
-		throw new Error('Invalid trace file: missing traceVersion');
+		throw new Error("Invalid trace file: missing traceVersion");
 	}
 	return trace;
 }

@@ -1,32 +1,30 @@
 {
-  "name": "@arikernel/taint-tracker",
-  "version": "0.1.0",
-  "description": "Taint label tracking and propagation for AriKernel",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2"
-  }
+	"name": "@arikernel/taint-tracker",
+	"version": "0.1.0",
+	"description": "Taint label tracking and propagation for AriKernel",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2"
+	}
 }

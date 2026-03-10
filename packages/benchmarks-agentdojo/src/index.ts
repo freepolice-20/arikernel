@@ -8,24 +8,34 @@
  *   npx pnpm benchmark:agentdojo
  */
 
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { benchmark } from './runner.js';
-import { buildReport, defaultResultsPaths, printConsoleSummary, writeJsonReport, writeJsonlReport, writeMarkdownReport } from './results.js';
-import type { ScenarioResult } from './types.js';
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+	buildReport,
+	defaultResultsPaths,
+	printConsoleSummary,
+	writeJsonReport,
+	writeJsonlReport,
+	writeMarkdownReport,
+} from "./results.js";
+import { benchmark } from "./runner.js";
+import type { ScenarioResult } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Repo root: packages/benchmarks-agentdojo/src → ../../..
-const REPO_ROOT = resolve(__dirname, '..', '..', '..');
-const RESULTS_DIR = resolve(REPO_ROOT, 'benchmarks', 'results');
+const REPO_ROOT = resolve(__dirname, "..", "..", "..");
+const RESULTS_DIR = resolve(REPO_ROOT, "benchmarks", "results");
 
 function progressCallback(result: ScenarioResult, index: number, total: number): void {
-	const blocked = result.exfiltrationPrevented === true || result.sensitiveReadPrevented === true || result.wasQuarantined;
-	const icon = blocked ? '✓' : '✗';
+	const blocked =
+		result.exfiltrationPrevented === true ||
+		result.sensitiveReadPrevented === true ||
+		result.wasQuarantined;
+	const icon = blocked ? "✓" : "✗";
 	console.log(`  [${index + 1}/${total}] ${icon} ${result.scenarioId} (${result.durationMs}ms)`);
 }
 
-console.log('\nRunning AriKernel AgentDojo benchmark...\n');
+console.log("\nRunning AriKernel AgentDojo benchmark...\n");
 
 const { results, summary } = await benchmark(RESULTS_DIR, progressCallback);
 

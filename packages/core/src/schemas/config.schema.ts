@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { TOOL_CLASSES } from '../types/principal.js';
+import { z } from "zod";
+import { TOOL_CLASSES } from "../types/principal.js";
 
 const capabilityConstraintsSchema = z.object({
 	allowedPaths: z.array(z.string()).optional(),
@@ -23,7 +23,7 @@ const principalConfigSchema = z.object({
 export const firewallConfigSchema = z.object({
 	principal: principalConfigSchema,
 	policies: z.union([z.string(), z.array(z.any())]),
-	auditLog: z.string().default('./audit.db'),
+	auditLog: z.string().default("./audit.db"),
 });
 
 export type FirewallConfig = z.infer<typeof firewallConfigSchema>;

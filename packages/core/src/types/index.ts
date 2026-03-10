@@ -4,33 +4,33 @@ export {
 	type CapabilityConstraints,
 	type Principal,
 	TOOL_CLASSES,
-} from './principal.js';
+} from "./principal.js";
 
 export {
 	type TaintSource,
 	type TaintLabel,
 	TAINT_SOURCES,
-} from './taint.js';
+} from "./taint.js";
 
-export {
-	type ToolCallRequest,
-	type ToolCall,
-	type ToolResult,
-} from './tool-call.js';
+export type {
+	ToolCallRequest,
+	ToolCall,
+	ToolResult,
+} from "./tool-call.js";
 
-export {
-	type DecisionVerdict,
-	type ParameterMatcher,
-	type PolicyMatch,
-	type PolicyRule,
-	type PolicySet,
-	type Decision,
-} from './policy.js';
+export type {
+	DecisionVerdict,
+	ParameterMatcher,
+	PolicyMatch,
+	PolicyRule,
+	PolicySet,
+	Decision,
+} from "./policy.js";
 
-export {
-	type AuditEvent,
-	type RunContext,
-} from './audit.js';
+export type {
+	AuditEvent,
+	RunContext,
+} from "./audit.js";
 
 export {
 	type CapabilityClass,
@@ -43,4 +43,4 @@ export {
 	CAPABILITY_CLASSES,
 	CAPABILITY_CLASS_MAP,
 	deriveCapabilityClass,
-} from './capability.js';
+} from "./capability.js";

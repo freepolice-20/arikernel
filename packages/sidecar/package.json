@@ -1,30 +1,30 @@
 {
-  "name": "@arikernel/sidecar",
-  "version": "0.1.0",
-  "description": "Sidecar proxy enforcement mode for AriKernel — stateless HTTP execution proxy",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*",
-    "@arikernel/tool-executors": "workspace:*",
-    "@arikernel/policy-engine": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  }
+	"name": "@arikernel/sidecar",
+	"version": "0.1.0",
+	"description": "Sidecar proxy enforcement mode for AriKernel — stateless HTTP execution proxy",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*",
+		"@arikernel/tool-executors": "workspace:*",
+		"@arikernel/policy-engine": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2",
+		"vitest": "^2.1.8"
+	}
 }

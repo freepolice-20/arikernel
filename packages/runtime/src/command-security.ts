@@ -31,12 +31,9 @@ function extractBinary(command: string): string {
  *
  * Returns null if the command is allowed, or a reason string if denied.
  */
-export function validateCommand(
-	command: string,
-	allowedCommands: string[],
-): string | null {
+export function validateCommand(command: string, allowedCommands: string[]): string | null {
 	if (!command.trim()) {
-		return 'Empty command';
+		return "Empty command";
 	}
 
 	// Check for dangerous shell metacharacters first — injection must be
@@ -50,7 +47,7 @@ export function validateCommand(
 	const binary = extractBinary(command);
 
 	if (!allowedCommands.includes(binary)) {
-		return `Command '${binary}' not in allowed commands: ${allowedCommands.join(', ')}`;
+		return `Command '${binary}' not in allowed commands: ${allowedCommands.join(", ")}`;
 	}
 
 	return null;

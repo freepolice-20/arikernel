@@ -25,10 +25,10 @@
  * const result = await adapter.executeSkill("web_search", { query: "hello" });
  * ```
  */
-import type { TaintLabel, ToolResult } from '@arikernel/core';
-import { ToolCallDeniedError } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type FrameworkAdapter, type WrapToolOptions } from './adapter.js';
+import type { TaintLabel, ToolResult } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type FrameworkAdapter, type WrapToolOptions, wrapTool } from "./adapter.js";
 
 /** Metadata for a registered OpenClaw skill. */
 export interface OpenClawSkillRegistration {
@@ -50,13 +50,19 @@ export type OpenClawSkillHandler = (args: Record<string, unknown>) => unknown | 
  * detection, and audit logging.
  */
 export class OpenClawAdapter implements FrameworkAdapter {
-	readonly framework = 'openclaw';
+	readonly framework = "openclaw";
 	private readonly firewall: Firewall;
 	private readonly skills = new Map<
 		string,
-		{ wrapped: (args: Record<string, unknown>) => Promise<ToolResult>; handler: OpenClawSkillHandler }
+		{
+			wrapped: (args: Record<string, unknown>) => Promise<ToolResult>;
+			handler: OpenClawSkillHandler;
+		}
 	>();
-	private readonly metadata = new Map<string, { description: string; toolClass: string; action: string }>();
+	private readonly metadata = new Map<
+		string,
+		{ description: string; toolClass: string; action: string }
+	>();
 
 	constructor(firewall: Firewall) {
 		this.firewall = firewall;
@@ -96,7 +102,7 @@ export class OpenClawAdapter implements FrameworkAdapter {
 		const wrapped = wrapTool(this.firewall, toolClass, action, wrapOpts);
 		this.skills.set(skillName, { wrapped, handler });
 		this.metadata.set(skillName, {
-			description: opts?.description ?? '',
+			description: opts?.description ?? "",
 			toolClass,
 			action,
 		});
@@ -109,15 +115,12 @@ export class OpenClawAdapter implements FrameworkAdapter {
 	 * The security pipeline runs first. If the call is denied, a
 	 * ToolCallDeniedError is thrown and the handler never executes.
 	 */
-	async executeSkill(
-		skillName: string,
-		args: Record<string, unknown> = {},
-	): Promise<unknown> {
+	async executeSkill(skillName: string, args: Record<string, unknown> = {}): Promise<unknown> {
 		const entry = this.skills.get(skillName);
 		if (!entry) {
 			throw new Error(
 				`Unknown OpenClaw skill "${skillName}". ` +
-				`Registered: ${[...this.skills.keys()].join(', ')}`,
+					`Registered: ${[...this.skills.keys()].join(", ")}`,
 			);
 		}
 
@@ -147,9 +150,9 @@ export class OpenClawAdapter implements FrameworkAdapter {
 	 */
 	protect(_agent: unknown): never {
 		throw new Error(
-			'OpenClawAdapter.protect() is not supported. ' +
-			'Use adapter.registerSkill(name, toolClass, action, handler) to register skills, ' +
-			'then adapter.executeSkill(name, args) to call them through AriKernel.',
+			"OpenClawAdapter.protect() is not supported. " +
+				"Use adapter.registerSkill(name, toolClass, action, handler) to register skills, " +
+				"then adapter.executeSkill(name, args) to call them through AriKernel.",
 		);
 	}
 }

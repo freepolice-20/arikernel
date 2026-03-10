@@ -1,108 +1,107 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { getPreset, PRESETS } from '@arikernel/core';
-import { protectLangChainTools, type LangChainTool } from '../src/langchain.js';
-import { protectCrewAITools } from '../src/crewai.js';
+import { PRESETS, getPreset } from "@arikernel/core";
+import { afterEach, describe, expect, it } from "vitest";
+import { protectCrewAITools } from "../src/crewai.js";
+import { type LangChainTool, protectLangChainTools } from "../src/langchain.js";
 
-describe('preset loading', () => {
-	it('loads safe preset with correct runStatePolicy', () => {
-		const preset = getPreset('safe');
-		expect(preset.id).toBe('safe');
+describe("preset loading", () => {
+	it("loads safe preset with correct runStatePolicy", () => {
+		const preset = getPreset("safe");
+		expect(preset.id).toBe("safe");
 		expect(preset.runStatePolicy).toEqual({
 			maxDeniedSensitiveActions: 5,
 			behavioralRules: true,
 		});
 	});
 
-	it('loads strict preset with low threshold', () => {
-		const preset = getPreset('strict');
-		expect(preset.id).toBe('strict');
+	it("loads strict preset with low threshold", () => {
+		const preset = getPreset("strict");
+		expect(preset.id).toBe("strict");
 		expect(preset.runStatePolicy?.maxDeniedSensitiveActions).toBe(3);
 	});
 
-	it('loads research preset with high threshold', () => {
-		const preset = getPreset('research');
-		expect(preset.id).toBe('research');
+	it("loads research preset with high threshold", () => {
+		const preset = getPreset("research");
+		expect(preset.id).toBe("research");
 		expect(preset.runStatePolicy?.maxDeniedSensitiveActions).toBe(20);
 	});
 
-	it('throws for unknown preset', () => {
-		expect(() => getPreset('nonexistent' as any)).toThrow('Unknown preset');
+	it("throws for unknown preset", () => {
+		expect(() => getPreset("nonexistent" as any)).toThrow("Unknown preset");
 	});
 
-	it('all 7 presets are available', () => {
+	it("all 7 presets are available", () => {
 		const ids = Object.keys(PRESETS);
-		expect(ids).toContain('safe');
-		expect(ids).toContain('strict');
-		expect(ids).toContain('research');
-		expect(ids).toContain('safe-research');
-		expect(ids).toContain('rag-reader');
-		expect(ids).toContain('workspace-assistant');
-		expect(ids).toContain('automation-agent');
+		expect(ids).toContain("safe");
+		expect(ids).toContain("strict");
+		expect(ids).toContain("research");
+		expect(ids).toContain("safe-research");
+		expect(ids).toContain("rag-reader");
+		expect(ids).toContain("workspace-assistant");
+		expect(ids).toContain("automation-agent");
 		expect(ids).toHaveLength(7);
 	});
 
-	it('safe preset has correct capabilities', () => {
-		const preset = getPreset('safe');
+	it("safe preset has correct capabilities", () => {
+		const preset = getPreset("safe");
 		const toolClasses = preset.capabilities.map((c) => c.toolClass);
-		expect(toolClasses).toContain('http');
-		expect(toolClasses).toContain('file');
-		expect(toolClasses).toContain('database');
-		expect(toolClasses).not.toContain('shell');
+		expect(toolClasses).toContain("http");
+		expect(toolClasses).toContain("file");
+		expect(toolClasses).toContain("database");
+		expect(toolClasses).not.toContain("shell");
 	});
 
-	it('strict preset has empty host allowlist', () => {
-		const preset = getPreset('strict');
-		const httpCap = preset.capabilities.find((c) => c.toolClass === 'http');
+	it("strict preset has empty host allowlist", () => {
+		const preset = getPreset("strict");
+		const httpCap = preset.capabilities.find((c) => c.toolClass === "http");
 		expect(httpCap?.constraints?.allowedHosts).toEqual([]);
 	});
 
-	it('research preset includes shell capability', () => {
-		const preset = getPreset('research');
+	it("research preset includes shell capability", () => {
+		const preset = getPreset("research");
 		const toolClasses = preset.capabilities.map((c) => c.toolClass);
-		expect(toolClasses).toContain('shell');
+		expect(toolClasses).toContain("shell");
 	});
 });
 
-describe('middleware preset integration', () => {
+describe("middleware preset integration", () => {
 	let firewall: { close: () => void } | null = null;
-	afterEach(() => { firewall?.close(); firewall = null; });
+	afterEach(() => {
+		firewall?.close();
+		firewall = null;
+	});
 
-	it('creates firewall with safe preset', () => {
-		const tools: LangChainTool[] = [
-			{ name: 'web_search', func: async () => 'ok' },
-		];
-		const result = protectLangChainTools(tools, { preset: 'safe' });
+	it("creates firewall with safe preset", () => {
+		const tools: LangChainTool[] = [{ name: "web_search", func: async () => "ok" }];
+		const result = protectLangChainTools(tools, { preset: "safe" });
 		firewall = result.firewall;
 		expect(result.firewall).toBeDefined();
 		expect(result.firewall.runId).toBeTruthy();
 	});
 
-	it('creates firewall with strict preset', () => {
+	it("creates firewall with strict preset", () => {
 		const result = protectCrewAITools(
-			{ web_search: async () => 'ok' },
-			{ preset: 'strict', toolMappings: { web_search: { toolClass: 'http', action: 'get' } } },
+			{ web_search: async () => "ok" },
+			{ preset: "strict", toolMappings: { web_search: { toolClass: "http", action: "get" } } },
 		);
 		firewall = result.firewall;
 		expect(result.firewall).toBeDefined();
 	});
 
-	it('creates firewall with research preset', () => {
-		const tools: LangChainTool[] = [
-			{ name: 'web_search', func: async () => 'ok' },
-		];
-		const result = protectLangChainTools(tools, { preset: 'research' });
+	it("creates firewall with research preset", () => {
+		const tools: LangChainTool[] = [{ name: "web_search", func: async () => "ok" }];
+		const result = protectLangChainTools(tools, { preset: "research" });
 		firewall = result.firewall;
 		expect(result.firewall).toBeDefined();
 	});
 
-	it('custom allow overrides preset', () => {
+	it("custom allow overrides preset", () => {
 		const tools: LangChainTool[] = [
-			{ name: 'web_search', func: async (args: any) => `Results for: ${args.url}` },
+			{ name: "web_search", func: async (args: any) => `Results for: ${args.url}` },
 		];
 		const result = protectLangChainTools(tools, {
 			allow: {
 				capabilities: [
-					{ toolClass: 'http', actions: ['get'], constraints: { allowedHosts: ['example.com'] } },
+					{ toolClass: "http", actions: ["get"], constraints: { allowedHosts: ["example.com"] } },
 				],
 			},
 		});

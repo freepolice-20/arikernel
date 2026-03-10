@@ -1,11 +1,11 @@
-import { createServer, type Server } from 'node:http';
-import { resolve, dirname } from 'node:path';
-import { PrincipalRegistry } from './registry.js';
-import { handleExecute, handleStatus, handleHealth, rejectUnauthorized } from './router.js';
-import type { SidecarConfig } from './types.js';
+import { type Server, createServer } from "node:http";
+import { dirname, resolve } from "node:path";
+import { PrincipalRegistry } from "./registry.js";
+import { handleExecute, handleHealth, handleStatus, rejectUnauthorized } from "./router.js";
+import type { SidecarConfig } from "./types.js";
 
 export const DEFAULT_PORT = 8787;
-export const DEFAULT_HOST = '127.0.0.1';
+export const DEFAULT_HOST = "127.0.0.1";
 
 export class SidecarServer {
 	private readonly server: Server;
@@ -18,15 +18,15 @@ export class SidecarServer {
 		this.host = config.host ?? DEFAULT_HOST;
 		const authToken = config.authToken;
 
-		const auditDir = dirname(resolve(config.auditLog ?? './sidecar-audit.db'));
+		const auditDir = dirname(resolve(config.auditLog ?? "./sidecar-audit.db"));
 		this.registry = new PrincipalRegistry(auditDir, config.policy, config.runStatePolicy);
 
 		this.server = createServer((req, res) => {
-			const url = req.url ?? '/';
-			const method = req.method ?? 'GET';
+			const url = req.url ?? "/";
+			const method = req.method ?? "GET";
 
 			// Health endpoint is always unauthenticated (liveness probes)
-			if (method === 'GET' && url === '/health') {
+			if (method === "GET" && url === "/health") {
 				handleHealth(res);
 				return;
 			}
@@ -38,24 +38,24 @@ export class SidecarServer {
 
 			let handler: Promise<void> | undefined;
 
-			if (method === 'POST' && url === '/execute') {
+			if (method === "POST" && url === "/execute") {
 				handler = handleExecute(req, res, this.registry);
-			} else if (method === 'POST' && url === '/status') {
+			} else if (method === "POST" && url === "/status") {
 				handler = handleStatus(req, res, this.registry);
 			}
 
 			if (handler) {
 				handler.catch(() => {
 					if (!res.headersSent) {
-						res.writeHead(500, { 'Content-Type': 'application/json' });
-						res.end(JSON.stringify({ error: 'Internal server error' }));
+						res.writeHead(500, { "Content-Type": "application/json" });
+						res.end(JSON.stringify({ error: "Internal server error" }));
 					}
 				});
 				return;
 			}
 
-			res.writeHead(404, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Not found' }));
+			res.writeHead(404, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ error: "Not found" }));
 		});
 	}
 

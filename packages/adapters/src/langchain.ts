@@ -20,9 +20,9 @@
  * // new DynamicTool({ name: "http_get", func: httpGet })
  * ```
  */
-import type { TaintLabel, ToolResult } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type FrameworkAdapter, type WrapToolOptions } from './adapter.js';
+import type { TaintLabel, ToolResult } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type FrameworkAdapter, type WrapToolOptions, wrapTool } from "./adapter.js";
 
 export interface LangChainToolOptions extends WrapToolOptions {
 	/** Function to derive taint labels from parameters at call time. */
@@ -30,7 +30,7 @@ export interface LangChainToolOptions extends WrapToolOptions {
 }
 
 export class LangChainAdapter implements FrameworkAdapter {
-	readonly framework = 'langchain';
+	readonly framework = "langchain";
 	private readonly firewall: Firewall;
 
 	constructor(firewall: Firewall) {
@@ -58,7 +58,7 @@ export class LangChainAdapter implements FrameworkAdapter {
 	): (parameters: Record<string, unknown>) => Promise<ToolResult> {
 		if (opts?.taintFrom) {
 			const baseTool = (params: Record<string, unknown>) => {
-				const dynamicTaint = opts.taintFrom!(params);
+				const dynamicTaint = opts.taintFrom?.(params);
 				const mergedOpts: WrapToolOptions = {
 					...opts,
 					taintLabels: [...(opts.taintLabels ?? []), ...dynamicTaint],
@@ -77,9 +77,9 @@ export class LangChainAdapter implements FrameworkAdapter {
 	 */
 	protect(_agent: unknown): never {
 		throw new Error(
-			'LangChainAdapter.protect() is not supported. ' +
-			'Use adapter.tool(toolClass, action) to create protected tool functions, ' +
-			'then pass them to DynamicTool.',
+			"LangChainAdapter.protect() is not supported. " +
+				"Use adapter.tool(toolClass, action) to create protected tool functions, " +
+				"then pass them to DynamicTool.",
 		);
 	}
 }

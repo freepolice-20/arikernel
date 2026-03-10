@@ -1,6 +1,6 @@
-import type { AuditEvent, RunContext } from '@arikernel/core';
-import type { AuditStore } from './store.js';
-import { verifyChain } from './hash-chain.js';
+import type { AuditEvent, RunContext } from "@arikernel/core";
+import { verifyChain } from "./hash-chain.js";
+import type { AuditStore } from "./store.js";
 
 export interface ReplayResult {
 	runContext: RunContext;
@@ -46,8 +46,7 @@ export function replayRun(store: AuditStore, runId: string): ReplayResult | null
 		if (events[i].sequence !== i) {
 			integrity.sequenceValid = false;
 			integrity.valid = false;
-			integrity.sequenceError =
-				`expected sequence ${i}, got ${events[i].sequence}`;
+			integrity.sequenceError = `expected sequence ${i}, got ${events[i].sequence}`;
 			break;
 		}
 	}
@@ -59,9 +58,10 @@ export function replayRun(store: AuditStore, runId: string): ReplayResult | null
  * Verify hash chain integrity across all runs in chronological order.
  * Returns per-run results plus an overall cross-run chain validity check.
  */
-export function verifyDatabaseChain(
-	store: AuditStore,
-): { runs: Array<{ runId: string; integrity: ReplayIntegrity }>; valid: boolean } {
+export function verifyDatabaseChain(store: AuditStore): {
+	runs: Array<{ runId: string; integrity: ReplayIntegrity }>;
+	valid: boolean;
+} {
 	const runs = store.listRuns().reverse(); // oldest first
 	const results: Array<{ runId: string; integrity: ReplayIntegrity }> = [];
 	let allValid = true;

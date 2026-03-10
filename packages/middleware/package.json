@@ -1,51 +1,49 @@
 {
-  "name": "@arikernel/middleware",
-  "version": "0.1.0",
-  "description": "Drop-in middleware wrappers for securing AI agents with Ari Kernel",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./langchain": {
-      "types": "./dist/langchain.d.ts",
-      "import": "./dist/langchain.js"
-    },
-    "./openai-agents": {
-      "types": "./dist/openai-agents.d.ts",
-      "import": "./dist/openai-agents.js"
-    },
-    "./crewai": {
-      "types": "./dist/crewai.d.ts",
-      "import": "./dist/crewai.js"
-    },
-    "./autogen": {
-      "types": "./dist/autogen.d.ts",
-      "import": "./dist/autogen.js"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup src/index.ts src/langchain.ts src/openai-agents.ts src/crewai.ts src/autogen.ts --format esm --dts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*",
-    "@arikernel/adapters": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  }
+	"name": "@arikernel/middleware",
+	"version": "0.1.0",
+	"description": "Drop-in middleware wrappers for securing AI agents with Ari Kernel",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./langchain": {
+			"types": "./dist/langchain.d.ts",
+			"import": "./dist/langchain.js"
+		},
+		"./openai-agents": {
+			"types": "./dist/openai-agents.d.ts",
+			"import": "./dist/openai-agents.js"
+		},
+		"./crewai": {
+			"types": "./dist/crewai.d.ts",
+			"import": "./dist/crewai.js"
+		},
+		"./autogen": {
+			"types": "./dist/autogen.d.ts",
+			"import": "./dist/autogen.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsup src/index.ts src/langchain.ts src/openai-agents.ts src/crewai.ts src/autogen.ts --format esm --dts",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*",
+		"@arikernel/adapters": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2",
+		"vitest": "^2.1.8"
+	}
 }

@@ -1,5 +1,5 @@
-import type { Decision } from './policy.js';
-import type { ToolCall, ToolResult } from './tool-call.js';
+import type { Decision } from "./policy.js";
+import type { ToolCall, ToolResult } from "./tool-call.js";
 
 export interface AuditEvent {
 	id: string;

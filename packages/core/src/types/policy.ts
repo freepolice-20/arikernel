@@ -1,7 +1,7 @@
-import type { TaintLabel, TaintSource } from './taint.js';
-import type { ToolClass } from './principal.js';
+import type { ToolClass } from "./principal.js";
+import type { TaintLabel, TaintSource } from "./taint.js";
 
-export type DecisionVerdict = 'allow' | 'deny' | 'require-approval';
+export type DecisionVerdict = "allow" | "deny" | "require-approval";
 
 export interface ParameterMatcher {
 	pattern?: string;

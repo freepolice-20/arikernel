@@ -4,9 +4,9 @@
  * All framework-specific middleware wrappers use these primitives internally.
  */
 
-import { type PresetId, type TaintLabel, getPreset } from '@arikernel/core';
-import type { Firewall, KernelAllow, FirewallHooks, Kernel } from '@arikernel/runtime';
-import { createKernel } from '@arikernel/runtime';
+import { type PresetId, type TaintLabel, getPreset } from "@arikernel/core";
+import type { Firewall, FirewallHooks, Kernel, KernelAllow } from "@arikernel/runtime";
+import { createKernel } from "@arikernel/runtime";
 
 export interface MiddlewareOptions {
 	/** Security preset. Default: zero-config safe defaults. */
@@ -46,7 +46,7 @@ export function createMiddlewareFirewall(options: MiddlewareOptions = {}): Firew
 		preset: presetId,
 		allow: options.allow,
 		principal: options.principal,
-		auditLog: options.auditLog ?? ':memory:',
+		auditLog: options.auditLog ?? ":memory:",
 		hooks: options.hooks,
 		runStatePolicy,
 	});
@@ -56,21 +56,45 @@ export function createMiddlewareFirewall(options: MiddlewareOptions = {}): Firew
 /** Name patterns → tool class/action mapping. */
 const TOOL_PATTERNS: Array<{ pattern: RegExp; toolClass: string; action: string }> = [
 	// HTTP read
-	{ pattern: /^(web_search|web_fetch|http_get|fetch_url|browse|scrape|search_web)$/i, toolClass: 'http', action: 'get' },
+	{
+		pattern: /^(web_search|web_fetch|http_get|fetch_url|browse|scrape|search_web)$/i,
+		toolClass: "http",
+		action: "get",
+	},
 	// HTTP write
-	{ pattern: /^(http_post|send_request|post_data|web_post)$/i, toolClass: 'http', action: 'post' },
+	{ pattern: /^(http_post|send_request|post_data|web_post)$/i, toolClass: "http", action: "post" },
 	// File read
-	{ pattern: /^(read_file|file_read|load_file|get_file|read_document)$/i, toolClass: 'file', action: 'read' },
+	{
+		pattern: /^(read_file|file_read|load_file|get_file|read_document)$/i,
+		toolClass: "file",
+		action: "read",
+	},
 	// File write
-	{ pattern: /^(write_file|file_write|save_file|create_file)$/i, toolClass: 'file', action: 'write' },
+	{
+		pattern: /^(write_file|file_write|save_file|create_file)$/i,
+		toolClass: "file",
+		action: "write",
+	},
 	// Shell
-	{ pattern: /^(run_shell|shell_exec|exec_command|run_command|terminal|bash|execute)$/i, toolClass: 'shell', action: 'exec' },
+	{
+		pattern: /^(run_shell|shell_exec|exec_command|run_command|terminal|bash|execute)$/i,
+		toolClass: "shell",
+		action: "exec",
+	},
 	// Database read
-	{ pattern: /^(query_db|sql_query|db_query|database_read|db_read|run_query)$/i, toolClass: 'database', action: 'query' },
+	{
+		pattern: /^(query_db|sql_query|db_query|database_read|db_read|run_query)$/i,
+		toolClass: "database",
+		action: "query",
+	},
 	// Database write
-	{ pattern: /^(db_write|sql_insert|db_insert|database_write|db_update)$/i, toolClass: 'database', action: 'write' },
+	{
+		pattern: /^(db_write|sql_insert|db_insert|database_write|db_update)$/i,
+		toolClass: "database",
+		action: "write",
+	},
 	// Email (maps to http.post — egress)
-	{ pattern: /^(send_email|email_send|send_message)$/i, toolClass: 'http', action: 'post' },
+	{ pattern: /^(send_email|email_send|send_message)$/i, toolClass: "http", action: "post" },
 ];
 
 /**
@@ -148,24 +172,21 @@ export function registerStubExecutors(
 }
 
 /** Derive taint labels from tool class and parameters. */
-function deriveTaintLabels(
-	toolClass: string,
-	parameters: Record<string, unknown>,
-): TaintLabel[] {
+function deriveTaintLabels(toolClass: string, parameters: Record<string, unknown>): TaintLabel[] {
 	const now = new Date().toISOString();
-	if (toolClass === 'http') {
-		let hostname = 'unknown';
-		if (typeof parameters.url === 'string') {
+	if (toolClass === "http") {
+		let hostname = "unknown";
+		if (typeof parameters.url === "string") {
 			try {
 				hostname = new URL(parameters.url).hostname;
 			} catch {
 				// invalid URL, keep 'unknown'
 			}
 		}
-		return [{ source: 'web', origin: hostname, confidence: 0.9, addedAt: now }];
+		return [{ source: "web", origin: hostname, confidence: 0.9, addedAt: now }];
 	}
-	if (toolClass === 'database') {
-		return [{ source: 'tool-output', origin: 'database', confidence: 0.8, addedAt: now }];
+	if (toolClass === "database") {
+		return [{ source: "tool-output", origin: "database", confidence: 0.8, addedAt: now }];
 	}
 	return [];
 }

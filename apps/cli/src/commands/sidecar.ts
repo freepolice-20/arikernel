@@ -1,4 +1,4 @@
-import { SidecarServer, DEFAULT_PORT, DEFAULT_HOST } from '@arikernel/sidecar';
+import { DEFAULT_HOST, DEFAULT_PORT, SidecarServer } from "@arikernel/sidecar";
 
 export async function runSidecar(options: {
 	policy: string;
@@ -21,7 +21,7 @@ export async function runSidecar(options: {
 	console.log(`AriKernel sidecar listening on ${addr}`);
 	console.log(`  Policy : ${options.policy}`);
 	console.log(`  Audit  : ${options.auditLog}`);
-	console.log(`  Auth   : ${options.authToken ? 'enabled (Bearer token)' : 'disabled'}`);
+	console.log(`  Auth   : ${options.authToken ? "enabled (Bearer token)" : "disabled"}`);
 	console.log(`  POST   : http://${addr}/execute`);
 	console.log(`  Health : http://${addr}/health`);
 
@@ -29,17 +29,17 @@ export async function runSidecar(options: {
 		console.log(`\n  ⚠  Server is exposed on ${options.host}. Ensure --auth-token is set.`);
 	}
 
-	console.log('\nPress Ctrl+C to stop.\n');
+	console.log("\nPress Ctrl+C to stop.\n");
 
 	// Keep the process alive; shut down cleanly on SIGINT/SIGTERM
 	const shutdown = async () => {
-		console.log('\nShutting down sidecar...');
+		console.log("\nShutting down sidecar...");
 		await server.close();
 		process.exit(0);
 	};
 
-	process.on('SIGINT', shutdown);
-	process.on('SIGTERM', shutdown);
+	process.on("SIGINT", shutdown);
+	process.on("SIGTERM", shutdown);
 
 	// Block indefinitely
 	await new Promise<never>(() => {});

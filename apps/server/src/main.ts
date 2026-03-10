@@ -1,12 +1,12 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { resolve } from 'node:path';
-import { ToolCallDeniedError } from '@arikernel/core';
-import { SessionManager, type SessionConfig } from './sessions.js';
+import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
+import { resolve } from "node:path";
+import { ToolCallDeniedError } from "@arikernel/core";
+import { type SessionConfig, SessionManager } from "./sessions.js";
 
 const PORT = Number(process.env.PORT ?? 9099);
-const HOST = process.env.HOST ?? '127.0.0.1';
-const POLICY = process.env.POLICY ?? resolve('policies', 'safe-defaults.yaml');
-const AUDIT_DB = process.env.AUDIT_DB ?? resolve('audit.db');
+const HOST = process.env.HOST ?? "127.0.0.1";
+const POLICY = process.env.POLICY ?? resolve("policies", "safe-defaults.yaml");
+const AUDIT_DB = process.env.AUDIT_DB ?? resolve("audit.db");
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES ?? 1_048_576); // 1 MB
 
@@ -30,7 +30,7 @@ function rateOk(ip: string): boolean {
 const sessions = new SessionManager(POLICY, AUDIT_DB);
 
 function json(res: ServerResponse, status: number, body: unknown): void {
-	res.writeHead(status, { 'Content-Type': 'application/json' });
+	res.writeHead(status, { "Content-Type": "application/json" });
 	res.end(JSON.stringify(body));
 }
 
@@ -49,26 +49,34 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 	}
 }
 
-class BodyTooLargeError extends Error { constructor() { super('Request body exceeds size limit'); } }
-class JsonParseError extends Error { constructor() { super('Invalid JSON in request body'); } }
+class BodyTooLargeError extends Error {
+	constructor() {
+		super("Request body exceeds size limit");
+	}
+}
+class JsonParseError extends Error {
+	constructor() {
+		super("Invalid JSON in request body");
+	}
+}
 
 function parseRoute(url: string): { path: string; sessionId?: string; action?: string } {
-	const parts = url.split('/').filter(Boolean);
-	if (parts[0] !== 'session') return { path: url };
-	if (parts.length === 1) return { path: '/session' };
-	if (parts.length === 2) return { path: '/session/:id', sessionId: parts[1] };
-	return { path: '/session/:id/:action', sessionId: parts[1], action: parts[2] };
+	const parts = url.split("/").filter(Boolean);
+	if (parts[0] !== "session") return { path: url };
+	if (parts.length === 1) return { path: "/session" };
+	if (parts.length === 2) return { path: "/session/:id", sessionId: parts[1] };
+	return { path: "/session/:id/:action", sessionId: parts[1], action: parts[2] };
 }
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-	const method = req.method ?? 'GET';
-	const route = parseRoute(req.url ?? '/');
+	const method = req.method ?? "GET";
+	const route = parseRoute(req.url ?? "/");
 
 	// POST /session — create session
-	if (method === 'POST' && route.path === '/session') {
+	if (method === "POST" && route.path === "/session") {
 		const body = (await readBody(req)) as SessionConfig;
 		if (!body.principal || !body.capabilities) {
-			json(res, 400, { error: 'Missing principal or capabilities' });
+			json(res, 400, { error: "Missing principal or capabilities" });
 			return;
 		}
 		const result = sessions.create(body);
@@ -77,9 +85,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 	}
 
 	// POST /session/:id/capability — request capability
-	if (method === 'POST' && route.action === 'capability' && route.sessionId) {
+	if (method === "POST" && route.action === "capability" && route.sessionId) {
 		const firewall = sessions.get(route.sessionId);
-		if (!firewall) { json(res, 404, { error: 'Session not found' }); return; }
+		if (!firewall) {
+			json(res, 404, { error: "Session not found" });
+			return;
+		}
 		const body = (await readBody(req)) as {
 			capabilityClass: string;
 			taintLabels?: Array<{ source: string; origin: string; confidence?: number }>;
@@ -104,9 +115,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 	}
 
 	// POST /session/:id/execute — execute decision check
-	if (method === 'POST' && route.action === 'execute' && route.sessionId) {
+	if (method === "POST" && route.action === "execute" && route.sessionId) {
 		const firewall = sessions.get(route.sessionId);
-		if (!firewall) { json(res, 404, { error: 'Session not found' }); return; }
+		if (!firewall) {
+			json(res, 404, { error: "Session not found" });
+			return;
+		}
 		const body = (await readBody(req)) as {
 			toolClass: string;
 			action: string;
@@ -128,17 +142,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 				})),
 			});
 			json(res, 200, {
-				verdict: 'allow',
+				verdict: "allow",
 				success: result.success,
 				data: result.data,
 				durationMs: result.durationMs,
 			});
 		} catch (err) {
 			// Use duck-typing to avoid instanceof issues with bundled code
-			if (err instanceof Error && 'decision' in err && (err as any).decision?.verdict === 'deny') {
+			if (err instanceof Error && "decision" in err && (err as any).decision?.verdict === "deny") {
 				const decision = (err as any).decision;
 				json(res, 403, {
-					verdict: 'deny',
+					verdict: "deny",
 					reason: decision.reason,
 					rule: decision.matchedRule?.name ?? null,
 				});
@@ -150,9 +164,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 	}
 
 	// POST /session/:id/revoke — revoke a grant
-	if (method === 'POST' && route.action === 'revoke' && route.sessionId) {
+	if (method === "POST" && route.action === "revoke" && route.sessionId) {
 		const firewall = sessions.get(route.sessionId);
-		if (!firewall) { json(res, 404, { error: 'Session not found' }); return; }
+		if (!firewall) {
+			json(res, 404, { error: "Session not found" });
+			return;
+		}
 		const body = (await readBody(req)) as { grantId: string };
 		const revoked = firewall.revokeGrant(body.grantId);
 		json(res, 200, { revoked });
@@ -160,28 +177,28 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 	}
 
 	// DELETE /session/:id — close session
-	if (method === 'DELETE' && route.path === '/session/:id' && route.sessionId) {
+	if (method === "DELETE" && route.path === "/session/:id" && route.sessionId) {
 		const destroyed = sessions.destroy(route.sessionId);
 		json(res, destroyed ? 200 : 404, { closed: destroyed });
 		return;
 	}
 
 	// GET /health
-	if (method === 'GET' && (req.url === '/health' || req.url === '/')) {
-		json(res, 200, { status: 'ok', version: '0.1.0' });
+	if (method === "GET" && (req.url === "/health" || req.url === "/")) {
+		json(res, 200, { status: "ok", version: "0.1.0" });
 		return;
 	}
 
-	json(res, 404, { error: 'Not found' });
+	json(res, 404, { error: "Not found" });
 }
 
 const server = createServer(async (req, res) => {
 	try {
-		const ip = req.socket.remoteAddress ?? 'unknown';
+		const ip = req.socket.remoteAddress ?? "unknown";
 
 		// Rate limiting
 		if (!rateOk(ip)) {
-			json(res, 429, { error: 'Too many requests' });
+			json(res, 429, { error: "Too many requests" });
 			return;
 		}
 
@@ -189,7 +206,7 @@ const server = createServer(async (req, res) => {
 		if (AUTH_TOKEN) {
 			const authHeader = req.headers.authorization;
 			if (authHeader !== `Bearer ${AUTH_TOKEN}`) {
-				json(res, 401, { error: 'Unauthorized' });
+				json(res, 401, { error: "Unauthorized" });
 				return;
 			}
 		}
@@ -201,7 +218,7 @@ const server = createServer(async (req, res) => {
 		} else if (err instanceof JsonParseError) {
 			json(res, 400, { error: err.message });
 		} else {
-			json(res, 500, { error: err instanceof Error ? err.message : 'Internal error' });
+			json(res, 500, { error: err instanceof Error ? err.message : "Internal error" });
 		}
 	}
 });
@@ -210,13 +227,19 @@ server.listen(PORT, HOST, () => {
 	console.log(`AriKernel server listening on http://${HOST}:${PORT}`);
 	console.log(`  Policy:    ${POLICY}`);
 	console.log(`  Audit:     ${AUDIT_DB}`);
-	console.log(`  Auth:      ${AUTH_TOKEN ? 'enabled' : 'disabled (set AUTH_TOKEN to enable)'}`);
+	console.log(`  Auth:      ${AUTH_TOKEN ? "enabled" : "disabled (set AUTH_TOKEN to enable)"}`);
 	console.log(`  Max body:  ${MAX_BODY_BYTES} bytes`);
 	console.log(`  Rate cap:  ${RATE_MAX} req/${RATE_WINDOW_MS / 1000}s per IP`);
-	if (HOST === '0.0.0.0') {
-		console.warn('  ⚠ Server bound to all interfaces — ensure this is intentional');
+	if (HOST === "0.0.0.0") {
+		console.warn("  ⚠ Server bound to all interfaces — ensure this is intentional");
 	}
 });
 
-process.on('SIGTERM', () => { sessions.close(); server.close(); });
-process.on('SIGINT', () => { sessions.close(); server.close(); });
+process.on("SIGTERM", () => {
+	sessions.close();
+	server.close();
+});
+process.on("SIGINT", () => {
+	sessions.close();
+	server.close();
+});

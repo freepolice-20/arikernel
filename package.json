@@ -12,8 +12,8 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
+    "lint": "biome check packages/ apps/",
+    "lint:fix": "biome check --write packages/ apps/",
     "clean": "turbo clean",
     "reset": "turbo clean && node -e \"fs.rmSync('node_modules',{recursive:true,force:true})\"",
     "typecheck": "turbo typecheck",

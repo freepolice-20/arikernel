@@ -1,7 +1,13 @@
-import type { ToolCallRequest, ToolResult, IssuanceDecision, CapabilityClass, TaintLabel } from '@arikernel/core';
-import { ToolCallDeniedError, generateId, now, deriveCapabilityClass } from '@arikernel/core';
-import type { Firewall, Kernel } from '@arikernel/runtime';
-import { getDefaultKernel } from '@arikernel/runtime';
+import type {
+	CapabilityClass,
+	IssuanceDecision,
+	TaintLabel,
+	ToolCallRequest,
+	ToolResult,
+} from "@arikernel/core";
+import { ToolCallDeniedError, deriveCapabilityClass, generateId, now } from "@arikernel/core";
+import type { Firewall, Kernel } from "@arikernel/runtime";
+import { getDefaultKernel } from "@arikernel/runtime";
 
 /**
  * Base adapter interface for framework integrations.
@@ -26,9 +32,7 @@ export interface FrameworkAdapter<TAgent = unknown> {
  * This is the core primitive that all adapters use internally.
  * It handles capability request → execution → error handling.
  */
-export interface ProtectedTool {
-	(parameters: Record<string, unknown>): Promise<ToolResult>;
-}
+export type ProtectedTool = (parameters: Record<string, unknown>) => Promise<ToolResult>;
 
 export interface WrapToolOptions {
 	/** Capability class to request (e.g. "http.read"). Auto-derived if omitted. */
@@ -54,7 +58,8 @@ export function wrapTool(
 	opts?: WrapToolOptions,
 ): ProtectedTool {
 	return async (parameters: Record<string, unknown>) => {
-		const capClass = (opts?.capabilityClass ?? deriveCapabilityClass(toolClass, action)) as CapabilityClass;
+		const capClass = (opts?.capabilityClass ??
+			deriveCapabilityClass(toolClass, action)) as CapabilityClass;
 
 		const grant: IssuanceDecision = firewall.requestCapability(capClass);
 
@@ -63,18 +68,18 @@ export function wrapTool(
 			throw new ToolCallDeniedError(
 				{
 					id: generateId(),
-					runId: '',
+					runId: "",
 					sequence: 0,
 					timestamp: ts,
-					principalId: '',
-					toolClass: toolClass as ToolCallRequest['toolClass'],
+					principalId: "",
+					toolClass: toolClass as ToolCallRequest["toolClass"],
 					action,
 					parameters,
 					taintLabels: opts?.taintLabels ?? [],
 				},
 				{
-					verdict: 'deny',
-					reason: grant.reason ?? 'Capability denied',
+					verdict: "deny",
+					reason: grant.reason ?? "Capability denied",
 					matchedRule: null,
 					taintLabels: grant.taintLabels ?? [],
 					timestamp: ts,
@@ -83,17 +88,16 @@ export function wrapTool(
 		}
 
 		const request: ToolCallRequest = {
-			toolClass: toolClass as ToolCallRequest['toolClass'],
+			toolClass: toolClass as ToolCallRequest["toolClass"],
 			action,
 			parameters,
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 			taintLabels: opts?.taintLabels,
 		};
 
 		return firewall.execute(request);
 	};
 }
-
 
 /**
  * Tool mapping for protectTools().
@@ -163,5 +167,5 @@ export function protectTools(
 }
 
 function isFirewall(obj: unknown): obj is Firewall {
-	return obj !== null && typeof obj === 'object' && 'execute' in obj && 'requestCapability' in obj;
+	return obj !== null && typeof obj === "object" && "execute" in obj && "requestCapability" in obj;
 }

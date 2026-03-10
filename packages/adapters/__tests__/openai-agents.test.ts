@@ -1,39 +1,46 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { ToolCallDeniedError } from '@arikernel/core';
-import { createFirewall, type Firewall } from '@arikernel/runtime';
-import { protectAgentTools, type AgentToolDefinition } from '../src/openai-agents.js';
-import { resolve } from 'node:path';
+import { resolve } from "node:path";
+import { ToolCallDeniedError } from "@arikernel/core";
+import { type Firewall, createFirewall } from "@arikernel/runtime";
+import { afterEach, describe, expect, it } from "vitest";
+import { type AgentToolDefinition, protectAgentTools } from "../src/openai-agents.js";
 
-const POLICY_PATH = resolve(import.meta.dirname, '..', '..', '..', 'policies', 'safe-defaults.yaml');
+const POLICY_PATH = resolve(
+	import.meta.dirname,
+	"..",
+	"..",
+	"..",
+	"policies",
+	"safe-defaults.yaml",
+);
 
 function makeTools(): AgentToolDefinition[] {
 	return [
 		{
-			type: 'function',
+			type: "function",
 			function: {
-				name: 'web_search',
-				description: 'Search the web',
-				parameters: { type: 'object', properties: { url: { type: 'string' } } },
+				name: "web_search",
+				description: "Search the web",
+				parameters: { type: "object", properties: { url: { type: "string" } } },
 			},
 			execute: async (args) => `Fetched: ${args.url}`,
 		},
 		{
-			type: 'function',
+			type: "function",
 			function: {
-				name: 'read_file',
-				description: 'Read a file',
-				parameters: { type: 'object', properties: { path: { type: 'string' } } },
+				name: "read_file",
+				description: "Read a file",
+				parameters: { type: "object", properties: { path: { type: "string" } } },
 			},
 			execute: async (args) => `Contents of ${args.path}`,
 		},
 		{
-			type: 'function',
+			type: "function",
 			function: {
-				name: 'unmapped_tool',
-				description: 'Not mapped to AriKernel',
-				parameters: { type: 'object', properties: {} },
+				name: "unmapped_tool",
+				description: "Not mapped to AriKernel",
+				parameters: { type: "object", properties: {} },
 			},
-			execute: async () => 'unmapped result',
+			execute: async () => "unmapped result",
 		},
 	];
 }
@@ -43,79 +50,81 @@ function makeFirewall(name: string): Firewall {
 		principal: {
 			name,
 			capabilities: [
-				{ toolClass: 'http', actions: ['get'], constraints: { allowedHosts: ['example.com'] } },
-				{ toolClass: 'file', actions: ['read'], constraints: { allowedPaths: ['./data/**'] } },
+				{ toolClass: "http", actions: ["get"], constraints: { allowedHosts: ["example.com"] } },
+				{ toolClass: "file", actions: ["read"], constraints: { allowedPaths: ["./data/**"] } },
 			],
 		},
 		policies: POLICY_PATH,
-		auditLog: ':memory:',
+		auditLog: ":memory:",
 	});
 }
 
-describe('protectAgentTools', () => {
+describe("protectAgentTools", () => {
 	let fw: Firewall;
-	afterEach(() => { fw?.close(); });
+	afterEach(() => {
+		fw?.close();
+	});
 
-	it('wraps tool execute with firewall enforcement', async () => {
-		fw = makeFirewall('agents-basic');
+	it("wraps tool execute with firewall enforcement", async () => {
+		fw = makeFirewall("agents-basic");
 		const tools = makeTools();
 		const protected_ = protectAgentTools(fw, tools, {
-			web_search: { toolClass: 'http', action: 'get' },
-			read_file: { toolClass: 'file', action: 'read' },
+			web_search: { toolClass: "http", action: "get" },
+			read_file: { toolClass: "file", action: "read" },
 		});
 
 		expect(protected_).toHaveLength(3);
 		// Allowed: web_search to example.com
-		const result = await protected_[0].execute({ url: 'https://example.com/data' });
-		expect(result).toBe('Fetched: https://example.com/data');
+		const result = await protected_[0].execute({ url: "https://example.com/data" });
+		expect(result).toBe("Fetched: https://example.com/data");
 	});
 
-	it('denies tool call when capability is not granted', async () => {
-		fw = makeFirewall('agents-deny');
+	it("denies tool call when capability is not granted", async () => {
+		fw = makeFirewall("agents-deny");
 		const tools = makeTools();
 		const protected_ = protectAgentTools(fw, tools, {
-			read_file: { toolClass: 'file', action: 'read' },
+			read_file: { toolClass: "file", action: "read" },
 		});
 
 		// read_file on sensitive path should be denied
-		const readTool = protected_.find((t) => t.function.name === 'read_file')!;
-		await expect(readTool.execute({ path: '~/.ssh/id_rsa' })).rejects.toThrow(ToolCallDeniedError);
+		const readTool = protected_.find((t) => t.function.name === "read_file")!;
+		await expect(readTool.execute({ path: "~/.ssh/id_rsa" })).rejects.toThrow(ToolCallDeniedError);
 	});
 
-	it('passes unmapped tools through unchanged', async () => {
-		fw = makeFirewall('agents-passthrough');
+	it("passes unmapped tools through unchanged", async () => {
+		fw = makeFirewall("agents-passthrough");
 		const tools = makeTools();
 		const protected_ = protectAgentTools(fw, tools, {
-			web_search: { toolClass: 'http', action: 'get' },
+			web_search: { toolClass: "http", action: "get" },
 		});
 
-		const unmapped = protected_.find((t) => t.function.name === 'unmapped_tool')!;
+		const unmapped = protected_.find((t) => t.function.name === "unmapped_tool")!;
 		const result = await unmapped.execute({});
-		expect(result).toBe('unmapped result');
+		expect(result).toBe("unmapped result");
 	});
 
-	it('preserves tool definition metadata', async () => {
-		fw = makeFirewall('agents-metadata');
+	it("preserves tool definition metadata", async () => {
+		fw = makeFirewall("agents-metadata");
 		const tools = makeTools();
 		const protected_ = protectAgentTools(fw, tools, {
-			web_search: { toolClass: 'http', action: 'get' },
+			web_search: { toolClass: "http", action: "get" },
 		});
 
-		const search = protected_.find((t) => t.function.name === 'web_search')!;
-		expect(search.type).toBe('function');
-		expect(search.function.name).toBe('web_search');
-		expect(search.function.description).toBe('Search the web');
+		const search = protected_.find((t) => t.function.name === "web_search")!;
+		expect(search.type).toBe("function");
+		expect(search.function.name).toBe("web_search");
+		expect(search.function.description).toBe("Search the web");
 	});
 
-	it('denies tool with unknown toolClass cleanly instead of crashing', async () => {
-		fw = makeFirewall('agents-unknown-class');
+	it("denies tool with unknown toolClass cleanly instead of crashing", async () => {
+		fw = makeFirewall("agents-unknown-class");
 		const tools: AgentToolDefinition[] = [
 			{
-				type: 'function',
+				type: "function",
 				function: {
-					name: 'send_email',
-					description: 'Send an email',
-					parameters: { type: 'object', properties: { to: { type: 'string' } } },
+					name: "send_email",
+					description: "Send an email",
+					parameters: { type: "object", properties: { to: { type: "string" } } },
 				},
 				execute: async (args) => `Sent to ${args.to}`,
 			},
@@ -123,72 +132,85 @@ describe('protectAgentTools', () => {
 
 		// 'email' is not a recognized toolClass — must fail closed, not crash
 		const protected_ = protectAgentTools(fw, tools, {
-			send_email: { toolClass: 'email', action: 'send' },
+			send_email: { toolClass: "email", action: "send" },
 		});
 
 		const emailTool = protected_[0];
-		await expect(emailTool.execute({ to: 'attacker@evil.com' })).rejects.toThrow(ToolCallDeniedError);
+		await expect(emailTool.execute({ to: "attacker@evil.com" })).rejects.toThrow(
+			ToolCallDeniedError,
+		);
 
 		// Verify the error has a clean message, not a TypeError
 		try {
-			await emailTool.execute({ to: 'test@example.com' });
+			await emailTool.execute({ to: "test@example.com" });
 		} catch (err: any) {
 			expect(err).toBeInstanceOf(ToolCallDeniedError);
-			expect(err.message).toContain('Unknown capability class');
-			expect(err.message).toContain('email.write');
+			expect(err.message).toContain("Unknown capability class");
+			expect(err.message).toContain("email.write");
 			expect(err.toolCall).toBeDefined();
 			expect(err.toolCall.id).toBeTruthy();
-			expect(err.toolCall.toolClass).toBe('email');
-			expect(err.toolCall.action).toBe('send');
+			expect(err.toolCall.toolClass).toBe("email");
+			expect(err.toolCall.action).toBe("send");
 			expect(err.decision).toBeDefined();
-			expect(err.decision.verdict).toBe('deny');
+			expect(err.decision.verdict).toBe("deny");
 		}
 	});
 
-	it('never allows execution when toolClass is unknown', async () => {
-		fw = makeFirewall('agents-no-allow');
+	it("never allows execution when toolClass is unknown", async () => {
+		fw = makeFirewall("agents-no-allow");
 		const executeSpy = { called: false };
 		const tools: AgentToolDefinition[] = [
 			{
-				type: 'function',
-				function: { name: 'bad_tool', description: 'Test', parameters: {} },
-				execute: async () => { executeSpy.called = true; return 'should not run'; },
+				type: "function",
+				function: { name: "bad_tool", description: "Test", parameters: {} },
+				execute: async () => {
+					executeSpy.called = true;
+					return "should not run";
+				},
 			},
 		];
 
 		const protected_ = protectAgentTools(fw, tools, {
-			bad_tool: { toolClass: 'nonexistent', action: 'do' },
+			bad_tool: { toolClass: "nonexistent", action: "do" },
 		});
 
-		try { await protected_[0].execute({}); } catch {}
+		try {
+			await protected_[0].execute({});
+		} catch {}
 		expect(executeSpy.called).toBe(false);
 	});
 
-	it('triggers quarantine after repeated sensitive denials', async () => {
+	it("triggers quarantine after repeated sensitive denials", async () => {
 		fw = createFirewall({
 			principal: {
-				name: 'agents-quarantine',
+				name: "agents-quarantine",
 				capabilities: [
-					{ toolClass: 'http', actions: ['get', 'post'], constraints: { allowedHosts: ['example.com'] } },
-					{ toolClass: 'file', actions: ['read'], constraints: { allowedPaths: ['./data/**'] } },
+					{
+						toolClass: "http",
+						actions: ["get", "post"],
+						constraints: { allowedHosts: ["example.com"] },
+					},
+					{ toolClass: "file", actions: ["read"], constraints: { allowedPaths: ["./data/**"] } },
 				],
 			},
 			policies: POLICY_PATH,
-			auditLog: ':memory:',
+			auditLog: ":memory:",
 			runStatePolicy: { maxDeniedSensitiveActions: 2 },
 		});
 
 		const tools = makeTools();
 		const protected_ = protectAgentTools(fw, tools, {
-			read_file: { toolClass: 'file', action: 'read' },
-			web_search: { toolClass: 'http', action: 'post' },
+			read_file: { toolClass: "file", action: "read" },
+			web_search: { toolClass: "http", action: "post" },
 		});
 
-		const readTool = protected_.find((t) => t.function.name === 'read_file')!;
+		const readTool = protected_.find((t) => t.function.name === "read_file")!;
 
 		// Trigger quarantine with sensitive file reads
-		for (const path of ['~/.ssh/id_rsa', '~/.aws/credentials', '/etc/shadow']) {
-			try { await readTool.execute({ path }); } catch {}
+		for (const path of ["~/.ssh/id_rsa", "~/.aws/credentials", "/etc/shadow"]) {
+			try {
+				await readTool.execute({ path });
+			} catch {}
 		}
 
 		expect(fw.isRestricted).toBe(true);

@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import { TAINT_SOURCES } from '../types/taint.js';
-import { TOOL_CLASSES } from '../types/principal.js';
+import { z } from "zod";
+import { TOOL_CLASSES } from "../types/principal.js";
+import { TAINT_SOURCES } from "../types/taint.js";
 
 const toolClassOrArray = z.union([z.enum(TOOL_CLASSES), z.array(z.enum(TOOL_CLASSES))]);
 const stringOrArray = z.union([z.string(), z.array(z.string())]);
-const decisionVerdict = z.enum(['allow', 'deny', 'require-approval']);
+const decisionVerdict = z.enum(["allow", "deny", "require-approval"]);
 
 const parameterMatcherSchema = z.object({
 	pattern: z.string().optional(),

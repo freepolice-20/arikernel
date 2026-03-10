@@ -5,15 +5,11 @@
  * to replay a security-relevant run through the kernel deterministically.
  */
 
-import type {
-	Decision,
-	TaintLabel,
-	ToolCallRequest,
-} from '@arikernel/core';
-import type { SecurityEvent, QuarantineInfo, RunStateCounters } from './run-state.js';
+import type { Decision, TaintLabel, ToolCallRequest } from "@arikernel/core";
+import type { QuarantineInfo, RunStateCounters, SecurityEvent } from "./run-state.js";
 
 /** Current trace format version. Bump on breaking schema changes. */
-export const TRACE_VERSION = '1.0';
+export const TRACE_VERSION = "1.0";
 
 /** A single recorded tool call attempt and its outcome. */
 export interface TraceEvent {
@@ -35,7 +31,7 @@ export interface TraceEvent {
 
 /** Normalized decision record for the trace. */
 export interface TraceDecision {
-	verdict: 'allow' | 'deny' | 'quarantine';
+	verdict: "allow" | "deny" | "quarantine";
 	reason: string;
 	matchedRule?: string;
 	taintLabels: Array<{ source: string; origin: string }>;
@@ -48,7 +44,7 @@ export interface TraceQuarantine {
 	/** ISO 8601 timestamp. */
 	timestamp: string;
 	/** Trigger type: behavioral_rule or threshold. */
-	triggerType: 'behavioral_rule' | 'threshold';
+	triggerType: "behavioral_rule" | "threshold";
 	/** Rule ID if triggered by a behavioral rule. */
 	ruleId?: string;
 	/** Human-readable reason. */
@@ -136,7 +132,7 @@ export interface ReplayedEvent {
 /** A mismatch between original and replayed decision. */
 export interface ReplayMismatch {
 	sequence: number;
-	field: 'verdict' | 'reason' | 'matchedRule';
+	field: "verdict" | "reason" | "matchedRule";
 	original: string;
 	replayed: string;
 }

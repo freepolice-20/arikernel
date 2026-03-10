@@ -1,37 +1,35 @@
 {
-  "name": "@arikernel/runtime",
-  "version": "0.1.3",
-  "description": "Main runtime orchestrator for AriKernel",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
-  },
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/policy-engine": "workspace:*",
-    "@arikernel/taint-tracker": "workspace:*",
-    "@arikernel/audit-log": "workspace:*",
-    "@arikernel/tool-executors": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  }
+	"name": "@arikernel/runtime",
+	"version": "0.1.3",
+	"description": "Main runtime orchestrator for AriKernel",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --noEmit",
+		"clean": "rimraf dist"
+	},
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/policy-engine": "workspace:*",
+		"@arikernel/taint-tracker": "workspace:*",
+		"@arikernel/audit-log": "workspace:*",
+		"@arikernel/tool-executors": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.2",
+		"vitest": "^2.1.8"
+	}
 }

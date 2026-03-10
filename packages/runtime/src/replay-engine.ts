@@ -131,7 +131,7 @@ export async function replayTrace(
 				try {
 					await firewall.execute({
 						...event.request,
-						grantId: grant.grant!.id,
+						grantId: grant.grant?.id,
 					});
 					replayedDecision = {
 						verdict: "allow",
@@ -269,7 +269,7 @@ function buildReplayCapabilities(trace: ReplayTrace) {
 		if (!capMap.has(tc)) {
 			capMap.set(tc, new Set());
 		}
-		capMap.get(tc)!.add(event.request.action);
+		capMap.get(tc)?.add(event.request.action);
 
 		// Only extract constraints from ALLOWED events to preserve original enforcement
 		if (event.decision.verdict !== "allow") continue;

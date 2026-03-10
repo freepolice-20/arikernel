@@ -1,9 +1,9 @@
-import * as s1 from './scenario-1-prompt-injection-sensitive-file.js';
-import * as s2 from './scenario-2-prompt-injection-exfiltration.js';
-import * as s3 from './scenario-3-escalation-after-denial.js';
-import * as s4 from './scenario-4-web-taint-sensitive-probe.js';
-import * as s5 from './scenario-5-repeated-sensitive-probe.js';
-import type { ScenarioResult } from '../types.js';
+import type { ScenarioResult } from "../types.js";
+import * as s1 from "./scenario-1-prompt-injection-sensitive-file.js";
+import * as s2 from "./scenario-2-prompt-injection-exfiltration.js";
+import * as s3 from "./scenario-3-escalation-after-denial.js";
+import * as s4 from "./scenario-4-web-taint-sensitive-probe.js";
+import * as s5 from "./scenario-5-repeated-sensitive-probe.js";
 
 export interface ScenarioDef {
 	id: string;

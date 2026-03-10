@@ -1,10 +1,10 @@
-import type { TaintLabel, ToolCall, ToolResult } from '@arikernel/core';
-import { now } from '@arikernel/core';
-import type { ToolExecutor } from './base.js';
-import { makeResult } from './base.js';
+import type { TaintLabel, ToolCall, ToolResult } from "@arikernel/core";
+import { now } from "@arikernel/core";
+import type { ToolExecutor } from "./base.js";
+import { makeResult } from "./base.js";
 
 export class RetrievalExecutor implements ToolExecutor {
-	readonly toolClass = 'retrieval';
+	readonly toolClass = "retrieval";
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
 		const start = Date.now();
@@ -19,11 +19,11 @@ export class RetrievalExecutor implements ToolExecutor {
 			source,
 			query,
 			documents: [],
-			note: 'Retrieval executor stub. Wire up your vector store via ExecutorRegistry.register().',
+			note: "Retrieval executor stub. Wire up your vector store via ExecutorRegistry.register().",
 		});
 
 		const taintLabel: TaintLabel = {
-			source: 'rag',
+			source: "rag",
 			origin: source,
 			confidence: 1.0,
 			addedAt: now(),

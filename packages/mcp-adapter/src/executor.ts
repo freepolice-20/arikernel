@@ -1,7 +1,7 @@
-import type { TaintLabel, ToolCall, ToolResult } from '@arikernel/core';
-import { now } from '@arikernel/core';
-import type { ToolExecutor } from '@arikernel/tool-executors';
-import type { MCPTool } from './types.js';
+import type { TaintLabel, ToolCall, ToolResult } from "@arikernel/core";
+import { now } from "@arikernel/core";
+import type { ToolExecutor } from "@arikernel/tool-executors";
+import type { MCPTool } from "./types.js";
 
 /**
  * Infer taint labels from MCP tool arguments.
@@ -14,23 +14,23 @@ function inferTaintLabels(args: Record<string, unknown>): TaintLabel[] {
 	const labels: TaintLabel[] = [];
 	const ts = now();
 
-	const urlArg = args['url'] ?? args['endpoint'];
-	if (typeof urlArg === 'string') {
+	const urlArg = args.url ?? args.endpoint;
+	if (typeof urlArg === "string") {
 		try {
 			const hostname = new URL(urlArg).hostname;
-			labels.push({ source: 'web', origin: hostname, confidence: 1.0, addedAt: ts });
+			labels.push({ source: "web", origin: hostname, confidence: 1.0, addedAt: ts });
 		} catch {
-			labels.push({ source: 'web', origin: urlArg, confidence: 0.8, addedAt: ts });
+			labels.push({ source: "web", origin: urlArg, confidence: 0.8, addedAt: ts });
 		}
 	}
 
-	const ragArg = args['source'] ?? args['collection'];
-	if (typeof ragArg === 'string') {
-		labels.push({ source: 'rag', origin: ragArg, confidence: 1.0, addedAt: ts });
+	const ragArg = args.source ?? args.collection;
+	if (typeof ragArg === "string") {
+		labels.push({ source: "rag", origin: ragArg, confidence: 1.0, addedAt: ts });
 	}
 
 	if (labels.length === 0) {
-		labels.push({ source: 'tool-output', origin: 'mcp', confidence: 1.0, addedAt: ts });
+		labels.push({ source: "tool-output", origin: "mcp", confidence: 1.0, addedAt: ts });
 	}
 
 	return labels;
@@ -57,7 +57,7 @@ function mergeTaintLabels(a: TaintLabel[], b: TaintLabel[]): TaintLabel[] {
  * The `action` field maps to the tool name.
  */
 export class McpDispatchExecutor implements ToolExecutor {
-	readonly toolClass = 'mcp';
+	readonly toolClass = "mcp";
 
 	private tools = new Map<string, MCPTool>();
 
@@ -69,7 +69,7 @@ export class McpDispatchExecutor implements ToolExecutor {
 		return this.tools.has(name);
 	}
 
-	list(): Array<Omit<MCPTool, 'execute'>> {
+	list(): Array<Omit<MCPTool, "execute">> {
 		return Array.from(this.tools.values()).map(({ name, description, inputSchema }) => ({
 			name,
 			description,
@@ -85,7 +85,7 @@ export class McpDispatchExecutor implements ToolExecutor {
 			return {
 				callId: toolCall.id,
 				success: false,
-				error: `Unknown MCP tool: '${toolCall.action}'. Registered tools: [${[...this.tools.keys()].join(', ')}]`,
+				error: `Unknown MCP tool: '${toolCall.action}'. Registered tools: [${[...this.tools.keys()].join(", ")}]`,
 				taintLabels: [],
 				durationMs: Date.now() - start,
 			};

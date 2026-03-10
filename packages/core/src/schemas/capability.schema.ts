@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { CAPABILITY_CLASSES } from '../types/capability.js';
-import { taintLabelSchema } from './tool-call.schema.js';
+import { z } from "zod";
+import { CAPABILITY_CLASSES } from "../types/capability.js";
+import { taintLabelSchema } from "./tool-call.schema.js";
 
 const capabilityConstraintSchema = z.object({
 	allowedHosts: z.array(z.string()).optional(),

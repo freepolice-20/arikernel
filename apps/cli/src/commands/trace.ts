@@ -1,32 +1,32 @@
-import { AuditStore, replayRun } from '@arikernel/audit-log';
-import type { AuditEvent } from '@arikernel/core';
+import { AuditStore, replayRun } from "@arikernel/audit-log";
+import type { AuditEvent } from "@arikernel/core";
 
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const MAGENTA = '\x1b[35m';
-const RESET = '\x1b[0m';
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const MAGENTA = "\x1b[35m";
+const RESET = "\x1b[0m";
 
 const VERDICT_COLORS: Record<string, string> = {
 	allow: GREEN,
 	deny: RED,
-	'require-approval': YELLOW,
+	"require-approval": YELLOW,
 };
 
 function formatTimestamp(ts: string): string {
 	try {
 		const d = new Date(ts);
-		return d.toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+		return d.toLocaleTimeString("en-US", { hour12: false, fractionalSecondDigits: 3 });
 	} catch {
 		return ts;
 	}
 }
 
 function printTraceEvent(event: AuditEvent): void {
-	if (event.toolCall.toolClass === '_system') {
+	if (event.toolCall.toolClass === "_system") {
 		console.log(`  ${DIM}│${RESET}`);
 		console.log(`  ${MAGENTA}${BOLD}├─ QUARANTINE${RESET}`);
 		console.log(`  ${DIM}│  ${MAGENTA}Run entered restricted mode${RESET}`);
@@ -38,7 +38,7 @@ function printTraceEvent(event: AuditEvent): void {
 		return;
 	}
 
-	const color = VERDICT_COLORS[event.decision.verdict] ?? '';
+	const color = VERDICT_COLORS[event.decision.verdict] ?? "";
 	const verdict = event.decision.verdict.toUpperCase();
 	const time = formatTimestamp(event.timestamp);
 
@@ -48,7 +48,7 @@ function printTraceEvent(event: AuditEvent): void {
 
 	// Show taint if present
 	if (event.toolCall.taintLabels.length > 0) {
-		const sources = event.toolCall.taintLabels.map((t) => t.source).join(', ');
+		const sources = event.toolCall.taintLabels.map((t) => t.source).join(", ");
 		console.log(`  ${DIM}taint: ${sources}${RESET}`);
 	}
 
@@ -61,13 +61,17 @@ function printTraceEvent(event: AuditEvent): void {
 
 	console.log(`  ${DIM}│${RESET}`);
 	console.log(`  ${DIM}├─${RESET} Policy evaluation`);
-	const rule = event.decision.matchedRule?.name ?? 'implicit deny';
+	const rule = event.decision.matchedRule?.name ?? "implicit deny";
 	console.log(`  ${DIM}│  Rule: ${rule}${RESET}`);
 	console.log(`  ${DIM}│${RESET}`);
 	console.log(`  ${color}${BOLD}└─ ${verdict}${RESET} ${DIM}${event.decision.reason}${RESET}`);
 }
 
-export function runTrace(dbPath: string, runId: string | undefined, options: { latest?: boolean } = {}): void {
+export function runTrace(
+	dbPath: string,
+	runId: string | undefined,
+	options: { latest?: boolean } = {},
+): void {
 	const store = new AuditStore(dbPath);
 
 	try {
@@ -76,7 +80,7 @@ export function runTrace(dbPath: string, runId: string | undefined, options: { l
 		if (options.latest || !resolvedRunId) {
 			const runs = store.listRuns();
 			if (runs.length === 0) {
-				console.error('No runs found in database.');
+				console.error("No runs found in database.");
 				process.exit(1);
 			}
 			resolvedRunId = runs[0].runId;
@@ -94,13 +98,13 @@ export function runTrace(dbPath: string, runId: string | undefined, options: { l
 		const ctx = result.runContext;
 
 		// Header
-		console.log(`\n${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
+		console.log(`\n${CYAN}${BOLD}${"─".repeat(56)}${RESET}`);
 		console.log(`${CYAN}${BOLD} Security Trace${RESET}`);
-		console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}`);
+		console.log(`${CYAN}${BOLD}${"─".repeat(56)}${RESET}`);
 		console.log(`  ${DIM}Run:${RESET}       ${ctx.runId}`);
 		console.log(`  ${DIM}Principal:${RESET} ${ctx.principalId}`);
 		console.log(`  ${DIM}Started:${RESET}   ${ctx.startedAt}`);
-		console.log('');
+		console.log("");
 
 		// Trace start
 		console.log(`  ${CYAN}${BOLD}●${RESET} ${BOLD}Session start${RESET}`);
@@ -113,23 +117,27 @@ export function runTrace(dbPath: string, runId: string | undefined, options: { l
 		// Trace end
 		console.log(`  ${DIM}│${RESET}`);
 		if (ctx.endedAt) {
-			console.log(`  ${CYAN}${BOLD}●${RESET} ${BOLD}Session end${RESET} ${DIM}${formatTimestamp(ctx.endedAt)}${RESET}`);
+			console.log(
+				`  ${CYAN}${BOLD}●${RESET} ${BOLD}Session end${RESET} ${DIM}${formatTimestamp(ctx.endedAt)}${RESET}`,
+			);
 		}
 
 		// Summary
 		const counts = { allow: 0, deny: 0, quarantine: 0 };
 		for (const e of result.events) {
-			if (e.toolCall.toolClass === '_system') counts.quarantine++;
-			else if (e.decision.verdict === 'allow') counts.allow++;
+			if (e.toolCall.toolClass === "_system") counts.quarantine++;
+			else if (e.decision.verdict === "allow") counts.allow++;
 			else counts.deny++;
 		}
 
-		console.log('');
-		console.log(`  ${GREEN}${counts.allow} allowed${RESET}  ${RED}${counts.deny} denied${RESET}  ${MAGENTA}${counts.quarantine} quarantine${RESET}`);
+		console.log("");
+		console.log(
+			`  ${GREEN}${counts.allow} allowed${RESET}  ${RED}${counts.deny} denied${RESET}  ${MAGENTA}${counts.quarantine} quarantine${RESET}`,
+		);
 		const integrityColor = result.integrity.valid ? GREEN : RED;
-		const integrityLabel = result.integrity.valid ? 'VALID' : 'BROKEN';
+		const integrityLabel = result.integrity.valid ? "VALID" : "BROKEN";
 		console.log(`  Hash chain: ${integrityColor}${BOLD}${integrityLabel}${RESET}`);
-		console.log(`${CYAN}${BOLD}${'─'.repeat(56)}${RESET}\n`);
+		console.log(`${CYAN}${BOLD}${"─".repeat(56)}${RESET}\n`);
 	} finally {
 		store.close();
 	}

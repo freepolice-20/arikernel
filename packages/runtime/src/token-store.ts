@@ -1,4 +1,4 @@
-import type { CapabilityGrant } from '@arikernel/core';
+import type { CapabilityGrant } from "@arikernel/core";
 
 export interface TokenValidation {
 	valid: boolean;
@@ -34,7 +34,10 @@ export class TokenStore {
 		}
 
 		if (grant.lease.callsUsed >= grant.lease.maxCalls) {
-			return { valid: false, reason: `Grant exhausted: ${grant.lease.callsUsed}/${grant.lease.maxCalls} calls used` };
+			return {
+				valid: false,
+				reason: `Grant exhausted: ${grant.lease.callsUsed}/${grant.lease.maxCalls} calls used`,
+			};
 		}
 
 		return { valid: true };

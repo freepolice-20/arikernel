@@ -20,9 +20,9 @@
  * const result = await tools.execute("web_search", { url: "https://example.com" });
  * ```
  */
-import type { ToolResult } from '@arikernel/core';
-import type { Firewall } from '@arikernel/runtime';
-import { wrapTool, type WrapToolOptions } from './adapter.js';
+import type { ToolResult } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { type WrapToolOptions, wrapTool } from "./adapter.js";
 
 export interface VercelToolMapping {
 	toolClass: string;
@@ -53,7 +53,7 @@ export function protectVercelTools(
 			const fn = tools.get(toolName);
 			if (!fn) {
 				throw new Error(
-					`Unknown tool "${toolName}". Registered tools: ${[...tools.keys()].join(', ')}`,
+					`Unknown tool "${toolName}". Registered tools: ${[...tools.keys()].join(", ")}`,
 				);
 			}
 			return fn(args);

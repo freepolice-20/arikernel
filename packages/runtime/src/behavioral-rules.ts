@@ -6,7 +6,7 @@
  * No DSL, no graph engine — just direct pattern matching.
  */
 
-import type { QuarantineInfo, RunStateTracker, SecurityEvent } from './run-state.js';
+import type { QuarantineInfo, RunStateTracker, SecurityEvent } from "./run-state.js";
 
 export interface BehavioralRuleMatch {
 	ruleId: string;
@@ -19,13 +19,13 @@ export interface BehavioralRuleMatch {
  * Used by rule 2 to detect capability escalation.
  */
 const TOOL_CLASS_RISK: Record<string, number> = {
-	http: 1,     // read-only HTTP is low risk
+	http: 1, // read-only HTTP is low risk
 	database: 2, // data access
-	file: 3,     // filesystem access
-	shell: 5,    // arbitrary code execution
+	file: 3, // filesystem access
+	shell: 5, // arbitrary code execution
 };
 
-const DANGEROUS_CLASSES = new Set(['shell', 'file']);
+const DANGEROUS_CLASSES = new Set(["shell", "file"]);
 
 /**
  * Evaluate all behavioral sequence rules against the recent-event window.
@@ -64,30 +64,35 @@ export function applyBehavioralRule(
 // attempts sensitive file reads, shell exec, or outbound egress → quarantine.
 
 function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
-	const taintEvent = findRecent(events, (e) =>
-		e.type === 'taint_observed' &&
-		e.taintSources?.some((s) => s === 'web' || s === 'rag' || s === 'email') === true,
+	const taintEvent = findRecent(
+		events,
+		(e) =>
+			e.type === "taint_observed" &&
+			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
 	if (!taintEvent) return null;
 
 	const taintIdx = events.indexOf(taintEvent);
 
 	// Look for dangerous follow-up actions AFTER the taint observation
-	const dangerousFollowup = findAfter(events, taintIdx, (e) =>
-		e.type === 'sensitive_read_attempt' ||
-		(e.type === 'tool_call_denied' && e.toolClass === 'shell') ||
-		(e.type === 'tool_call_allowed' && e.toolClass === 'shell') ||
-		e.type === 'egress_attempt',
+	const dangerousFollowup = findAfter(
+		events,
+		taintIdx,
+		(e) =>
+			e.type === "sensitive_read_attempt" ||
+			(e.type === "tool_call_denied" && e.toolClass === "shell") ||
+			(e.type === "tool_call_allowed" && e.toolClass === "shell") ||
+			e.type === "egress_attempt",
 	);
 
 	if (!dangerousFollowup) return null;
 
 	const actionDesc = dangerousFollowup.toolClass
-		? `${dangerousFollowup.toolClass}.${dangerousFollowup.action ?? '*'}`
+		? `${dangerousFollowup.toolClass}.${dangerousFollowup.action ?? "*"}`
 		: dangerousFollowup.type;
 
 	return {
-		ruleId: 'web_taint_sensitive_probe',
+		ruleId: "web_taint_sensitive_probe",
 		reason: `Untrusted web input was followed by ${actionDesc} attempt`,
 		matchedEvents: [taintEvent, dangerousFollowup],
 	};
@@ -98,21 +103,23 @@ function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[]): Behavior
 // If a capability request is denied, and shortly after the run requests
 // a broader or riskier capability → quarantine.
 
-function checkDeniedCapabilityThenEscalation(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
-	const deniedCap = findRecent(events, (e) => e.type === 'capability_denied');
+function checkDeniedCapabilityThenEscalation(
+	events: readonly SecurityEvent[],
+): BehavioralRuleMatch | null {
+	const deniedCap = findRecent(events, (e) => e.type === "capability_denied");
 	if (!deniedCap) return null;
 
 	const deniedIdx = events.indexOf(deniedCap);
-	const deniedRisk = TOOL_CLASS_RISK[deniedCap.toolClass ?? ''] ?? 0;
+	const deniedRisk = TOOL_CLASS_RISK[deniedCap.toolClass ?? ""] ?? 0;
 
 	// Look for a subsequent capability request that is riskier
 	const escalation = findAfter(events, deniedIdx, (e) => {
-		if (e.type !== 'capability_requested' && e.type !== 'capability_granted') return false;
-		const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ''] ?? 0;
+		if (e.type !== "capability_requested" && e.type !== "capability_granted") return false;
+		const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ""] ?? 0;
 
 		// Escalation: requesting something riskier, or requesting a dangerous class
 		if (requestedRisk > deniedRisk) return true;
-		if (DANGEROUS_CLASSES.has(e.toolClass ?? '')) return true;
+		if (DANGEROUS_CLASSES.has(e.toolClass ?? "")) return true;
 
 		return false;
 	});
@@ -120,8 +127,8 @@ function checkDeniedCapabilityThenEscalation(events: readonly SecurityEvent[]): 
 	if (!escalation) return null;
 
 	return {
-		ruleId: 'denied_capability_then_escalation',
-		reason: `Denied ${deniedCap.toolClass ?? 'unknown'} capability was followed by escalation to ${escalation.toolClass ?? 'unknown'}`,
+		ruleId: "denied_capability_then_escalation",
+		reason: `Denied ${deniedCap.toolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
 		matchedEvents: [deniedCap, escalation],
 	};
 }
@@ -131,23 +138,26 @@ function checkDeniedCapabilityThenEscalation(events: readonly SecurityEvent[]): 
 // If the run reads (or attempts to read) sensitive local data, and
 // shortly after attempts outbound POST/write/upload → quarantine.
 
-function checkSensitiveReadThenEgress(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
-	const sensitiveRead = findRecent(events, (e) =>
-		e.type === 'sensitive_read_attempt' || e.type === 'sensitive_read_allowed',
+function checkSensitiveReadThenEgress(
+	events: readonly SecurityEvent[],
+): BehavioralRuleMatch | null {
+	const sensitiveRead = findRecent(
+		events,
+		(e) => e.type === "sensitive_read_attempt" || e.type === "sensitive_read_allowed",
 	);
 	if (!sensitiveRead) return null;
 
 	const readIdx = events.indexOf(sensitiveRead);
 
-	const egress = findAfter(events, readIdx, (e) => e.type === 'egress_attempt');
+	const egress = findAfter(events, readIdx, (e) => e.type === "egress_attempt");
 
 	if (!egress) return null;
 
-	const path = (sensitiveRead.metadata?.path as string) ?? 'sensitive file';
+	const path = (sensitiveRead.metadata?.path as string) ?? "sensitive file";
 
 	return {
-		ruleId: 'sensitive_read_then_egress',
-		reason: `Read of ${path} was followed by outbound ${egress.action ?? 'write'} attempt`,
+		ruleId: "sensitive_read_then_egress",
+		reason: `Read of ${path} was followed by outbound ${egress.action ?? "write"} attempt`,
 		matchedEvents: [sensitiveRead, egress],
 	};
 }
@@ -157,24 +167,28 @@ function checkSensitiveReadThenEgress(events: readonly SecurityEvent[]): Behavio
 // If untrusted taint was observed, and the run then attempts a database
 // write/exec/mutate action → quarantine. Prevents tainted SQL injection.
 
-const DB_WRITE_ACTIONS = new Set(['exec', 'write', 'insert', 'update', 'delete', 'mutate']);
+const DB_WRITE_ACTIONS = new Set(["exec", "write", "insert", "update", "delete", "mutate"]);
 
 function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
-	const taintEvent = findRecent(events, (e) =>
-		e.type === 'taint_observed' &&
-		e.taintSources?.some((s) => s === 'web' || s === 'rag' || s === 'email') === true,
+	const taintEvent = findRecent(
+		events,
+		(e) =>
+			e.type === "taint_observed" &&
+			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
 	if (!taintEvent) return null;
 
 	const taintIdx = events.indexOf(taintEvent);
 
-	const dbWrite = findAfter(events, taintIdx, (e) =>
-		e.toolClass === 'database' && DB_WRITE_ACTIONS.has(e.action ?? ''),
+	const dbWrite = findAfter(
+		events,
+		taintIdx,
+		(e) => e.toolClass === "database" && DB_WRITE_ACTIONS.has(e.action ?? ""),
 	);
 	if (!dbWrite) return null;
 
 	return {
-		ruleId: 'tainted_database_write',
+		ruleId: "tainted_database_write",
 		reason: `Untrusted input was followed by database ${dbWrite.action} attempt`,
 		matchedEvents: [taintEvent, dbWrite],
 	};
@@ -189,24 +203,26 @@ function checkTaintedDatabaseWrite(events: readonly SecurityEvent[]): Behavioral
 const SHELL_DATA_CMD_LENGTH = 100;
 
 function checkTaintedShellWithData(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
-	const taintEvent = findRecent(events, (e) =>
-		e.type === 'taint_observed' &&
-		e.taintSources?.some((s) => s === 'web' || s === 'rag' || s === 'email') === true,
+	const taintEvent = findRecent(
+		events,
+		(e) =>
+			e.type === "taint_observed" &&
+			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
 	if (!taintEvent) return null;
 
 	const taintIdx = events.indexOf(taintEvent);
 
 	const shellWithData = findAfter(events, taintIdx, (e) => {
-		if (e.toolClass !== 'shell') return false;
+		if (e.toolClass !== "shell") return false;
 		const cmdLen = (e.metadata?.commandLength as number) ?? 0;
 		return cmdLen > SHELL_DATA_CMD_LENGTH;
 	});
 	if (!shellWithData) return null;
 
 	return {
-		ruleId: 'tainted_shell_with_data',
-		reason: `Untrusted input was followed by shell exec with long command (${(shellWithData.metadata?.commandLength as number) ?? '?'} chars)`,
+		ruleId: "tainted_shell_with_data",
+		reason: `Untrusted input was followed by shell exec with long command (${(shellWithData.metadata?.commandLength as number) ?? "?"} chars)`,
 		matchedEvents: [taintEvent, shellWithData],
 	};
 }
@@ -220,15 +236,17 @@ function checkTaintedShellWithData(events: readonly SecurityEvent[]): Behavioral
 const SECRETS_DB_PATTERNS = /secret|credential|password|token|vault|key_store/i;
 const SECRETS_URL_PATTERNS = /vault|secrets|credentials|\.well-known\/keys/i;
 
-function checkSecretAccessThenAnyEgress(events: readonly SecurityEvent[]): BehavioralRuleMatch | null {
+function checkSecretAccessThenAnyEgress(
+	events: readonly SecurityEvent[],
+): BehavioralRuleMatch | null {
 	// Look for database queries or HTTP GETs that touched secrets-like resources
 	const secretAccess = findRecent(events, (e) => {
-		if (e.toolClass === 'database' && e.action === 'query') {
-			const query = (e.metadata?.query as string) ?? '';
+		if (e.toolClass === "database" && e.action === "query") {
+			const query = (e.metadata?.query as string) ?? "";
 			return SECRETS_DB_PATTERNS.test(query);
 		}
-		if (e.toolClass === 'http' && (e.action === 'get' || e.action === 'head')) {
-			const url = (e.metadata?.url as string) ?? '';
+		if (e.toolClass === "http" && (e.action === "get" || e.action === "head")) {
+			const url = (e.metadata?.url as string) ?? "";
 			return SECRETS_URL_PATTERNS.test(url);
 		}
 		return false;
@@ -236,16 +254,17 @@ function checkSecretAccessThenAnyEgress(events: readonly SecurityEvent[]): Behav
 	if (!secretAccess) return null;
 
 	const accessIdx = events.indexOf(secretAccess);
-	const egress = findAfter(events, accessIdx, (e) => e.type === 'egress_attempt');
+	const egress = findAfter(events, accessIdx, (e) => e.type === "egress_attempt");
 	if (!egress) return null;
 
-	const resource = secretAccess.toolClass === 'database'
-		? `database query`
-		: `HTTP ${secretAccess.action} to ${(secretAccess.metadata?.url as string) ?? 'unknown'}`;
+	const resource =
+		secretAccess.toolClass === "database"
+			? "database query"
+			: `HTTP ${secretAccess.action} to ${(secretAccess.metadata?.url as string) ?? "unknown"}`;
 
 	return {
-		ruleId: 'secret_access_then_any_egress',
-		reason: `${resource} accessing secrets was followed by ${egress.action ?? 'egress'} attempt`,
+		ruleId: "secret_access_then_any_egress",
+		reason: `${resource} accessing secrets was followed by ${egress.action ?? "egress"} attempt`,
 		matchedEvents: [secretAccess, egress],
 	};
 }

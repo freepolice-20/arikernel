@@ -1,14 +1,8 @@
-import type {
-	Capability,
-	Decision,
-	PolicyRule,
-	TaintLabel,
-	ToolCall,
-} from '@arikernel/core';
-import { now } from '@arikernel/core';
-import { DEFAULT_RULES } from './defaults.js';
-import { loadPolicies } from './loader.js';
-import { matchesRule } from './matcher.js';
+import type { Capability, Decision, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
+import { now } from "@arikernel/core";
+import { DEFAULT_RULES } from "./defaults.js";
+import { loadPolicies } from "./loader.js";
+import { matchesRule } from "./matcher.js";
 
 export class PolicyEngine {
 	private rules: PolicyRule[] = [];
@@ -22,18 +16,14 @@ export class PolicyEngine {
 		this.rules.sort((a, b) => a.priority - b.priority);
 	}
 
-	evaluate(
-		toolCall: ToolCall,
-		taintLabels: TaintLabel[],
-		capabilities: Capability[],
-	): Decision {
+	evaluate(toolCall: ToolCall, taintLabels: TaintLabel[], capabilities: Capability[]): Decision {
 		const timestamp = now();
 
 		// Step 1: capability check
 		const capability = capabilities.find((c) => c.toolClass === toolCall.toolClass);
 		if (!capability) {
 			return {
-				verdict: 'deny',
+				verdict: "deny",
 				matchedRule: null,
 				reason: `No capability grant for tool class: ${toolCall.toolClass}`,
 				taintLabels,
@@ -45,9 +35,9 @@ export class PolicyEngine {
 		if (capability.actions && capability.actions.length > 0) {
 			if (!capability.actions.includes(toolCall.action)) {
 				return {
-					verdict: 'deny',
+					verdict: "deny",
 					matchedRule: null,
-					reason: `Action '${toolCall.action}' not allowed. Permitted: ${capability.actions.join(', ')}`,
+					reason: `Action '${toolCall.action}' not allowed. Permitted: ${capability.actions.join(", ")}`,
 					taintLabels,
 					timestamp,
 				};
@@ -58,7 +48,7 @@ export class PolicyEngine {
 		const constraintViolation = checkConstraints(toolCall, capability);
 		if (constraintViolation) {
 			return {
-				verdict: 'deny',
+				verdict: "deny",
 				matchedRule: null,
 				reason: constraintViolation,
 				taintLabels,
@@ -81,9 +71,9 @@ export class PolicyEngine {
 
 		// Step 5: implicit deny (should not reach here since DENY_ALL is in rules)
 		return {
-			verdict: 'deny',
+			verdict: "deny",
 			matchedRule: null,
-			reason: 'No matching policy (deny-by-default)',
+			reason: "No matching policy (deny-by-default)",
 			taintLabels,
 			timestamp,
 		};
@@ -98,36 +88,36 @@ function checkConstraints(toolCall: ToolCall, capability: Capability): string | 
 	const constraints = capability.constraints;
 	if (!constraints) return null;
 
-	if (constraints.allowedHosts && toolCall.toolClass === 'http') {
-		const url = String(toolCall.parameters.url ?? '');
+	if (constraints.allowedHosts && toolCall.toolClass === "http") {
+		const url = String(toolCall.parameters.url ?? "");
 		try {
 			const hostname = new URL(url).hostname;
-			if (!constraints.allowedHosts.includes('*') && !constraints.allowedHosts.includes(hostname)) {
-				return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(', ')}`;
+			if (!constraints.allowedHosts.includes("*") && !constraints.allowedHosts.includes(hostname)) {
+				return `Host '${hostname}' not in allowed hosts: ${constraints.allowedHosts.join(", ")}`;
 			}
 		} catch {
 			return `Invalid URL: ${url}`;
 		}
 	}
 
-	if (constraints.allowedCommands && toolCall.toolClass === 'shell') {
-		const command = String(toolCall.parameters.command ?? '');
+	if (constraints.allowedCommands && toolCall.toolClass === "shell") {
+		const command = String(toolCall.parameters.command ?? "");
 		const binary = command.split(/\s+/)[0];
 		if (!constraints.allowedCommands.includes(binary)) {
-			return `Command '${binary}' not in allowed commands: ${constraints.allowedCommands.join(', ')}`;
+			return `Command '${binary}' not in allowed commands: ${constraints.allowedCommands.join(", ")}`;
 		}
 	}
 
-	if (constraints.allowedPaths && toolCall.toolClass === 'file') {
-		const path = String(toolCall.parameters.path ?? '');
+	if (constraints.allowedPaths && toolCall.toolClass === "file") {
+		const path = String(toolCall.parameters.path ?? "");
 		const allowed = constraints.allowedPaths.some((pattern) => {
-			if (pattern.endsWith('/**')) {
+			if (pattern.endsWith("/**")) {
 				return path.startsWith(pattern.slice(0, -3));
 			}
 			return path === pattern;
 		});
 		if (!allowed) {
-			return `Path '${path}' not in allowed paths: ${constraints.allowedPaths.join(', ')}`;
+			return `Path '${path}' not in allowed paths: ${constraints.allowedPaths.join(", ")}`;
 		}
 	}
 

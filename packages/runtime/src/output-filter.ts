@@ -6,8 +6,8 @@
  * Users can supply their own filter for production use.
  */
 
-import type { ToolCall, ToolResult, TaintLabel } from '@arikernel/core';
-import { now } from '@arikernel/core';
+import type { TaintLabel, ToolCall, ToolResult } from "@arikernel/core";
+import { now } from "@arikernel/core";
 
 /** Pattern definition for secret detection. */
 interface SecretPattern {
@@ -16,12 +16,15 @@ interface SecretPattern {
 }
 
 const DEFAULT_PATTERNS: SecretPattern[] = [
-	{ name: 'aws-access-key', regex: /AKIA[0-9A-Z]{16}/g },
-	{ name: 'private-key', regex: /-----BEGIN\s[\w\s]*PRIVATE KEY-----/g },
-	{ name: 'github-token', regex: /gh[ps]_[A-Za-z0-9_]{36,}/g },
-	{ name: 'bearer-token', regex: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g },
-	{ name: 'generic-api-key', regex: /(?:api[_-]?key|apikey)\s*[:=]\s*["']?[A-Za-z0-9\-._]{20,}["']?/gi },
-	{ name: 'base64-blob', regex: /[A-Za-z0-9+/]{64,}={0,2}/g },
+	{ name: "aws-access-key", regex: /AKIA[0-9A-Z]{16}/g },
+	{ name: "private-key", regex: /-----BEGIN\s[\w\s]*PRIVATE KEY-----/g },
+	{ name: "github-token", regex: /gh[ps]_[A-Za-z0-9_]{36,}/g },
+	{ name: "bearer-token", regex: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/g },
+	{
+		name: "generic-api-key",
+		regex: /(?:api[_-]?key|apikey)\s*[:=]\s*["']?[A-Za-z0-9\-._]{20,}["']?/gi,
+	},
+	{ name: "base64-blob", regex: /[A-Za-z0-9+/]{64,}={0,2}/g },
 ];
 
 export interface OutputFilterOptions {
@@ -39,10 +42,10 @@ export interface OutputFilterOptions {
  */
 export function createSecretPatternFilter(options?: OutputFilterOptions) {
 	const patterns = options?.patterns ?? [...DEFAULT_PATTERNS, ...(options?.extraPatterns ?? [])];
-	const replacement = options?.replacement ?? '[REDACTED]';
+	const replacement = options?.replacement ?? "[REDACTED]";
 
 	return (_toolCall: ToolCall, result: ToolResult): ToolResult => {
-		if (typeof result.data !== 'string') return result;
+		if (typeof result.data !== "string") return result;
 
 		let filtered = result.data;
 		const detected: string[] = [];
@@ -60,8 +63,8 @@ export function createSecretPatternFilter(options?: OutputFilterOptions) {
 		if (detected.length === 0) return result;
 
 		const redactedLabel: TaintLabel = {
-			source: 'tool-output',
-			origin: `redacted:${detected.join(',')}`,
+			source: "tool-output",
+			origin: `redacted:${detected.join(",")}`,
 			confidence: 1.0,
 			addedAt: now(),
 		};
