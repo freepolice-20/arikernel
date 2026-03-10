@@ -1,6 +1,6 @@
 {
   "name": "@arikernel/runtime",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Main runtime orchestrator for AriKernel",
   "type": "module",
   "main": "dist/index.js",

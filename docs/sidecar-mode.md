@@ -12,7 +12,7 @@ the policy, runs the tool, and returns the result (or a denial).
 
 | Mode | Description |
 |------|-------------|
-| **Library** | `createKernel()` embedded in the agent process. Zero network overhead, but requires TypeScript/JavaScript. |
+| **Library** | `createKernel()` embedded in the agent process. Zero network overhead. Native runtimes for TypeScript/JavaScript and Python. |
 | **Sidecar** | Separate process on port 8787. Language-agnostic — any HTTP client works. Isolation: policy bugs can't crash the agent. |
 | **Decision server** (`apps/server`) | Session-based multi-principal API. Returns decisions only; agent executes tools itself. |
 
@@ -89,7 +89,7 @@ It cannot modify policy, reset quarantine, or bypass capability checks.
 | Criterion | Embedded (`createKernel`) | Sidecar |
 |-----------|--------------------------|---------|
 | Latency | ~0ms (in-process) | ~1ms (localhost HTTP) |
-| Language | TypeScript/JavaScript only | Any language with HTTP |
+| Language | TypeScript/JavaScript or Python (native runtimes) | Any language with HTTP |
 | Isolation | Agent can inspect internals | Policy state is opaque |
 | Quarantine bypass | Agent could theoretically tamper with in-process state | Agent has no way to reset quarantine |
 | Deployment | Single process | Two processes (or containers) |

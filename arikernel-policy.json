@@ -217,6 +217,21 @@
       "description": "Sensitive file read followed by outbound HTTP write",
       "sensitivePathPatterns": ["\\.ssh", "\\.env", "\\.aws", "credentials", "password", "secret", "\\.gnupg", "id_rsa", "\\.kube/config", "token"],
       "egressActions": ["post", "put", "patch", "delete"]
+    },
+    "tainted_database_write": {
+      "description": "Untrusted taint followed by database write/mutate action",
+      "taintSources": ["web", "rag", "email"],
+      "dbWriteActions": ["exec", "write", "insert", "update", "delete", "mutate"]
+    },
+    "tainted_shell_with_data": {
+      "description": "Untrusted taint followed by shell command with long command string",
+      "taintSources": ["web", "rag", "email"],
+      "shellDataCmdLength": 100
+    },
+    "secret_access_then_any_egress": {
+      "description": "Access to secrets/vault resources followed by any egress",
+      "secretsDbPattern": "secret|credential|password|token|vault|key_store",
+      "secretsUrlPattern": "vault|secrets|credentials|\\.well-known\\/keys"
     }
   },
 

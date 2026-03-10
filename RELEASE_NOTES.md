@@ -1,3 +1,24 @@
+# Ari Kernel v0.1.3 — Unknown Capability Class Guard
+
+## What changed
+
+### Runtime
+- Unknown capability classes (e.g. `email.write`) now fail closed with a clean denial instead of crashing with a TypeError
+- `requestCapability()` validates against `CAPABILITY_CLASS_MAP` before proceeding
+
+### Adapters
+- `wrapTool()` constructs complete `ToolCall` and `Decision` objects on denial instead of incomplete `as any` casts
+- Denied tool calls now produce structured `ToolCallDeniedError` with valid `toolCall.id`, `toolCall.toolClass`, `decision.verdict` fields
+
+## Package versions
+
+| Package | Version |
+|---------|---------|
+| `@arikernel/runtime` | 0.1.3 |
+| `@arikernel/adapters` | 0.1.1 |
+
+---
+
 # Ari Kernel v0.2.2 — Deterministic Forensic Demo Flow
 
 ## What changed
@@ -50,7 +71,7 @@ New framework adapters in `@arikernel/adapters` make Ari Kernel immediately usab
 - **`LangChainAdapter`** — polished adapter for LangChain DynamicTools
 - **`CrewAIAdapter`** — adapter for CrewAI tool protection
 - **`protectVercelTools()`** — adapter for Vercel AI SDK
-- **`@protect_tool`** — Python decorator for protecting tool functions via the decision server
+- **`@protect_tool`** — Python decorator for protecting tool functions via the native Python runtime (no TypeScript server required). Legacy HTTP decision server mode also supported.
 
 Ari Kernel is model-agnostic. It protects tool execution, not the model — so it works with OpenAI, Claude, Gemini, or any provider.
 

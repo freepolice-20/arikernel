@@ -64,7 +64,7 @@ Every event, every decision, every quarantine trigger — cryptographically chai
 
 ### Post 4: Roadmap and Limitations
 
-Known limitations: in-memory token store, single-process embedded mode, advisory taint labels. Sidecar mode is implemented for mandatory enforcement with process isolation. The roadmap includes persistent tokens, TLS for the sidecar, and encrypted audit logs.
+Known limitations: in-memory token store, single-process embedded mode. Auto-taint covers HTTP, RAG, and MCP paths; other sources require manual labeling. Sidecar mode is implemented for mandatory enforcement with process isolation. The roadmap includes persistent tokens, TLS for the sidecar, and encrypted audit logs.
 
 The core thesis: AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
 

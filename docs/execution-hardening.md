@@ -1,6 +1,6 @@
 # Execution Environment Hardening
 
-AriKernel enforces policy at the tool-call layer. For defense-in-depth, the host environment should also be hardened. This guide covers OS and container-level recommendations.
+Ari Kernel enforces policy at the tool-call layer. For defense-in-depth, the host environment should also be hardened. This guide covers OS and container-level recommendations.
 
 ## Container Isolation
 
@@ -12,14 +12,14 @@ AriKernel enforces policy at the tool-call layer. For defense-in-depth, the host
 
 ## Network Segmentation
 
-- **Egress filtering**: Use Kubernetes NetworkPolicy or Docker network rules to restrict outbound traffic to approved domains only. AriKernel's host allowlist is a second layer — network-level filtering is the first.
+- **Egress filtering**: Use Kubernetes NetworkPolicy or Docker network rules to restrict outbound traffic to approved domains only. Ari Kernel's host allowlist is a second layer — network-level filtering is the first.
 - **DNS filtering**: Use a DNS resolver that blocks resolution of known-malicious domains and internal-only hostnames from agent containers.
 - **Separate networks**: Place agent containers on an isolated network segment, separate from databases, secrets stores, and management planes.
 
 ## Filesystem Hardening
 
 - **Mount sensitive dirs read-only**: If the agent needs access to config files, mount them as read-only volumes.
-- **AppArmor / SELinux**: Apply mandatory access control profiles that restrict file access beyond what AriKernel policies enforce.
+- **AppArmor / SELinux**: Apply mandatory access control profiles that restrict file access beyond what Ari Kernel policies enforce.
 - **No Docker socket**: Never mount the Docker socket (`/var/run/docker.sock`) into agent containers. This grants full host control.
 - **No host PID namespace**: Use `--pid=container` to prevent agents from seeing host processes.
 
@@ -32,12 +32,12 @@ AriKernel enforces policy at the tool-call layer. For defense-in-depth, the host
 ## Secrets Management
 
 - **No file-mounted secrets**: Avoid mounting API keys, tokens, or credentials as files. Use a secrets manager (Vault, AWS Secrets Manager, K8s Secrets with sidecar injection).
-- **Short-lived tokens**: Use tokens with short TTLs and automatic rotation. AriKernel's capability leases model this pattern at the tool-call level.
+- **Short-lived tokens**: Use tokens with short TTLs and automatic rotation. Ari Kernel's capability leases model this pattern at the tool-call level.
 - **Environment variable hygiene**: If secrets must be in env vars, use init containers or entrypoint scripts that fetch and inject them, then clear the env after startup.
 
 ## Runtime Monitoring
 
-- **Forward audit logs**: Ship AriKernel audit logs to an external SIEM or log aggregator. The audit chain provides tamper-evidence but is not tamper-proof without external anchoring.
+- **Forward audit logs**: Ship Ari Kernel audit logs to an external SIEM or log aggregator. The audit chain provides tamper-evidence but is not tamper-proof without external anchoring.
 - **Falco / runtime detection**: Use Falco or equivalent for real-time anomaly detection (unexpected network connections, file access patterns, privilege escalation).
 - **Alert on quarantine**: Set up alerts for quarantine events — these indicate an active attack or severely misconfigured agent.
 - **Hash chain anchoring**: Periodically checkpoint the audit log's hash chain root to an external, immutable store (e.g., append-only S3 bucket, blockchain timestamping service).
@@ -45,7 +45,7 @@ AriKernel enforces policy at the tool-call layer. For defense-in-depth, the host
 ## MCP and Multi-Agent Deployments
 
 - **Separate containers**: Run MCP tool servers in separate containers from the agent. Use network policies to restrict which agents can reach which tools.
-- **Taint propagation**: Use AriKernel's taint bridge (`createTaintBridgeTool`) to ensure taint context propagates across agent boundaries.
+- **Taint propagation**: Use Ari Kernel's taint bridge (`createTaintBridgeTool`) to ensure taint context propagates across agent boundaries.
 - **Per-agent principals**: Each agent should have its own principal with minimal capabilities. Never share principals across agents.
 
 ## Quick Reference Checklist
@@ -63,4 +63,4 @@ AriKernel enforces policy at the tool-call layer. For defense-in-depth, the host
 [ ] MCP tools in separate containers with network policies
 ```
 
-See also: [Security Model](security-model.md) for AriKernel's policy and quarantine design.
+See also: [Security Model](security-model.md) for Ari Kernel's policy and quarantine design.

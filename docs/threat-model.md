@@ -87,7 +87,7 @@ These are known simplifications in the current implementation:
 3. **Database executor is a stub** — `database.query` and `database.exec` are not implemented. The executor exists for demonstration only.
 4. **Static principal** — the principal is configured at kernel creation time. There is no dynamic principal resolution or authentication.
 5. **No constraint composition** — constraints from the grant and constraints from the policy are not merged. Grant constraints are checked independently.
-6. **Taint labels are advisory** — the system trusts callers to accurately label taint sources. There is no automatic taint detection for content.
+6. **Taint labeling is partially automatic** — HTTP, RAG, and MCP executors auto-attach provenance labels. Other sources (email, custom inputs) require manual labeling. There is no content-level taint inference (e.g., detecting PII inside a response body).
 7. **YAML policies only** — no API for dynamic policy updates at runtime.
 
 ## Why Runtime Enforcement, Not Prompt Filtering

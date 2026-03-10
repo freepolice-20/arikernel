@@ -1,4 +1,4 @@
-# AriKernel — AgentDojo Benchmark Results
+# Ari Kernel — AgentDojo Benchmark Results
 
 Generated: 2026-03-08T20:14:59.772Z
 

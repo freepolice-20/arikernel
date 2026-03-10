@@ -15,7 +15,7 @@ from arikernel.runtime.policy_engine import PolicyEngine
 from arikernel.runtime.taint_tracking import TaintLabel, TaintTracker, create_taint_label, merge_labels
 from arikernel.runtime.capability_tokens import CapabilityIssuer, TokenStore
 from arikernel.runtime.run_state import RunStateTracker
-from arikernel.runtime.behavior_rules import evaluate_behavioral_rules, apply_behavioral_rule
+from arikernel.runtime.behavior_rules import evaluate_behavioral_rules, apply_behavioral_rule, _check_tainted_shell_with_data
 from arikernel.runtime.hash_chain import compute_hash, verify_chain, GENESIS_HASH
 from arikernel.runtime.audit_logger import AuditStore
 from arikernel.runtime.autoscope import classify_scope
@@ -380,6 +380,80 @@ class TestBehavioralRules:
         tracker.push_event({"timestamp": "", "type": "tool_call_allowed", "toolClass": "http"})
         tracker.push_event({"timestamp": "", "type": "tool_call_allowed", "toolClass": "file"})
         assert evaluate_behavioral_rules(tracker) is None
+
+    def test_tainted_database_write_quarantines(self):
+        tracker = RunStateTracker()
+        tracker.push_event({
+            "timestamp": "", "type": "taint_observed",
+            "taintSources": ["web"],
+        })
+        tracker.push_event({
+            "timestamp": "", "type": "tool_call_allowed",
+            "toolClass": "database", "action": "insert",
+        })
+        match = evaluate_behavioral_rules(tracker)
+        assert match is not None
+        assert match["ruleId"] == "tainted_database_write"
+
+    def test_tainted_shell_with_data_quarantines(self):
+        tracker = RunStateTracker()
+        tracker.push_event({
+            "timestamp": "", "type": "taint_observed",
+            "taintSources": ["web"],
+        })
+        tracker.push_event({
+            "timestamp": "", "type": "tool_call_allowed",
+            "toolClass": "shell", "action": "exec",
+            "metadata": {"commandLength": 150},
+        })
+        # Test the rule directly since rule 1 catches taint+shell first in the full chain
+        match = _check_tainted_shell_with_data(tracker.recent_events)
+        assert match is not None
+        assert match["ruleId"] == "tainted_shell_with_data"
+
+    def test_tainted_shell_short_command_no_match(self):
+        tracker = RunStateTracker()
+        tracker.push_event({
+            "timestamp": "", "type": "taint_observed",
+            "taintSources": ["web"],
+        })
+        tracker.push_event({
+            "timestamp": "", "type": "tool_call_allowed",
+            "toolClass": "shell", "action": "exec",
+            "metadata": {"commandLength": 50},
+        })
+        match = _check_tainted_shell_with_data(tracker.recent_events)
+        assert match is None
+
+    def test_secret_access_then_any_egress_quarantines(self):
+        tracker = RunStateTracker()
+        tracker.push_event({
+            "timestamp": "", "type": "tool_call_allowed",
+            "toolClass": "database", "action": "query",
+            "metadata": {"query": "SELECT * FROM secrets WHERE id=1"},
+        })
+        tracker.push_event({
+            "timestamp": "", "type": "egress_attempt",
+            "action": "post",
+        })
+        match = evaluate_behavioral_rules(tracker)
+        assert match is not None
+        assert match["ruleId"] == "secret_access_then_any_egress"
+
+    def test_secret_access_via_url_then_egress(self):
+        tracker = RunStateTracker()
+        tracker.push_event({
+            "timestamp": "", "type": "tool_call_allowed",
+            "toolClass": "http", "action": "get",
+            "metadata": {"url": "https://vault.internal/v1/secret"},
+        })
+        tracker.push_event({
+            "timestamp": "", "type": "egress_attempt",
+            "action": "post",
+        })
+        match = evaluate_behavioral_rules(tracker)
+        assert match is not None
+        assert match["ruleId"] == "secret_access_then_any_egress"
 
     def test_no_match_when_restricted(self):
         tracker = RunStateTracker()

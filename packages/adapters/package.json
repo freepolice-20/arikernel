@@ -1,6 +1,6 @@
 {
   "name": "@arikernel/adapters",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
   "type": "module",
   "main": "dist/index.js",

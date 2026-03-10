@@ -106,7 +106,7 @@ const replayTrace = defineCommand({
 });
 
 const main = defineCommand({
-	meta: { name: 'arikernel', version: '0.2.2', description: 'Security runtime for AI agents' },
+	meta: { name: 'arikernel', version: '0.1.1', description: 'Security runtime for AI agents' },
 	subCommands: { init, policy, replay, 'replay-trace': replayTrace, run, simulate, trace, sidecar },
 });
 

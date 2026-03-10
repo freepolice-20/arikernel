@@ -685,7 +685,7 @@ In sidecar mode, the kernel runs as a separate HTTP process on port 8787. Tools 
 | Enforcement type | Cooperative | Mandatory |
 | Agent can bypass? | Only if framework code is modified to skip enforcement | No — no direct path to tools |
 | Audit tamper resistance | Tamper-evident (hash chain) | Tamper-proof (separate process) |
-| Language support | TypeScript/JavaScript | Any (HTTP API) |
+| Language support | TypeScript/JavaScript or Python (native runtimes) | Any (HTTP API) |
 | Latency | In-process (microseconds) | Network hop (milliseconds) |
 | Setup complexity | `npm install` + `createKernel()` | Separate service deployment |
 
@@ -702,7 +702,7 @@ The sidecar server (`packages/sidecar/`) implements proxy mode. See [Sidecar Mod
 3. **Database executor is a stub** — validates and audits calls but does not execute real queries.
 4. **Retrieval executor is a stub** — validates and audits calls but does not execute real lookups.
 5. **Static principal** — the principal is configured at kernel creation time. There is no dynamic principal resolution or authentication.
-6. **Taint labels are advisory** — the system trusts callers to accurately label taint sources. Auto-taint from HTTP and RAG executors covers the common case.
+6. **Taint labeling is partially automatic** — HTTP, RAG, and MCP executors auto-attach provenance labels. Other sources (email, custom inputs) require manual labeling.
 7. **YAML policies only** — no API for dynamic policy updates at runtime.
 
 ### Key Design Tradeoffs

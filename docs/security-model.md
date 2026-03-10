@@ -137,7 +137,7 @@ For high-assurance deployments, we recommend streaming audit events to an extern
 
 ## Output Filtering (DLP)
 
-AriKernel provides an `onOutputFilter` hook for scanning tool results before they reach the agent. The built-in `createSecretPatternFilter()` detects common secret patterns (AWS keys, private keys, GitHub tokens, Bearer tokens) and replaces them with `[REDACTED]`. Custom filters can be supplied for production DLP needs.
+Ari Kernel provides an `onOutputFilter` hook for scanning tool results before they reach the agent. The built-in `createSecretPatternFilter()` detects common secret patterns (AWS keys, private keys, GitHub tokens, Bearer tokens) and replaces them with `[REDACTED]`. Custom filters can be supplied for production DLP needs.
 
 ## Execution Environment Hardening
 
@@ -150,4 +150,4 @@ For OS and container-level hardening recommendations (network segmentation, file
 - **Content moderation** — it does not filter harmful text output
 - **Model-level safety** — it does not address training data poisoning or adversarial inputs
 
-Ari Kernel operates at the tool-call layer. It is complementary to prompt-level defenses, not a replacement. The stronger story: even if prompt injection succeeds, the agent cannot execute dangerous actions because ARI enforces the execution boundary.
+Ari Kernel operates at the tool-call layer. It is complementary to prompt-level defenses, not a replacement. The stronger story: even if prompt injection succeeds, the agent cannot execute dangerous actions because Ari Kernel enforces the execution boundary.

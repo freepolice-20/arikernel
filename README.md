@@ -128,7 +128,7 @@ Most tools validate or monitor. Ari Kernel **enforces** — it sits in the execu
 | **Embedded (library)** | `createKernel()` integrated into the agent process. Zero network overhead. |
 | **Sidecar (HTTP proxy)** | Standalone process on port 8787. Language-agnostic — any HTTP client works. Process-level trust boundary. |
 
-Embedded mode is the primary deployment path for TypeScript/JavaScript agents. Sidecar mode provides process-level isolation and works with any language.
+Embedded mode is the primary deployment path — native runtimes exist for both TypeScript/JavaScript and Python. Sidecar mode provides process-level isolation and works with any language via HTTP.
 
 ---
 

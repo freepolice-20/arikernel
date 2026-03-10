@@ -1,6 +1,6 @@
 """Behavioral sequence rules for run-state enforcement.
 
-Three explicit rules that detect suspicious multi-step patterns
+Six explicit rules that detect suspicious multi-step patterns
 in the recent-event window and trigger immediate quarantine.
 """
 
@@ -42,6 +42,9 @@ def evaluate_behavioral_rules(state: Any) -> dict[str, Any] | None:
         _check_web_taint_sensitive_probe(events)
         or _check_denied_capability_then_escalation(events)
         or _check_sensitive_read_then_egress(events)
+        or _check_tainted_database_write(events)
+        or _check_tainted_shell_with_data(events)
+        or _check_secret_access_then_any_egress(events)
     )
 
 
@@ -158,6 +161,123 @@ def _check_sensitive_read_then_egress(events: list[dict]) -> dict[str, Any] | No
         "ruleId": "sensitive_read_then_egress",
         "reason": f"Read of {path} was followed by outbound {egress.get('action', 'write')} attempt",
         "matchedEvents": [sensitive_read, egress],
+    }
+
+
+# ── Rule 4: tainted_database_write ─────────────────────────────────
+
+def _check_tainted_database_write(events: list[dict]) -> dict[str, Any] | None:
+    config = _get_config()
+    rule_cfg = config["tainted_database_write"]
+    taint_sources = set(rule_cfg["taintSources"])
+    db_write_actions = set(rule_cfg["dbWriteActions"])
+
+    taint_event = _find_recent(
+        events,
+        lambda e: (
+            e["type"] == "taint_observed"
+            and any(s in taint_sources for s in (e.get("taintSources") or []))
+        ),
+    )
+    if taint_event is None:
+        return None
+
+    taint_idx = events.index(taint_event)
+
+    db_write = _find_after(
+        events,
+        taint_idx,
+        lambda e: (
+            e.get("toolClass") == "database"
+            and e.get("action", "") in db_write_actions
+        ),
+    )
+    if db_write is None:
+        return None
+
+    return {
+        "ruleId": "tainted_database_write",
+        "reason": f"Untrusted input was followed by database {db_write.get('action')} attempt",
+        "matchedEvents": [taint_event, db_write],
+    }
+
+
+# ── Rule 5: tainted_shell_with_data ────────────────────────────────
+
+def _check_tainted_shell_with_data(events: list[dict]) -> dict[str, Any] | None:
+    config = _get_config()
+    rule_cfg = config["tainted_shell_with_data"]
+    taint_sources = set(rule_cfg["taintSources"])
+    cmd_length_threshold = rule_cfg["shellDataCmdLength"]
+
+    taint_event = _find_recent(
+        events,
+        lambda e: (
+            e["type"] == "taint_observed"
+            and any(s in taint_sources for s in (e.get("taintSources") or []))
+        ),
+    )
+    if taint_event is None:
+        return None
+
+    taint_idx = events.index(taint_event)
+
+    shell_with_data = _find_after(
+        events,
+        taint_idx,
+        lambda e: (
+            e.get("toolClass") == "shell"
+            and (e.get("metadata") or {}).get("commandLength", 0) > cmd_length_threshold
+        ),
+    )
+    if shell_with_data is None:
+        return None
+
+    cmd_len = (shell_with_data.get("metadata") or {}).get("commandLength", "?")
+
+    return {
+        "ruleId": "tainted_shell_with_data",
+        "reason": f"Untrusted input was followed by shell exec with long command ({cmd_len} chars)",
+        "matchedEvents": [taint_event, shell_with_data],
+    }
+
+
+# ── Rule 6: secret_access_then_any_egress ──────────────────────────
+
+def _check_secret_access_then_any_egress(events: list[dict]) -> dict[str, Any] | None:
+    config = _get_config()
+    rule_cfg = config["secret_access_then_any_egress"]
+    secrets_db_re = re.compile(rule_cfg["secretsDbPattern"], re.IGNORECASE)
+    secrets_url_re = re.compile(rule_cfg["secretsUrlPattern"], re.IGNORECASE)
+
+    def _is_secret_access(e: dict) -> bool:
+        if e.get("toolClass") == "database" and e.get("action") == "query":
+            query = (e.get("metadata") or {}).get("query", "")
+            return bool(secrets_db_re.search(query))
+        if e.get("toolClass") == "http" and e.get("action") in ("get", "head"):
+            url = (e.get("metadata") or {}).get("url", "")
+            return bool(secrets_url_re.search(url))
+        return False
+
+    secret_access = _find_recent(events, _is_secret_access)
+    if secret_access is None:
+        return None
+
+    access_idx = events.index(secret_access)
+    egress = _find_after(events, access_idx, lambda e: e["type"] == "egress_attempt")
+    if egress is None:
+        return None
+
+    if secret_access.get("toolClass") == "database":
+        resource = "database query"
+    else:
+        url = (secret_access.get("metadata") or {}).get("url", "unknown")
+        resource = f"HTTP {secret_access.get('action')} to {url}"
+
+    return {
+        "ruleId": "secret_access_then_any_egress",
+        "reason": f"{resource} accessing secrets was followed by {egress.get('action', 'egress')} attempt",
+        "matchedEvents": [secret_access, egress],
     }
 
 
