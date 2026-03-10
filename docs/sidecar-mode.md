@@ -16,6 +16,26 @@ the policy, runs the tool, and returns the result (or a denial).
 | **Sidecar** | Separate process on port 8787. Language-agnostic — any HTTP client works. Isolation: policy bugs can't crash the agent. |
 | **Decision server** (`apps/server`) | Session-based multi-principal API. Returns decisions only; agent executes tools itself. |
 
+## Security Notes
+
+The sidecar is hardened for production deployment:
+
+- **Localhost-only by default**: The server binds to `127.0.0.1`. External network exposure requires the explicit `--host 0.0.0.0` flag. Never expose the sidecar to untrusted networks without authentication.
+- **Bearer token authentication**: Use `--auth-token <token>` to require a Bearer token on all requests (except `/health`). The token is compared using constant-time string comparison to prevent timing attacks.
+- **Per-principal isolation**: Each agent gets its own kernel instance — quarantine, counters, and audit logs are independent.
+
+```bash
+# Production: localhost + auth
+arikernel sidecar --policy ./policy.yaml --auth-token "$SIDECAR_TOKEN"
+
+# Development: no auth, localhost only
+arikernel sidecar --policy ./policy.yaml
+```
+
+When auth is enabled, all requests must include `Authorization: Bearer <token>`. The `/health` endpoint is exempt.
+
+---
+
 ## Quick start
 
 **1. Start the sidecar**
@@ -26,7 +46,7 @@ arikernel sidecar --policy ./arikernel.policy.yaml --port 8787
 
 Output:
 ```
-Ari Kernel sidecar listening on port 8787
+Ari Kernel sidecar listening on 127.0.0.1:8787
   Policy : ./arikernel.policy.yaml
   Audit  : ./sidecar-audit.db
   POST   : http://localhost:8787/execute
@@ -38,11 +58,12 @@ Ari Kernel sidecar listening on port 8787
 ```http
 POST /execute
 Content-Type: application/json
+Authorization: Bearer <token>
 
 {
   "principalId": "my-agent",
   "toolClass": "http",
-  "action": "GET",
+  "action": "get",
   "params": { "url": "https://api.example.com/data" }
 }
 ```
@@ -103,14 +124,15 @@ It cannot modify policy, reset quarantine, or bypass capability checks.
 |-------|------|----------|-------------|
 | `principalId` | string | yes | Agent identifier. Each principal gets its own run-state and audit log. |
 | `toolClass` | string | yes | One of: `http`, `file`, `shell`, `database`, `retrieval` |
-| `action` | string | yes | Tool-specific action (`GET`, `POST`, `read`, `write`, `exec`, `query`, …) |
+| `action` | string | yes | Tool-specific action (`get`, `post`, `read`, `write`, `exec`, `query`, ...). Case-insensitive — normalized to lowercase internally. |
 | `params` | object | yes | Tool-specific parameters (passed to the executor) |
 | `taint` | TaintLabel[] | no | Upstream taint labels to attach to this call (objects with `source`, `origin`, `confidence`, `addedAt`) |
 
 HTTP status codes:
 - `200` — call allowed and executed successfully
 - `400` — malformed request
-- `403` — call denied by policy or quarantine
+- `401` — missing or malformed Authorization header (when auth is enabled)
+- `403` — call denied by policy, quarantine, or invalid auth token
 - `500` — internal error during execution
 
 ### `POST /status`
@@ -166,6 +188,7 @@ import { SidecarClient } from '@arikernel/sidecar';
 const client = new SidecarClient({
   baseUrl: 'http://localhost:8787',
   principalId: 'my-agent',
+  authToken: process.env.SIDECAR_TOKEN,  // Optional: required if server uses --auth-token
 });
 
 const result = await client.execute('http', 'GET', { url: 'https://api.example.com/data' });
@@ -186,6 +209,8 @@ import { createSidecarServer } from '@arikernel/sidecar';
 
 const server = createSidecarServer({
   port: 8787,
+  // host: '0.0.0.0',            // Default: '127.0.0.1' (localhost only)
+  // authToken: 'my-secret',     // Optional: require Bearer token auth
   policy: './arikernel.policy.yaml',
   auditLog: './sidecar-audit.db',
 });
