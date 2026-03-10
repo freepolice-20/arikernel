@@ -8,6 +8,7 @@
  */
 
 import type { TaintLabel, TaintState } from "@arikernel/core";
+import { normalizeInput } from "./unicode-safety.js";
 
 export interface RunStatePolicy {
 	/** Number of denied sensitive actions before entering restricted mode. Default: 5 */
@@ -110,6 +111,15 @@ export class RunStateTracker {
 	private _tainted = false;
 	private _taintSources: Set<string> = new Set();
 	private _accumulatedTaintLabels: TaintLabel[] = [];
+
+	// ── Sticky state flags (H1 hardening) ──────────────────────────
+	// These persist for the entire run and survive event window eviction.
+	// Behavioral rules consult these so that an attacker cannot evade
+	// detection by spacing steps across >20 events.
+	private _sensitiveReadObserved = false;
+	private _egressObserved = false;
+	private _secretAccessObserved = false;
+	private _quarantineGetCount = 0;
 	private readonly threshold: number;
 	readonly behavioralRulesEnabled: boolean;
 	/** The policy configuration used to construct this tracker. */
@@ -144,6 +154,21 @@ export class RunStateTracker {
 	/** Set of taint source types observed during this run. */
 	get taintSources(): ReadonlySet<string> {
 		return this._taintSources;
+	}
+
+	/** Whether a sensitive file read was observed at any point during this run. Sticky. */
+	get sensitiveReadObserved(): boolean {
+		return this._sensitiveReadObserved;
+	}
+
+	/** Whether an egress attempt was observed at any point during this run. Sticky. */
+	get egressObserved(): boolean {
+		return this._egressObserved;
+	}
+
+	/** Whether a secret/credential access was observed at any point during this run. Sticky. */
+	get secretAccessObserved(): boolean {
+		return this._secretAccessObserved;
 	}
 
 	/** Mark the run as tainted by an external source. Sticky — never resets. */
@@ -186,6 +211,24 @@ export class RunStateTracker {
 	/** Read-only view of recent events. */
 	get recentEvents(): readonly SecurityEvent[] {
 		return this._eventWindow;
+	}
+
+	/**
+	 * Maximum HTTP GETs with query parameters allowed after quarantine.
+	 * Prevents slow-drip exfiltration via small GET requests that individually
+	 * pass isSuspiciousGetExfil() thresholds.
+	 */
+	static readonly MAX_QUARANTINE_GETS_WITH_PARAMS = 3;
+
+	/** Count of HTTP GETs with query params since quarantine. */
+	get quarantineGetCount(): number {
+		return this._quarantineGetCount;
+	}
+
+	/** Record a GET-with-params in quarantine mode. Returns true if budget exhausted. */
+	recordQuarantineGet(): boolean {
+		this._quarantineGetCount++;
+		return this._quarantineGetCount > RunStateTracker.MAX_QUARANTINE_GETS_WITH_PARAMS;
 	}
 
 	/** Check if an action is allowed in restricted mode. */
@@ -244,16 +287,24 @@ export class RunStateTracker {
 	/** Record an external egress attempt (HTTP write to any host). */
 	recordEgressAttempt(): void {
 		this.counters.externalEgressAttempts++;
+		this._egressObserved = true;
 	}
 
 	/** Record a sensitive file read attempt. */
 	recordSensitiveFileAttempt(): void {
 		this.counters.sensitiveFileReadAttempts++;
+		this._sensitiveReadObserved = true;
 	}
 
-	/** Check if a file path targets a sensitive location. */
+	/** Mark that a secret/credential resource was accessed. Sticky. */
+	markSecretAccess(): void {
+		this._secretAccessObserved = true;
+	}
+
+	/** Check if a file path targets a sensitive location. NFKC-normalized to prevent homoglyph bypass. */
 	isSensitivePath(path: string): boolean {
-		return SENSITIVE_PATH_PATTERNS.some((p) => p.test(path));
+		const normalized = normalizeInput(path);
+		return SENSITIVE_PATH_PATTERNS.some((p) => p.test(normalized));
 	}
 
 	/**

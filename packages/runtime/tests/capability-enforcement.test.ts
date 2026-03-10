@@ -89,15 +89,8 @@ describe("Capability Enforcement", () => {
 		const httpDecision = fw.requestCapability("http.read");
 		expect(httpDecision.granted).toBe(true);
 
-		await expect(
-			fw.execute({
-				toolClass: "database",
-				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
-				grantId: httpDecision.grant?.id,
-			}),
-		).rejects.toThrow(ToolCallDeniedError);
-
+		// Single call: verify it throws ToolCallDeniedError with the right message.
+		// Cannot call twice with the same grantId — nonce replay detection rejects the second call.
 		await expect(
 			fw.execute({
 				toolClass: "database",
@@ -116,15 +109,8 @@ describe("Capability Enforcement", () => {
 		const grant = decision.grant!;
 		grant.lease.expiresAt = new Date(Date.now() - 1000).toISOString();
 
-		await expect(
-			fw.execute({
-				toolClass: "database",
-				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
-				grantId: grant.id,
-			}),
-		).rejects.toThrow(ToolCallDeniedError);
-
+		// Single call: verify it throws with "expired" message.
+		// Cannot call twice with the same grantId — nonce replay detection rejects the second call.
 		await expect(
 			fw.execute({
 				toolClass: "database",

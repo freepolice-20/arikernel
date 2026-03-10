@@ -90,16 +90,32 @@ export class Pipeline {
 			);
 
 			// Even safe GET/HEAD is blocked if the URL carries suspicious exfil patterns
+			const url = String(toolCall.parameters.url ?? "");
 			const isGetExfil =
 				isSafeAction &&
 				toolCall.toolClass === "http" &&
-				isSuspiciousGetExfil(String(toolCall.parameters.url ?? ""));
+				isSuspiciousGetExfil(url);
 
-			if (!isSafeAction || isGetExfil) {
-				const reason = isGetExfil
-					? `Suspicious data exfiltration via GET query parameters blocked in restricted mode. '${toolCall.toolClass}.${toolCall.action}' denied.`
-					: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
-						`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
+			// Block GETs with query parameters after a budget is exhausted.
+			// Prevents slow-drip exfiltration via many small GET requests.
+			let isGetBudgetExhausted = false;
+			if (
+				isSafeAction &&
+				!isGetExfil &&
+				toolCall.toolClass === "http" &&
+				(toolCall.action === "get" || toolCall.action === "head") &&
+				url.includes("?")
+			) {
+				isGetBudgetExhausted = this.runState.recordQuarantineGet();
+			}
+
+			if (!isSafeAction || isGetExfil || isGetBudgetExhausted) {
+				const reason = isGetBudgetExhausted
+					? `HTTP GET with query parameters blocked: quarantine GET budget exhausted (${this.runState.quarantineGetCount} requests). Potential slow-drip exfiltration.`
+					: isGetExfil
+						? `Suspicious data exfiltration via GET query parameters blocked in restricted mode. '${toolCall.toolClass}.${toolCall.action}' denied.`
+						: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
+							`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
 				const decision: Decision = {
 					verdict: "deny",
 					matchedRule: null,
@@ -132,12 +148,22 @@ export class Pipeline {
 
 			if (toolCall.toolClass === "http") {
 				const isWriteEgress = this.runState.isEgressAction(toolCall.action);
+				const httpUrl = String(toolCall.parameters.url ?? "");
 				const isGetExfil =
 					!isWriteEgress &&
 					(toolCall.action === "get" || toolCall.action === "head") &&
-					isSuspiciousGetExfil(String(toolCall.parameters.url ?? ""));
+					isSuspiciousGetExfil(httpUrl);
 
-				if (isWriteEgress || isGetExfil) {
+				// After a sensitive read, treat any GET with query params as potential exfil.
+				// This closes the slow-drip gap where small GETs evade isSuspiciousGetExfil thresholds.
+				const isSensitiveGetExfil =
+					!isWriteEgress &&
+					!isGetExfil &&
+					(toolCall.action === "get" || toolCall.action === "head") &&
+					this.runState.sensitiveReadObserved &&
+					httpUrl.includes("?");
+
+				if (isWriteEgress || isGetExfil || isSensitiveGetExfil) {
 					this.runState.recordEgressAttempt();
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,

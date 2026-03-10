@@ -389,6 +389,30 @@ export class Firewall {
 		return this._runState.taintState;
 	}
 
+	/** Whether this run has observed a sensitive file read (sticky flag). */
+	get sensitiveReadObserved(): boolean {
+		return this._runState.sensitiveReadObserved;
+	}
+
+	/**
+	 * Inject external taint labels into this firewall's run-state.
+	 * Used by cross-principal systems (e.g., SharedTaintRegistry) to propagate
+	 * contamination from one principal's actions to another.
+	 */
+	injectExternalTaint(labels: TaintLabel[]): void {
+		if (labels.length === 0) return;
+		this._runState.accumulateTaintLabels(labels);
+		for (const label of labels) {
+			this._runState.pushEvent({
+				timestamp: now(),
+				type: "taint_observed",
+				toolClass: "external",
+				action: "inject",
+				taintSources: [label.source],
+			});
+		}
+	}
+
 	private checkBehavioralRulesFromCapability(capabilityClass: string): void {
 		if (!this._runState.behavioralRulesEnabled) return;
 		const match = evaluateBehavioralRules(this._runState);

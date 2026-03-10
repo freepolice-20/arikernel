@@ -29,7 +29,7 @@ describe("preset loading", () => {
 		expect(() => getPreset("nonexistent" as any)).toThrow("Unknown preset");
 	});
 
-	it("all 7 presets are available", () => {
+	it("all 8 presets are available", () => {
 		const ids = Object.keys(PRESETS);
 		expect(ids).toContain("safe");
 		expect(ids).toContain("strict");
@@ -38,7 +38,8 @@ describe("preset loading", () => {
 		expect(ids).toContain("rag-reader");
 		expect(ids).toContain("workspace-assistant");
 		expect(ids).toContain("automation-agent");
-		expect(ids).toHaveLength(7);
+		expect(ids).toContain("anti-collusion");
+		expect(ids).toHaveLength(8);
 	});
 
 	it("safe preset has correct capabilities", () => {

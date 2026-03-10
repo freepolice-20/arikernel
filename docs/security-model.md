@@ -280,6 +280,17 @@ CapabilityToken = {
 
 A failed verification at any step results in immediate denial.
 
+### 3.4.1 Nonce-Based Replay Protection
+
+Each capability token includes a unique nonce (128-bit, cryptographically random). The `TokenStore` records consumed nonces and rejects tokens whose nonce has already been seen (double-spend prevention).
+
+**Limitation: Instance-local nonce tracking.** The nonce set is maintained in-memory within a single kernel or sidecar process instance. It is **not** shared across multiple instances. In horizontally-scaled or high-availability deployments with multiple sidecar instances behind a load balancer, a token consumed by one instance may be accepted by another.
+
+**Recommended mitigation for HA deployments:**
+- Use a shared nonce store (e.g., Redis SET with TTL matching token expiry) as the backing store for `TokenStore.checkAndRecordNonce()`.
+- Alternatively, use sticky sessions to ensure a principal's requests always route to the same sidecar instance.
+- Token expiry (default 5 minutes) bounds the window during which replay is possible even without shared storage.
+
 ### 3.5 Principal Identity
 
 Each agent operates under a **Principal** — a named identity with a unique ULID. Capabilities are granted per-principal. Tokens are principal-bound: a token issued to Agent A cannot be used by Agent B.
@@ -544,15 +555,25 @@ The sidecar is Ari Kernel's **highest-assurance deployment mode**. It runs the e
 
 ### 6.2 Sidecar Server
 
-The sidecar exposes three HTTP endpoints:
+The sidecar exposes four HTTP endpoints:
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
 | `/health` | GET | No | Liveness probe |
 | `/execute` | POST | Bearer token | Tool call enforcement |
-| `/status` | GET | Bearer token | Query quarantine/counter state |
+| `/request-capability` | POST | Bearer token | Request a capability grant (returns grantId) |
+| `/status` | POST | Bearer token | Query quarantine/counter state |
 
 The `PrincipalRegistry` maintains per-principal kernel instances. Each principal gets an isolated pipeline, audit log, and run state. One agent's quarantine does not affect another.
+
+### Enforcement Modes
+
+The runtime supports two enforcement modes that control where tool execution happens:
+
+- **Embedded** (`mode: "embedded"`, default): Tools execute in-process. Security is cooperative — the host could bypass the pipeline.
+- **Sidecar** (`mode: "sidecar"`): All tool executors are replaced with `SidecarProxyExecutor` instances that delegate execution to the sidecar HTTP API. The host process cannot register local executors or execute tools directly. The sidecar is the authoritative enforcement boundary.
+
+See [Sidecar Mode](sidecar-mode.md) for deployment details and the full API reference.
 
 ### 6.3 Sidecar Guard (Runtime Mediation)
 

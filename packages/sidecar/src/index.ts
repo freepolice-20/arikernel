@@ -10,6 +10,14 @@ export {
 	SidecarGuardError,
 } from "./guard/sidecar-guard.js";
 export type { SidecarGuardOptions } from "./guard/sidecar-guard.js";
+export { SharedTaintRegistry } from "./shared-taint-registry.js";
+export type { SharedStoreConfig } from "./shared-taint-registry.js";
+export { CrossPrincipalCorrelator } from "./correlator.js";
+export type {
+	CorrelatorConfig,
+	CrossPrincipalAlert,
+	AlertHandler,
+} from "./correlator.js";
 export type {
 	SidecarConfig,
 	ExecuteRequest,

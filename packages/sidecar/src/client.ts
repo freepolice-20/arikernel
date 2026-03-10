@@ -27,6 +27,22 @@ export class SidecarClient {
 		if (options.authToken) {
 			this.headers.Authorization = `Bearer ${options.authToken}`;
 		}
+
+		// SECURITY: Warn if endpoint is non-localhost and non-HTTPS.
+		// Credentials and tool calls sent over plain HTTP to remote hosts
+		// are vulnerable to interception.
+		try {
+			const url = new URL(this.endpoint);
+			const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+			if (!isLocalhost && url.protocol !== "https:") {
+				console.warn(
+					`[AriKernel] WARNING: Sidecar endpoint '${this.endpoint}' is non-localhost and non-HTTPS. ` +
+					"Credentials and tool calls may be transmitted in plaintext. Use HTTPS for remote sidecar connections.",
+				);
+			}
+		} catch {
+			// Invalid URL — will fail on first request anyway
+		}
 	}
 
 	async execute(
