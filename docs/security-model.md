@@ -1,4 +1,4 @@
-# Ari Kernel — Formal Security Model
+# Ari Kernel — Security Model
 
 **Version**: 1.0
 **Date**: 2026-03-10

@@ -125,7 +125,7 @@ A malicious webpage instructs the agent:
 5. Full sequence recorded in audit log      -> arikernel replay --latest
 ```
 
-Without runtime enforcement, the SSH key is exfiltrated. With Ari Kernel, the behavioral rule detects the sequence — web taint followed by a sensitive read — and quarantines the run. The agent cannot retry, escalate, or pivot.
+Without runtime enforcement, the SSH key is exfiltrated. With Ari Kernel, the behavioral rule detects the sequence — web taint followed by a sensitive read — and quarantines the run. The agent cannot retry, escalate, or pivot within the mediated tool execution path.
 
 ---
 
@@ -176,9 +176,9 @@ An automated test version of this flow (no LLM required) lives at [`packages/run
 
 ---
 
-## Security Guarantees
+## Security Properties
 
-When properly integrated, Ari Kernel guarantees:
+When all tool calls are routed through the kernel, Ari Kernel enforces the following properties:
 
 - **Capability-scoped tool execution** — agents cannot execute tools without an explicit, time-limited capability grant
 - **Constraint narrowing** — grant constraints can only narrow permissions, never broaden them (intersection semantics)
@@ -188,9 +188,9 @@ When properly integrated, Ari Kernel guarantees:
 - **Bounded regex output filters** — DLP secret detection patterns use bounded quantifiers to prevent ReDoS
 - **Audit logging and replay** — all security decisions are recorded in a SHA-256 hash-chained audit log and can be deterministically replayed
 
-These guarantees cover file access, database queries, HTTP requests, shell execution, and external tool calls (including MCP).
+These properties cover file access, database queries, HTTP requests, shell execution, and external tool calls (including MCP).
 
-These guarantees assume all tool calls are routed through the kernel. In embedded mode, enforcement is cooperative — if agent framework code bypasses the kernel, guarantees are void. In sidecar mode, the process boundary provides stronger mediation. See [docs/security-model.md](docs/security-model.md) for enforcement mechanisms and [docs/threat-model.md](docs/threat-model.md) for attacker assumptions, trust boundaries, and residual risks.
+**Important**: In embedded mode, enforcement is cooperative — if agent framework code bypasses the kernel, these properties do not hold. In sidecar mode, the process boundary provides stronger mediation but is not equivalent to OS-level sandboxing. See [docs/security-model.md](docs/security-model.md) for enforcement mechanisms and [docs/threat-model.md](docs/threat-model.md) for attacker assumptions, trust boundaries, and residual risks.
 
 ## Non-Goals
 
@@ -416,7 +416,7 @@ Nine reproducible attack scenarios aligned with the [AgentDojo](https://github.c
 | SSRF to internal endpoints | `ssrf` | Policy + IP validation (`isPrivateIP`) | All 5 targets blocked |
 | Multi-step data exfiltration | `data_exfiltration` | Behavioral rule + quarantine (defense-in-depth) | DB denied, HTTP + shell exfil blocked |
 
-**9/9 attacks blocked. 100% exfiltration prevented. 100% quarantine rate. Deterministic and reproducible.**
+**9/9 attacks blocked in controlled benchmark scenarios. 100% exfiltration prevented. 100% quarantine rate.** These are deterministic, reproducible results against defined attack patterns — not a claim of protection against all possible attacks. See [Limitations](#current-limitations) and [Threat Model](docs/threat-model.md) for boundary conditions.
 
 ```bash
 pnpm benchmark:agentdojo          # run all 9 scenarios
@@ -525,7 +525,7 @@ pnpm benchmark:agentdojo      # 9 attack scenarios — 100% exfiltration prevent
 
 ## Sidecar Mode (Recommended for Production)
 
-> **For production and security-sensitive deployments, sidecar mode is recommended.** It provides the highest assurance via process isolation — the agent has no code path to tools that bypasses the kernel, provided all side-effectful operations are routed exclusively through the sidecar.
+> **For production and security-sensitive deployments, sidecar mode is recommended.** It provides stronger enforcement via process isolation — the agent has no in-process code path to tools that bypasses the kernel, provided all side-effectful operations are routed exclusively through the sidecar. This is not equivalent to OS-level sandboxing; combine with container isolation for highest assurance.
 
 Ari Kernel runs as a standalone HTTP proxy that enforces policy before any tool executes. The agent sends `POST /execute` requests; the sidecar evaluates capability tokens, taint, policy rules, and behavioral patterns, then returns the result or a denial.
 
@@ -579,7 +579,7 @@ See [Deterministic Replay](docs/replay.md) for the full API reference.
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
-- **Middleware taint boundary** — middleware wrappers enforce permit/deny decisions but do not surface taint metadata on tool results. See [Security Model](docs/security-model.md#taint-propagation-boundaries) for details.
+- **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#taint-propagation-boundaries) for details.
 
 ---
 

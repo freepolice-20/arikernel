@@ -2,7 +2,7 @@
   "name": "arikernel",
   "private": true,
   "version": "0.1.0",
-  "description": "A reference monitor for AI agents",
+  "description": "Runtime security policy enforcement for AI agent tool calls",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {

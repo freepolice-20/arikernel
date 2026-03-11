@@ -1,7 +1,7 @@
 {
 	"name": "@arikernel/audit-log",
 	"version": "0.1.1",
-	"description": "Immutable audit logging with hash chain for AriKernel",
+	"description": "SHA-256 hash-chained audit logging for AriKernel (tamper-evident, not tamper-proof)",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
