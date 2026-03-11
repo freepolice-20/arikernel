@@ -5,6 +5,7 @@ export {
 	captureEnvironment,
 	defaultResultsPaths,
 	printConsoleSummary,
+	printSecurityReport,
 	writeJsonReport,
 	writeJsonlReport,
 	writeMarkdownReport,

@@ -1,13 +1,18 @@
 import type { ScenarioDef } from "../types.js";
+import * as crossRunExfil from "./cross-run-credential-exfil.js";
 import * as deHttpPost from "./data-exfil-http-post.js";
 import * as deShellCurl from "./data-exfil-shell-curl.js";
 import * as dbEscalation from "./db-escalation.js";
+import * as egressConvergence from "./egress-convergence.js";
 import * as fsPathEscape from "./fs-traversal-path-escape.js";
 import * as fsSensitive from "./fs-traversal-sensitive.js";
+import * as lowEntropyExfil from "./low-entropy-exfil.js";
+import * as pathAmbiguity from "./path-ambiguity-bypass.js";
 import * as piCmdExec from "./prompt-injection-cmd-exec.js";
 import * as piExfil from "./prompt-injection-exfil.js";
 import * as piFsWrite from "./prompt-injection-fs-write.js";
 import * as repeatedProbe from "./repeated-probe-quarantine.js";
+import * as sharedStoreContam from "./shared-store-contamination.js";
 import * as tcRagFile from "./taint-chain-rag-file.js";
 import * as tcWebShell from "./taint-chain-web-shell.js";
 import * as teHttp from "./tool-escalation-http.js";
@@ -49,4 +54,10 @@ export const SCENARIOS: ScenarioDef[] = [
 	// Taint Chain (2)
 	def(tcWebShell),
 	def(tcRagFile),
+	// Multi-Step Attack Sequences (5)
+	def(crossRunExfil),
+	def(sharedStoreContam),
+	def(egressConvergence),
+	def(pathAmbiguity),
+	def(lowEntropyExfil),
 ];

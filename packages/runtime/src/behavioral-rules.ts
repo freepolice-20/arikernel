@@ -39,7 +39,7 @@ export function evaluateBehavioralRules(state: RunStateTracker): BehavioralRuleM
 
 	return (
 		checkWebTaintSensitiveProbe(events, state) ??
-		checkDeniedCapabilityThenEscalation(events) ??
+		checkDeniedCapabilityThenEscalation(events, state) ??
 		checkSensitiveReadThenEgress(events, state) ??
 		checkTaintedDatabaseWrite(events, state) ??
 		checkTaintedShellWithData(events, state) ??
@@ -108,14 +108,16 @@ function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: Ru
 
 function checkDeniedCapabilityThenEscalation(
 	events: readonly SecurityEvent[],
+	state: RunStateTracker,
 ): BehavioralRuleMatch | null {
-	// Check ALL denied capabilities (not just the most recent) to find
-	// any denial followed by a riskier request. The escalation request
-	// may itself be denied, producing a newer denial event that would
-	// shadow the original if we only checked the most recent.
+	// Check ALL denied capabilities in the window to find
+	// any denial followed by a riskier request.
 	for (let i = 0; i < events.length; i++) {
 		const event = events[i];
 		if (event.type !== "capability_denied") continue;
+
+		// Set sticky flag whenever we see a denial (survives window eviction)
+		state.markEscalationDenied(event.toolClass ?? "");
 
 		const deniedRisk = TOOL_CLASS_RISK[event.toolClass ?? ""] ?? 0;
 
@@ -135,6 +137,29 @@ function checkDeniedCapabilityThenEscalation(
 				ruleId: "denied_capability_then_escalation",
 				reason: `Denied ${event.toolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
 				matchedEvents: [event, escalation],
+			};
+		}
+	}
+
+	// Sticky flag: capability denial happened earlier but was evicted from window.
+	// Only activates when NO capability_denied events remain in the window
+	// (otherwise the for-loop above already handles them with proper ordering).
+	const hasDenialInWindow = events.some((e) => e.type === "capability_denied");
+	if (state.escalationDeniedObserved && !hasDenialInWindow) {
+		const deniedRisk = TOOL_CLASS_RISK[state.escalationDeniedToolClass ?? ""] ?? 0;
+		const escalation = findRecent(events, (e) => {
+			if (e.type !== "capability_requested" && e.type !== "capability_granted") return false;
+			const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ""] ?? 0;
+			if (requestedRisk > deniedRisk) return true;
+			if (DANGEROUS_CLASSES.has(e.toolClass ?? "")) return true;
+			return false;
+		});
+
+		if (escalation) {
+			return {
+				ruleId: "denied_capability_then_escalation",
+				reason: `Previous denied ${state.escalationDeniedToolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
+				matchedEvents: [escalation],
 			};
 		}
 	}

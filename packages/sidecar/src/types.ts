@@ -176,4 +176,24 @@ export interface SidecarConfig {
 	 * Alerting only — does not block execution.
 	 */
 	onCrossPrincipalAlert?: import("./correlator.js").AlertHandler;
+	/**
+	 * Decision mode: 'local' (default) evaluates policies in-process,
+	 * 'remote' delegates policy decisions to a control plane service.
+	 */
+	decisionMode?: import("./decision-delegate.js").DecisionMode;
+	/**
+	 * Control plane base URL. Required when decisionMode is 'remote'.
+	 * Example: 'http://localhost:9090'
+	 */
+	controlPlaneUrl?: string;
+	/**
+	 * Bearer token for authenticating with the control plane.
+	 */
+	controlPlaneAuthToken?: string;
+	/**
+	 * Timeout in milliseconds for control plane requests. Default: 5000.
+	 * If the control plane is unreachable within this window, the sidecar
+	 * fails closed (denies the request).
+	 */
+	controlPlaneTimeoutMs?: number;
 }

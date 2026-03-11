@@ -29,3 +29,25 @@ export { promptInjectionScenarios } from "./scenarios/prompt-injection.js";
 export { dataExfiltrationScenarios } from "./scenarios/data-exfiltration.js";
 export { toolMisuseScenarios } from "./scenarios/tool-misuse.js";
 export { privilegeEscalationScenarios } from "./scenarios/privilege-escalation.js";
+
+// YAML scenario loading and execution
+export { loadScenarioFile, loadScenarioDirectory } from "./scenario-loader.js";
+export {
+	yamlScenarioSchema,
+	yamlScenarioSuiteSchema,
+	ACTION_MAP,
+	type YamlScenarioInput,
+	type YamlScenarioSuiteInput,
+	type ScenarioStepInput,
+} from "./scenario-schema.js";
+export {
+	runScenarioFile,
+	runScenarioDirectory,
+	runPolicyTest,
+	formatTimeline,
+	formatPolicyTestReport,
+	type PolicyTestResult,
+	type RunScenarioOptions,
+	type TimelineEntry,
+} from "./scenario-runner.js";
+export { BUILTIN_SCENARIOS_DIR, loadBuiltinScenarios } from "./builtin-scenarios.js";

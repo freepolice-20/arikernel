@@ -24,7 +24,8 @@ import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules
 import { validateCommand } from "./command-security.js";
 import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
-import { type RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";
+import type { PersistentTaintRegistry } from "./persistent-taint-registry.js";
+import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil } from "./run-state.js";
 import type { SecurityMode } from "./config.js";
 import type { TokenStore } from "./token-store.js";
 
@@ -62,11 +63,30 @@ export class Pipeline {
 		private readonly runState?: RunStateTracker,
 		private readonly signingKey?: SigningKey,
 		private readonly securityMode: SecurityMode = "dev",
+		private readonly persistentTaint?: PersistentTaintRegistry,
 	) {}
 
 	async intercept(request: ToolCallRequest): Promise<ToolResult> {
 		// Step 1: Validate
 		toolCallRequestSchema.parse(request);
+
+		// Step 1.1: Apply model-generated taint.
+		// All tool call requests flowing through the pipeline originate from LLM output.
+		// This taint label ensures behavioral rules can track model-originated content
+		// through database writes, HTTP requests, and other tool executions.
+		const inputLabels = request.taintLabels ?? [];
+		const hasModelTaint = inputLabels.some((l) => l.source === "model-generated");
+		const taintLabels: import("@arikernel/core").TaintLabel[] = hasModelTaint
+			? inputLabels
+			: [
+					...inputLabels,
+					{
+						source: "model-generated" as const,
+						origin: `${request.toolClass}.${request.action}`,
+						confidence: 1.0,
+						addedAt: now(),
+					},
+				];
 
 		const toolCall: ToolCall = {
 			id: generateId(),
@@ -77,7 +97,7 @@ export class Pipeline {
 			toolClass: request.toolClass,
 			action: request.action,
 			parameters: request.parameters,
-			taintLabels: request.taintLabels ?? [],
+			taintLabels,
 			parentCallId: request.parentCallId,
 			grantId: request.grantId,
 		};
@@ -97,25 +117,33 @@ export class Pipeline {
 				isSuspiciousGetExfil(url);
 
 			// Block GETs with query parameters after a budget is exhausted.
-			// Prevents slow-drip exfiltration via many small GET requests.
+			// After sensitive read, budget is 0 — all parameterized GETs are blocked.
 			let isGetBudgetExhausted = false;
+			let isEncodedExfil = false;
 			if (
 				isSafeAction &&
 				!isGetExfil &&
 				toolCall.toolClass === "http" &&
-				(toolCall.action === "get" || toolCall.action === "head") &&
-				url.includes("?")
+				(toolCall.action === "get" || toolCall.action === "head")
 			) {
-				isGetBudgetExhausted = this.runState.recordQuarantineGet();
+				if (url.includes("?")) {
+					isGetBudgetExhausted = this.runState.recordQuarantineGet();
+				}
+				// Detect base64/hex encoded payloads in query params
+				if (!isGetBudgetExhausted && hasEncodedPayload(url)) {
+					isEncodedExfil = true;
+				}
 			}
 
-			if (!isSafeAction || isGetExfil || isGetBudgetExhausted) {
-				const reason = isGetBudgetExhausted
-					? `HTTP GET with query parameters blocked: quarantine GET budget exhausted (${this.runState.quarantineGetCount} requests). Potential slow-drip exfiltration.`
-					: isGetExfil
-						? `Suspicious data exfiltration via GET query parameters blocked in restricted mode. '${toolCall.toolClass}.${toolCall.action}' denied.`
-						: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
-							`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
+			if (!isSafeAction || isGetExfil || isGetBudgetExhausted || isEncodedExfil) {
+				const reason = isEncodedExfil
+					? `HTTP GET with encoded payload blocked in quarantine. Base64/hex data detected in query parameters.`
+					: isGetBudgetExhausted
+						? `HTTP GET with query parameters blocked: quarantine GET budget exhausted (${this.runState.quarantineGetCount} requests). Potential slow-drip exfiltration.`
+						: isGetExfil
+							? `Suspicious data exfiltration via GET query parameters blocked in restricted mode. '${toolCall.toolClass}.${toolCall.action}' denied.`
+							: `Run entered restricted mode at ${this.runState.restrictedAt} after ${this.runState.counters.deniedActions} denied sensitive actions. ` +
+								`Only read-only safe actions are allowed. '${toolCall.toolClass}.${toolCall.action}' is blocked.`;
 				const decision: Decision = {
 					verdict: "deny",
 					matchedRule: null,
@@ -134,6 +162,9 @@ export class Pipeline {
 			// Track taint from the tool call — mark run as persistently tainted
 			if (toolCall.taintLabels.length > 0) {
 				this.runState.accumulateTaintLabels(toolCall.taintLabels);
+				for (const label of toolCall.taintLabels) {
+					this.persistentTaint?.recordTaintObserved(label.source);
+				}
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
 					type: "taint_observed",
@@ -154,6 +185,14 @@ export class Pipeline {
 					(toolCall.action === "get" || toolCall.action === "head") &&
 					isSuspiciousGetExfil(httpUrl);
 
+				// Track cumulative GET egress bytes per hostname
+				if (
+					(toolCall.action === "get" || toolCall.action === "head") &&
+					httpUrl.includes("?")
+				) {
+					this.runState.recordHttpGetEgress(httpUrl);
+				}
+
 				// After a sensitive read, treat any GET with query params as potential exfil.
 				// This closes the slow-drip gap where small GETs evade isSuspiciousGetExfil thresholds.
 				const isSensitiveGetExfil =
@@ -165,6 +204,7 @@ export class Pipeline {
 
 				if (isWriteEgress || isGetExfil || isSensitiveGetExfil) {
 					this.runState.recordEgressAttempt();
+					this.persistentTaint?.recordEgress(httpUrl);
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,
 						type: "egress_attempt",
@@ -186,6 +226,7 @@ export class Pipeline {
 				const path = String(toolCall.parameters.path ?? "");
 				if (this.runState.isSensitivePath(path)) {
 					this.runState.recordSensitiveFileAttempt();
+					this.persistentTaint?.recordSensitiveRead(path);
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,
 						type: "sensitive_read_attempt",
@@ -267,6 +308,13 @@ export class Pipeline {
 		}
 
 		if (decision.verdict === "require-approval") {
+			if (!this.hooks.onApprovalRequired) {
+				console.warn(
+					`[arikernel] Policy returned 'require-approval' for ${toolCall.toolClass}.${toolCall.action} ` +
+					`but no onApprovalRequired handler is registered. Action will be denied by default. ` +
+					`Register a handler via hooks.onApprovalRequired to enable interactive approval.`,
+				);
+			}
 			const approved = await this.hooks.onApprovalRequired?.(toolCall, decision);
 			if (!approved) {
 				const deniedDecision: Decision = {

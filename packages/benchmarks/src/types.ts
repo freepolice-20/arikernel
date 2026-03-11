@@ -8,7 +8,12 @@ export type AttackCategory =
 	| "data_exfiltration"
 	| "filesystem_traversal"
 	| "database_escalation"
-	| "taint_chain";
+	| "taint_chain"
+	| "cross_run_exfiltration"
+	| "shared_store_contamination"
+	| "egress_convergence"
+	| "path_ambiguity_bypass"
+	| "low_entropy_exfiltration";
 
 export type EnforcementMechanism = "policy" | "capability" | "taint" | "behavioral" | "quarantine";
 
@@ -17,7 +22,7 @@ export interface BenchmarkResult {
 	scenarioName: string;
 	attackCategory: AttackCategory;
 	description: string;
-	verdict: "BLOCKED" | "ALLOWED";
+	verdict: "BLOCKED" | "ALLOWED" | "PARTIAL";
 	enforcementMechanism: EnforcementMechanism | null;
 	wasQuarantined: boolean;
 	deniedCount: number;
@@ -31,9 +36,12 @@ export interface BenchmarkSummary {
 	totalScenarios: number;
 	attacksBlocked: number;
 	attacksBlockedPct: number;
+	attacksPartial: number;
+	attacksPartialPct: number;
+	attacksAllowed: number;
 	quarantinedRuns: number;
 	quarantinedRunsPct: number;
-	byCategory: Record<string, { blocked: number; total: number }>;
+	byCategory: Record<string, { blocked: number; partial: number; total: number }>;
 	byMechanism: Record<string, number>;
 }
 

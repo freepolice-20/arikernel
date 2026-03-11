@@ -4,10 +4,11 @@ export { SidecarProxyExecutor, createSidecarProxies } from "./sidecar-proxy.js";
 export type { SidecarProxyConfig } from "./sidecar-proxy.js";
 export type { FirewallHooks } from "./hooks.js";
 export { CapabilityIssuer, setUntrustedSources, getUntrustedSources } from "./issuer.js";
-export { RunStateTracker, isSuspiciousGetExfil } from "./run-state.js";
+export { RunStateTracker, isSuspiciousGetExfil, hasEncodedPayload } from "./run-state.js";
 export type {
 	RunStatePolicy,
 	RunStateCounters,
+	HostnameEgressRecord,
 	QuarantineInfo,
 	QuarantineTrigger,
 	SecurityEvent,
@@ -18,6 +19,8 @@ export { createSecretPatternFilter } from "./output-filter.js";
 export type { OutputFilterOptions } from "./output-filter.js";
 export type { BehavioralRuleMatch } from "./behavioral-rules.js";
 export { TokenStore, type StoredToken } from "./token-store.js";
+export { PersistentTaintRegistry } from "./persistent-taint-registry.js";
+export type { PersistentTaintConfig, PersistentEventType } from "./persistent-taint-registry.js";
 export { createKernel, getDefaultKernel, resetDefaultKernel } from "./kernel.js";
 export type { Kernel, KernelOptions, KernelAllow } from "./kernel.js";
 export { canonicalizePath, isPathAllowed } from "./path-security.js";

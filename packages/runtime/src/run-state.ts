@@ -15,6 +15,8 @@ export interface RunStatePolicy {
 	maxDeniedSensitiveActions?: number;
 	/** Whether behavioral sequence rules are enabled. Default: true */
 	behavioralRules?: boolean;
+	/** Hostnames exempted from post-sensitive-read egress tightening. */
+	egressAllowHosts?: string[];
 }
 
 export interface RunStateCounters {
@@ -62,7 +64,22 @@ export interface QuarantineInfo {
 	timestamp: string;
 }
 
+// ── Cumulative egress tracking ─────────────────────────────────────
+
+export interface HostnameEgressRecord {
+	totalQueryBytes: number;
+	requestCount: number;
+}
+
 // ── Constants ──────────────────────────────────────────────────────
+
+/** Risk ordering for tool classes — used by escalation denial sticky flag. */
+const TOOL_CLASS_RISK_MAP: Record<string, number> = {
+	http: 1,
+	database: 2,
+	file: 3,
+	shell: 5,
+};
 
 const MAX_EVENT_WINDOW = 20;
 
@@ -119,7 +136,11 @@ export class RunStateTracker {
 	private _sensitiveReadObserved = false;
 	private _egressObserved = false;
 	private _secretAccessObserved = false;
+	private _escalationDeniedObserved = false;
+	private _escalationDeniedToolClass: string | null = null;
 	private _quarantineGetCount = 0;
+	private readonly _egressByHostname = new Map<string, HostnameEgressRecord>();
+	private readonly _egressAllowHosts: ReadonlySet<string>;
 	private readonly threshold: number;
 	readonly behavioralRulesEnabled: boolean;
 	/** The policy configuration used to construct this tracker. */
@@ -129,6 +150,7 @@ export class RunStateTracker {
 		this.policy = policy;
 		this.threshold = policy?.maxDeniedSensitiveActions ?? 5;
 		this.behavioralRulesEnabled = policy?.behavioralRules !== false;
+		this._egressAllowHosts = new Set(policy?.egressAllowHosts ?? []);
 	}
 
 	get restricted(): boolean {
@@ -169,6 +191,27 @@ export class RunStateTracker {
 	/** Whether a secret/credential access was observed at any point during this run. Sticky. */
 	get secretAccessObserved(): boolean {
 		return this._secretAccessObserved;
+	}
+
+	/** Whether a capability denial was observed at any point during this run. Sticky. */
+	get escalationDeniedObserved(): boolean {
+		return this._escalationDeniedObserved;
+	}
+
+	/** The tool class of the denied capability (for escalation risk comparison). */
+	get escalationDeniedToolClass(): string | null {
+		return this._escalationDeniedToolClass;
+	}
+
+	/** Mark that a capability was denied. Sticky — survives window eviction. */
+	markEscalationDenied(toolClass: string): void {
+		this._escalationDeniedObserved = true;
+		// Track the highest-risk denied tool class
+		const currentRisk = TOOL_CLASS_RISK_MAP[this._escalationDeniedToolClass ?? ""] ?? 0;
+		const newRisk = TOOL_CLASS_RISK_MAP[toolClass] ?? 0;
+		if (newRisk >= currentRisk) {
+			this._escalationDeniedToolClass = toolClass;
+		}
 	}
 
 	/** Mark the run as tainted by an external source. Sticky — never resets. */
@@ -228,7 +271,46 @@ export class RunStateTracker {
 	/** Record a GET-with-params in quarantine mode. Returns true if budget exhausted. */
 	recordQuarantineGet(): boolean {
 		this._quarantineGetCount++;
+		// After sensitive read, budget is 0 — block ALL parameterized GETs
+		if (this._sensitiveReadObserved) return true;
 		return this._quarantineGetCount > RunStateTracker.MAX_QUARANTINE_GETS_WITH_PARAMS;
+	}
+
+	/** Record cumulative HTTP GET egress bytes for a hostname. */
+	recordHttpGetEgress(url: string): void {
+		try {
+			const parsed = new URL(url);
+			const hostname = parsed.hostname;
+			const queryBytes = parsed.search.length;
+			const record = this._egressByHostname.get(hostname) ?? {
+				totalQueryBytes: 0,
+				requestCount: 0,
+			};
+			record.totalQueryBytes += queryBytes;
+			record.requestCount++;
+			this._egressByHostname.set(hostname, record);
+		} catch {
+			/* ignore invalid URLs */
+		}
+	}
+
+	/** Get cumulative egress record for a hostname. */
+	getCumulativeEgress(hostname: string): HostnameEgressRecord | undefined {
+		return this._egressByHostname.get(hostname);
+	}
+
+	/** Check if a hostname is in the egress allowlist. */
+	isAllowlistedHost(hostname: string): boolean {
+		return this._egressAllowHosts.has(hostname);
+	}
+
+	/** Total cumulative query-string bytes across all hostnames. */
+	get totalEgressQueryBytes(): number {
+		let total = 0;
+		for (const record of this._egressByHostname.values()) {
+			total += record.totalQueryBytes;
+		}
+		return total;
 	}
 
 	/** Check if an action is allowed in restricted mode. */
@@ -407,6 +489,41 @@ export function isSuspiciousGetExfil(url: string): boolean {
 			}
 		}
 
+		return false;
+	} catch {
+		return false;
+	}
+}
+
+// ── Low-entropy encoding detection ───────────────────────────────
+
+/** Base64 with padding: short values need `=` to distinguish from normal words. */
+const BASE64_PADDED_RE = /^[A-Za-z0-9+/\-_]{2,}={1,2}$/;
+/** Base64 without padding: only flag if 8+ chars (avoids false positives on short words). */
+const BASE64_LONG_RE = /^[A-Za-z0-9+/\-_]{8,}$/;
+/** Hex pattern: 8+ hex chars (e.g. encoded binary or chunked secrets). */
+const HEX_RE = /^[0-9a-fA-F]{8,}$/;
+
+function isBase64Like(value: string): boolean {
+	if (value.endsWith("=")) {
+		return value.length >= 4 && BASE64_PADDED_RE.test(value);
+	}
+	return BASE64_LONG_RE.test(value);
+}
+
+/**
+ * Detect base64 or hex encoded payloads in query parameter values.
+ * Catches low-entropy exfiltration where small encoded chunks are
+ * smuggled in innocuous-looking query parameters.
+ */
+export function hasEncodedPayload(url: string): boolean {
+	try {
+		const parsed = new URL(url);
+		for (const [, value] of parsed.searchParams) {
+			if (isBase64Like(value) || HEX_RE.test(value)) {
+				return true;
+			}
+		}
 		return false;
 	} catch {
 		return false;
