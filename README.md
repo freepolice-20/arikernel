@@ -523,7 +523,17 @@ From the repo root, use `pnpm ari <command>`. If installed globally (`npm instal
 | `arikernel replay-trace <file>` | Replay a JSON trace file (`--timeline`, `--summary`, `--graph`, `--json`) |
 | `arikernel sidecar` | Start sidecar proxy (localhost:8787 by default) |
 | `arikernel init` | Interactive project setup |
-| `arikernel policy <file>` | Validate a policy YAML file |
+| `arikernel policy validate <file>` | Validate a policy YAML file |
+| `arikernel policy list` | List available policy presets |
+| `arikernel policy show <name>` | Show a policy preset's rules |
+| `arikernel attack simulate <file>` | Run a YAML attack scenario through the kernel |
+| `arikernel attack list` | List built-in attack scenarios |
+| `arikernel policy-test <policy>` | Test a policy against attack scenarios (`--scenarios <dir>`) |
+| `arikernel benchmark run` | Run full benchmark suite with detailed output |
+| `arikernel benchmark security` | Run security-focused benchmarks |
+| `arikernel compliance-report` | Generate compliance/evidence report (`--json`, `--markdown`) |
+| `arikernel control-plane export-audit` | Export control plane audit logs (`--db`, `--out`) |
+| `arikernel verify-receipt <path>` | Verify Ed25519 signature on a decision receipt |
 
 All forensic commands default to `./arikernel-audit.db`. Override with `--db <path>`.
 
@@ -581,7 +591,7 @@ pnpm benchmark:agentdojo      # 9 attack scenarios — 100% exfiltration prevent
 Ari Kernel runs as a standalone HTTP proxy that enforces policy before any tool executes. The agent sends `POST /execute` requests; the sidecar evaluates capability tokens, taint, policy rules, and behavioral patterns, then returns the result or a denial.
 
 ```bash
-arikernel sidecar --preset safe --auth-token "$AUTH_TOKEN" --port 8787
+arikernel sidecar --policy safe --auth-token "$AUTH_TOKEN" --port 8787
 ```
 
 Or programmatically with preset support:
