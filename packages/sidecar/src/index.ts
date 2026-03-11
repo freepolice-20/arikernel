@@ -17,6 +17,7 @@ export type {
 	CorrelatorConfig,
 	CrossPrincipalAlert,
 	AlertHandler,
+	QuarantineHandler,
 } from "./correlator.js";
 export type {
 	SidecarConfig,

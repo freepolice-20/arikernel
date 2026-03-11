@@ -24,6 +24,7 @@ The sidecar is hardened for production deployment:
 - **Bearer token authentication**: Use `--auth-token <token>` to require a Bearer token on all requests (except `/health`). The token is compared using constant-time string comparison to prevent timing attacks.
 - **Per-principal isolation**: Each agent gets its own kernel instance — quarantine, counters, and audit logs are independent.
 - **Cross-principal correlation**: The `CrossPrincipalCorrelator` detects tag-team attacks across principals — shared-store relay (CP-1), derived-sensitive egress (CP-2), and egress-destination convergence (CP-3, catches out-of-band relay attacks where multiple agents converge on the same host).
+- **Quarantine-on-alert**: When `quarantineOnAlert: true` is set in the correlator config, CP alerts automatically quarantine all offending principals — escalating from detection to enforcement. Both principals involved in a tag-team attack are immediately restricted.
 
 ```bash
 # Production: localhost + auth

@@ -120,6 +120,16 @@ export class PrincipalRegistry {
 		if (registryConfig.onCrossPrincipalAlert) {
 			this.correlator.onAlert(registryConfig.onCrossPrincipalAlert);
 		}
+
+		// When quarantineOnAlert is enabled, wire up automatic quarantine of offending principals
+		if (registryConfig.correlatorConfig?.quarantineOnAlert) {
+			this.correlator.onQuarantine((principalId, ruleId, reason) => {
+				const fw = this.firewalls.get(principalId);
+				if (fw) {
+					fw.quarantineExternal(ruleId, reason);
+				}
+			});
+		}
 	}
 
 	/** The cross-principal correlator for this registry. */

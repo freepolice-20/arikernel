@@ -429,7 +429,9 @@ Each principal is evaluated independently. The sidecar provides lightweight cros
 - **CP-2** (Medium): Any principal with `derived-sensitive` taint attempts HTTP write egress.
 - **CP-3** (High): Multiple principals egress to the same destination host within the correlation window, and at least one had a recent sensitive file read. Catches out-of-band relay attacks where Agent A posts secrets to a relay host and Agent B fetches from the same relay then exfiltrates elsewhere — without any shared-store involvement.
 
-However, this is alerting and provenance tracking, not full information-flow control. Agents coordinating via channels not visible to the kernel (e.g., shared memory, timing side-channels, steganography in allowed outputs) are not detected. Capability delegation (§4.4) addresses authorized multi-agent cooperation but does not detect adversarial collusion.
+**Quarantine-on-alert**: Setting `quarantineOnAlert: true` in the correlator config escalates CP alerts from detection to enforcement — all principals named in a CP alert are immediately quarantined via `Firewall.quarantineExternal()`. This ensures that once a tag-team attack is detected, both the sender and receiver are locked down.
+
+However, cross-principal correlation is alerting and provenance tracking, not full information-flow control. Agents coordinating via channels not visible to the kernel (e.g., shared memory, timing side-channels, steganography in allowed outputs) are not detected. Capability delegation (§4.4) addresses authorized multi-agent cooperation but does not detect adversarial collusion.
 
 ### 8.6 Audit Chain Limitations
 
