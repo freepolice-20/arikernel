@@ -15,11 +15,11 @@ This document tracks findings from internal security audits and red-team exercis
 | Command path trust | Resolved | Binary path validation against `TRUSTED_PATH_PREFIXES`; untrusted paths rejected |
 | Path canonicalization fallback | Resolved | Fail-closed on canonicalization error — throws instead of returning un-canonicalized path |
 | Non-TLS sidecar warning | Resolved | Runtime warning when sidecar endpoint is non-localhost and non-HTTPS |
-| Nonce replay scope | Documented | Nonce replay detection is instance-local; HA deployments should use shared nonce store or sticky sessions |
+| Nonce replay scope | Resolved | Nonce replay detection code removed — `maxCalls`/`consume()` is the replay prevention mechanism; nonce retained only for token signing integrity |
 | Error message leakage | Resolved | Router 500 responses return generic `"Internal server error"` instead of raw error messages |
 | Response body unbounded | Resolved | 10 MB response body limit in SSRF handler; connection destroyed on exceed |
 | Shell env leakage | Resolved | Environment sanitized before spawn (strips SECRET/TOKEN/KEY/PASSWORD/AUTH vars); `env`/`printenv`/`set` blocked |
-| Nonce set memory growth | Resolved | FIFO eviction at 100K entries (10% batch eviction) |
+| Nonce set memory growth | Resolved | Dead nonce tracking code removed — no in-memory nonce set |
 | Timing-safe comparison | Resolved | Replaced custom implementation with `crypto.timingSafeEqual` from Node.js stdlib |
 | Unicode regex missing global flag | Resolved | Split into `DANGEROUS_UNICODE_DETECT` (non-global for `.test()`) and `DANGEROUS_UNICODE_STRIP` (global for `.replace()`) |
 | `secureExecute()` wrong capability class | Resolved | Replaced ad-hoc string heuristic with canonical `deriveCapabilityClass()` — fixes shell.exec, database.query mappings |
