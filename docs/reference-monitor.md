@@ -12,7 +12,7 @@ AI agents execute side-effectful operations — HTTP requests, file I/O, shell c
 
 This creates a structural vulnerability. Prompt injection, tainted retrieval data, and adversarial email content can manipulate the agent's reasoning. Without an enforcement boundary, manipulated reasoning leads directly to manipulated execution. The attack surface is not the model — it is the absence of mediation between reasoning and action.
 
-Ari Kernel is a runtime enforcement layer that interposes on every tool call an agent makes. It evaluates capability grants, data provenance, policy rules, and behavioral patterns before permitting execution. This document specifies how Ari Kernel satisfies the properties of a reference monitor for AI agent tool execution.
+Ari Kernel is a runtime enforcement layer that interposes on every tool call an agent makes. It evaluates capability grants, data provenance, policy rules, and behavioral patterns before permitting execution. This document specifies how Ari Kernel approaches the properties of a reference monitor for AI agent tool execution, and where the current implementation falls short of the classical model.
 
 ---
 
@@ -421,9 +421,15 @@ In embedded mode, the enforcement state (token store, taint state, policy rules)
 
 Ari Kernel evaluates structured tool call metadata (tool class, action, parameters, taint labels). It does not inspect the semantic content of tool call inputs or outputs. It cannot detect prompt injection in text, identify PII in response bodies, or classify harmful content. It is complementary to, not a replacement for, content-level defenses.
 
-### 8.5 No Multi-Agent Collusion Detection
+### 8.5 Limited Multi-Agent Collusion Detection
 
-Each principal is evaluated independently. If Agent A reads sensitive data (permitted by A's policy) and communicates it out-of-band to Agent B, who exfiltrates it (permitted by B's policy), the kernel does not detect the cross-principal attack. Capability delegation (§4.4) addresses authorized multi-agent cooperation but does not detect adversarial collusion.
+Each principal is evaluated independently. The sidecar provides lightweight cross-principal provenance via the `SharedTaintRegistry` (marks shared resources contaminated when a tainted principal writes) and `CrossPrincipalCorrelator` (alerts on three cross-principal patterns):
+
+- **CP-1** (High): Principal A reads sensitive file → writes shared store resource X → Principal B reads resource X → Principal B egresses. Resource-key aware — the write and read must target the same canonical resource.
+- **CP-2** (Medium): Any principal with `derived-sensitive` taint attempts HTTP write egress.
+- **CP-3** (High): Multiple principals egress to the same destination host within the correlation window, and at least one had a recent sensitive file read. Catches out-of-band relay attacks where Agent A posts secrets to a relay host and Agent B fetches from the same relay then exfiltrates elsewhere — without any shared-store involvement.
+
+However, this is alerting and provenance tracking, not full information-flow control. Agents coordinating via channels not visible to the kernel (e.g., shared memory, timing side-channels, steganography in allowed outputs) are not detected. Capability delegation (§4.4) addresses authorized multi-agent cooperation but does not detect adversarial collusion.
 
 ### 8.6 Audit Chain Limitations
 
@@ -457,7 +463,7 @@ Apply formal methods to verify key safety invariants:
 
 ### Multi-Agent Collusion Detection
 
-Cross-principal behavioral analysis to detect coordinated attack patterns where individual principals operate within policy but the collective behavior is adversarial.
+Cross-principal behavioral analysis to detect coordinated attack patterns where individual principals operate within policy but the collective behavior is adversarial. The CP-3 egress-destination convergence rule (§8.5) is a first step — future work includes full cross-principal behavioral pattern analysis, transitive HTTP taint propagation, and integration with network-level isolation policies.
 
 ### Dynamic Policy Updates
 

