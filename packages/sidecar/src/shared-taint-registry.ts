@@ -21,7 +21,7 @@ interface ContaminatedResource {
 }
 
 /** DB actions that constitute a write for contamination marking. */
-const DB_WRITE_ACTIONS = ["write", "insert", "update", "create"];
+const DB_WRITE_ACTIONS = ["write", "insert", "update", "create", "exec", "mutate"];
 
 /**
  * Tracks which shared resources have been written to by principals that

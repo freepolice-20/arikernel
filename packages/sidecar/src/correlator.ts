@@ -108,7 +108,7 @@ export class CrossPrincipalCorrelator {
 			timestamp: event.timestamp,
 			taintSources,
 			params,
-			resourceKey: extractResourceKey(toolClass, action, params),
+			resourceKey: extractResourceKey(toolClass, action, params) ?? undefined,
 		};
 
 		let buffer = this.events.get(principalId);

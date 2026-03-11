@@ -13,35 +13,11 @@ export interface StoredToken {
 	algorithm?: SigningAlgorithm;
 }
 
-/** Maximum nonce set size before eviction. Prevents unbounded memory growth. */
-const MAX_NONCE_SET_SIZE = 100_000;
-
 export class TokenStore {
 	private grants = new Map<string, StoredToken>();
-	private usedNonces = new Set<string>();
 
 	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void {
 		this.grants.set(grant.id, { grant, signature, algorithm });
-	}
-
-	/**
-	 * Check whether a nonce has already been used (replay detection).
-	 * Records the nonce atomically — returns true if reused, false if fresh.
-	 */
-	checkAndRecordNonce(nonce: string): boolean {
-		if (this.usedNonces.has(nonce)) return true;
-		// Evict oldest entries when set grows too large to prevent memory exhaustion.
-		// Uses Set iteration order (insertion order) for FIFO eviction.
-		if (this.usedNonces.size >= MAX_NONCE_SET_SIZE) {
-			const iter = this.usedNonces.values();
-			const evictCount = Math.floor(MAX_NONCE_SET_SIZE * 0.1); // evict 10%
-			for (let i = 0; i < evictCount; i++) {
-				const oldest = iter.next().value;
-				if (oldest !== undefined) this.usedNonces.delete(oldest);
-			}
-		}
-		this.usedNonces.add(nonce);
-		return false;
 	}
 
 	get(grantId: string): CapabilityGrant | null {

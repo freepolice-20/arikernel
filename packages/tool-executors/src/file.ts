@@ -93,8 +93,7 @@ export class FileExecutor implements ToolExecutor {
 						constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
 					);
 					try {
-						const buf = await handle.readFile(encoding ?? "utf-8");
-						const data = typeof buf === "string" ? buf : buf.toString(encoding ?? "utf-8");
+						const data = await handle.readFile(encoding ?? "utf-8") as string;
 						const result = makeResult(toolCall.id, true, start, { path: filePath, content: data });
 						return { ...result, taintLabels: [] };
 					} finally {

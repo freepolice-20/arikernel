@@ -153,7 +153,7 @@ export class PrincipalRegistry {
 				// On shared-store writes: if this principal has read sensitive data,
 				// mark the shared resource as contaminated
 				const writeKey = sharedTaint.extractResourceKey(tc.toolClass, tc.action, tc.parameters);
-				if (writeKey && ["write", "insert", "update", "create"].includes(tc.action)) {
+				if (writeKey && ["write", "insert", "update", "create", "exec", "mutate"].includes(tc.action)) {
 					const fw = this.firewalls.get(principalId);
 					if (fw?.sensitiveReadObserved) {
 						sharedTaint.markContaminated(writeKey, principalId);

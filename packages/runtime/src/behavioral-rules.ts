@@ -97,7 +97,7 @@ function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: Ru
 	return {
 		ruleId: "web_taint_sensitive_probe",
 		reason: `Untrusted web input was followed by ${actionDesc} attempt`,
-		matchedEvents: [taintEvent, dangerousFollowup],
+		matchedEvents: taintEvent ? [taintEvent, dangerousFollowup] : [dangerousFollowup],
 	};
 }
 
@@ -109,31 +109,37 @@ function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: Ru
 function checkDeniedCapabilityThenEscalation(
 	events: readonly SecurityEvent[],
 ): BehavioralRuleMatch | null {
-	const deniedCap = findRecent(events, (e) => e.type === "capability_denied");
-	if (!deniedCap) return null;
+	// Check ALL denied capabilities (not just the most recent) to find
+	// any denial followed by a riskier request. The escalation request
+	// may itself be denied, producing a newer denial event that would
+	// shadow the original if we only checked the most recent.
+	for (let i = 0; i < events.length; i++) {
+		const event = events[i];
+		if (event.type !== "capability_denied") continue;
 
-	const deniedIdx = events.indexOf(deniedCap);
-	const deniedRisk = TOOL_CLASS_RISK[deniedCap.toolClass ?? ""] ?? 0;
+		const deniedRisk = TOOL_CLASS_RISK[event.toolClass ?? ""] ?? 0;
 
-	// Look for a subsequent capability request that is riskier
-	const escalation = findAfter(events, deniedIdx, (e) => {
-		if (e.type !== "capability_requested" && e.type !== "capability_granted") return false;
-		const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ""] ?? 0;
+		const escalation = findAfter(events, i, (e) => {
+			if (e.type !== "capability_requested" && e.type !== "capability_granted") return false;
+			const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ""] ?? 0;
 
-		// Escalation: requesting something riskier, or requesting a dangerous class
-		if (requestedRisk > deniedRisk) return true;
-		if (DANGEROUS_CLASSES.has(e.toolClass ?? "")) return true;
+			// Escalation: requesting something riskier, or requesting a dangerous class
+			if (requestedRisk > deniedRisk) return true;
+			if (DANGEROUS_CLASSES.has(e.toolClass ?? "")) return true;
 
-		return false;
-	});
+			return false;
+		});
 
-	if (!escalation) return null;
+		if (escalation) {
+			return {
+				ruleId: "denied_capability_then_escalation",
+				reason: `Denied ${event.toolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
+				matchedEvents: [event, escalation],
+			};
+		}
+	}
 
-	return {
-		ruleId: "denied_capability_then_escalation",
-		reason: `Denied ${deniedCap.toolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
-		matchedEvents: [deniedCap, escalation],
-	};
+	return null;
 }
 
 // ── Rule 3: sensitive_read_then_egress ─────────────────────────────
