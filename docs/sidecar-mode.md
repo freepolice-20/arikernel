@@ -23,6 +23,7 @@ The sidecar is hardened for production deployment:
 - **Localhost-only by default**: The server binds to `127.0.0.1`. External network exposure requires the explicit `--host 0.0.0.0` flag. Never expose the sidecar to untrusted networks without authentication.
 - **Bearer token authentication**: Use `--auth-token <token>` to require a Bearer token on all requests (except `/health`). The token is compared using constant-time string comparison to prevent timing attacks.
 - **Per-principal isolation**: Each agent gets its own kernel instance — quarantine, counters, and audit logs are independent.
+- **Cross-principal correlation**: The `CrossPrincipalCorrelator` detects tag-team attacks across principals — shared-store relay (CP-1), derived-sensitive egress (CP-2), and egress-destination convergence (CP-3, catches out-of-band relay attacks where multiple agents converge on the same host).
 
 ```bash
 # Production: localhost + auth
