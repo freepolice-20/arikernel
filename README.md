@@ -97,15 +97,66 @@ Prompt filters and system prompts operate on text. They have no enforcement mech
 
 ---
 
-## Architecture
+## Architecture Overview
+
+```
+                ┌───────────────────────┐
+                │      LLM / Agent      │
+                │ (LangChain, CrewAI,   │
+                │  OpenAI Agents, etc.) │
+                └───────────┬───────────┘
+                            │
+                            │ Tool Request
+                            ▼
+                 ┌──────────────────────┐
+                 │      Ari Kernel      │
+                 │  Runtime Enforcement │
+                 │                      │
+                 │ • Capability checks  │
+                 │ • Taint tracking     │
+                 │ • Behavioral rules   │
+                 │ • Cross-agent detect │
+                 │ • Policy evaluation  │
+                 └───────────┬──────────┘
+                             │
+                 Approved tool execution
+                             │
+                             ▼
+           ┌────────────────────────────────┐
+           │           Tool Layer           │
+           │                                │
+           │  HTTP   Filesystem   Shell     │
+           │  DB     APIs         Services  │
+           └────────────────────────────────┘
+
+        (Optional deployment hardening layers)
+
+        ┌────────────────────────────────────┐
+        │  Container / Runtime Isolation     │
+        │  Network Policies                  │
+        │  Restricted Filesystem Access      │
+        └────────────────────────────────────┘
+```
+
+Ari Kernel sits between the AI agent and the tools it can access. All mediated tool calls pass through the kernel where capability checks, taint tracking, and behavioral policies are evaluated before execution.
+
+Ari Kernel enforces security at the tool execution boundary. It is designed to work alongside hardened runtime environments such as container isolation and network policy controls to provide defense-in-depth for AI agent systems.
 
 <p align="center">
   <img src="docs/diagrams/enforcement-flow.svg" alt="Ari Kernel Enforcement Flow" width="640"/>
 </p>
 
-Ari Kernel sits between the agent and every external capability, enforcing security decisions before tool execution. Every tool call passes through the policy engine, capability token validation, and behavioral rule evaluation before reaching an executor.
-
 ARI — **A**gent **R**untime **I**nspector, the enforcement engine inside Ari Kernel.
+
+---
+
+## Enforcement Boundary
+
+Ari Kernel enforces security policy at the AI agent tool execution boundary. All mediated tool calls (filesystem, HTTP, shell, database, etc.) pass through the kernel where capability checks, taint tracking, and behavioral rules are evaluated.
+
+Ari Kernel does not replace operating system sandboxing or container isolation. Code running in the same process may still access host capabilities directly if the runtime environment permits it.
+
+For higher assurance deployments, Ari Kernel should be paired with hardened execution environments that limit ambient authority. See [Deployment Assumptions](docs/threat-model.md#deployment-assumptions) and [High-Assurance Deployment](docs/sidecar-mode.md#high-assurance-deployment) for recommended controls.
 
 ---
 

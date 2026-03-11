@@ -18,6 +18,8 @@
 6. [In-Scope Attacks](#6-in-scope-attacks)
 7. [Out-of-Scope / Non-Goals](#7-out-of-scope--non-goals)
 8. [Assumptions](#8-assumptions)
+   - [Deployment Assumptions](#deployment-assumptions)
+   - [Trust Boundary](#trust-boundary)
 9. [Residual Risks](#9-residual-risks)
 10. [Recommended Deployment Profiles](#10-recommended-deployment-profiles)
 11. [Relationship to Existing Docs](#11-relationship-to-existing-docs)
@@ -247,6 +249,75 @@ The following assumptions must hold for Ari Kernel's security properties to appl
 7. **Tool executors correctly implement their security checks.** The kernel delegates tool-specific validation (SSRF checks, path resolution, metacharacter rejection) to executors. A bug in an executor weakens enforcement.
 
 8. **The audit log is stored on media the attacker cannot silently replace.** The hash chain detects tampering but not wholesale replacement.
+
+### Deployment Assumptions
+
+Ari Kernel mediates agent tool execution at the application layer. It assumes:
+
+- **The host runtime may still provide ambient capabilities.** An agent process with unrestricted filesystem, network, or process creation permissions can bypass the kernel by calling OS APIs directly. Ari Kernel does not intercept system calls.
+- **The kernel mediates the agent-to-tool boundary, not the host-to-world boundary.** All enforcement operates on structured tool call requests that pass through the kernel pipeline. Side-effectful code paths that do not transit the kernel are not mediated.
+- **System-level isolation is outside scope.** OS-level sandboxing, network firewalling, and process isolation are complementary controls that should be deployed alongside Ari Kernel, not replaced by it.
+
+**Recommended deployment controls for higher assurance:**
+
+| Control | Purpose |
+|---------|---------|
+| Containerized agent runners (Docker, gVisor, Firecracker) | Restrict ambient OS capabilities available to the agent process |
+| Restricted outbound network access (iptables, eBPF, network policies) | Prevent egress paths that bypass the kernel's HTTP executor |
+| Least-privilege filesystem access (read-only mounts, restricted paths) | Limit what the agent can access even if it bypasses kernel mediation |
+| Removal of unused system capabilities (`--cap-drop ALL`) | Minimize the blast radius of any kernel bypass |
+| Separate user/UID for agent processes | Prevent privilege escalation to the sidecar or host |
+
+Together, Ari Kernel (application-layer enforcement) and hardened runtime environments (system-layer isolation) form a defense-in-depth architecture for AI agents.
+
+---
+
+### Trust Boundary
+
+```
+                    ┌───────────────────────────┐
+                    │       User / Prompt        │
+                    └─────────────┬──────────────┘
+                                  │
+                                  ▼
+                         ┌────────────────┐
+                         │   LLM / Agent  │
+                         │  (Untrusted)   │
+                         └────────┬───────┘
+                                  │
+                                  │ Tool Request
+                                  ▼
+              ┌────────────────────────────────────┐
+              │            Ari Kernel              │
+              │                                    │
+              │  • Capability enforcement          │
+              │  • Taint propagation               │
+              │  • Behavioral rules                │
+              │  • Cross-agent correlation          │
+              │  • Policy evaluation               │
+              └───────────────┬────────────────────┘
+                              │
+                    Approved tool execution
+                              │
+                              ▼
+                ┌──────────────────────────┐
+                │       System Tools       │
+                │                          │
+                │  Filesystem   HTTP       │
+                │  Shell        Database   │
+                │  External APIs           │
+                └──────────────────────────┘
+
+           ───────────── Trust Boundary ─────────────
+
+     Host Runtime / Container / OS / Network Environment
+```
+
+Ari Kernel enforces policy at the AI agent tool execution boundary. All mediated tool calls are evaluated by the kernel before execution. Capability checks, taint propagation, behavioral rules, and policy evaluation determine whether the request is allowed or blocked.
+
+Ari Kernel assumes the agent and its reasoning may be adversarial (for example due to prompt injection). The kernel therefore focuses on mediating real-world side effects such as filesystem access, network requests, and command execution.
+
+Operating system isolation, containerization, and network policies exist outside this boundary and provide additional defense-in-depth.
 
 ---
 
