@@ -23,7 +23,7 @@ Anderson (1972) defined three properties required for a trusted enforcement boun
 | Property | Definition | Ari Kernel Mapping |
 |----------|------------|--------------------|
 | **Complete mediation** | Every access request passes through the monitor. No bypass path exists. | Tool calls routed through the kernel pass through `Pipeline.intercept()`. In sidecar mode, no direct agent→tool path exists within the process boundary. In embedded mode, mediation is cooperative — the framework must route all calls through the kernel (see §8.2). |
-| **Tamper resistance** | The monitor's enforcement logic cannot be modified by the subjects it governs. | The LLM cannot modify policy rules, taint state, behavioral counters, or the audit log — these are runtime objects outside its control. In sidecar mode, these are in a separate process (hardware-isolated from the agent). In embedded mode, they share the agent's address space (see §8.3). |
+| **Tamper resistance** | The monitor's enforcement logic cannot be modified by the subjects it governs. | The LLM cannot modify policy rules, taint state, behavioral counters, or the audit log — these are runtime objects outside its control. In sidecar mode, these are in a separate process (process-isolated from the agent). In embedded mode, they share the agent's address space (see §8.3). |
 | **Verifiability** | The monitor is small enough to be subjected to analysis and testing. | The enforcement pipeline is a bounded, linear sequence of seven stages (§3). Each stage has defined inputs, outputs, and invariants. The pipeline is deterministic for a given input and state. |
 
 ### Qualification

@@ -5,12 +5,30 @@ import type { ToolCall, ToolResult } from "@arikernel/core";
 import type { ToolExecutor } from "./base.js";
 import { makeResult } from "./base.js";
 
+let rootWarningEmitted = false;
+
 /**
  * SECURITY: Resolve the allowed root directory once upfront.
- * Default to cwd; callers should set FILE_EXECUTOR_ROOT to restrict further.
+ *
+ * Production deployments MUST set FILE_EXECUTOR_ROOT to an explicit directory.
+ * Defaulting to process.cwd() is only appropriate for development — it allows
+ * file operations anywhere under the working directory, which may include
+ * sensitive files (.env, .ssh, credentials).
  */
 function getAllowedRoot(): string {
-	return path.resolve(process.env.FILE_EXECUTOR_ROOT ?? process.cwd());
+	if (!process.env.FILE_EXECUTOR_ROOT) {
+		if (!rootWarningEmitted) {
+			rootWarningEmitted = true;
+			console.warn(
+				"[arikernel] WARNING: FILE_EXECUTOR_ROOT is not set. " +
+					"File operations are restricted to process.cwd() (%s). " +
+					"Set FILE_EXECUTOR_ROOT to an explicit path in production.",
+				process.cwd(),
+			);
+		}
+		return path.resolve(process.cwd());
+	}
+	return path.resolve(process.env.FILE_EXECUTOR_ROOT);
 }
 
 /**

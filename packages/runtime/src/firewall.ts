@@ -31,6 +31,7 @@ import type { EnforcementMode, FirewallOptions } from "./config.js";
 import { validateOptions } from "./config.js";
 import type { FirewallHooks } from "./hooks.js";
 import { CapabilityIssuer } from "./issuer.js";
+import { PersistentTaintRegistry } from "./persistent-taint-registry.js";
 import { Pipeline } from "./pipeline.js";
 import {
 	type QuarantineInfo,
@@ -52,6 +53,7 @@ export class Firewall {
 	private tokenStore: TokenStore;
 	private _hooks: FirewallHooks;
 	private _runState: RunStateTracker;
+	private _persistentTaint: PersistentTaintRegistry | null = null;
 	private readonly _mode: EnforcementMode;
 	private readonly _sidecarOptions?: import("./config.js").SidecarConnectionOptions;
 	readonly runId: string;
@@ -106,6 +108,17 @@ export class Firewall {
 		this._hooks = options.hooks ?? {};
 		this._runState = new RunStateTracker(options.runStatePolicy);
 
+		// Initialize persistent cross-run taint tracking
+		if (options.persistentTaint?.enabled) {
+			this._persistentTaint = new PersistentTaintRegistry(
+				this.auditStore,
+				this.principal.id,
+				options.persistentTaint,
+			);
+			// Restore sticky flags from prior runs for this principal
+			this._persistentTaint.initializeRunState(this._runState);
+		}
+
 		this.auditStore.startRun(this.runId, this.principal.id, {
 			principal: options.principal,
 			policies: Array.isArray(options.policies) ? "[inline]" : options.policies,
@@ -125,6 +138,7 @@ export class Firewall {
 			this._runState,
 			options.signingKey,
 			securityMode,
+			this._persistentTaint ?? undefined,
 		);
 	}
 
@@ -517,7 +531,14 @@ export class Firewall {
 		return this.principal;
 	}
 
+	/** The persistent taint registry, if cross-run tracking is enabled. */
+	get persistentTaintRegistry(): PersistentTaintRegistry | null {
+		return this._persistentTaint;
+	}
+
 	close(): void {
+		// Purge expired persistent taint events on close
+		this._persistentTaint?.purgeExpired();
 		this.auditStore.endRun(this.runId);
 		this.auditStore.close();
 	}

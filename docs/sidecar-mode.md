@@ -36,6 +36,26 @@ arikernel sidecar --policy ./policy.yaml
 
 When auth is enabled, all requests must include `Authorization: Bearer <token>`. The `/health` endpoint is exempt.
 
+## Identity Binding Modes
+
+The sidecar supports two identity binding modes that control how `principalId` is determined:
+
+| Mode | How it works | Trust level |
+|------|-------------|-------------|
+| **Dev mode** (default) | Client supplies `principalId` in the request body. No cryptographic binding. | Low — the client can impersonate any principal. Suitable for local development only. |
+| **Authenticated mode** | API keys are configured via `principals` config. Each Bearer token maps to a specific `principalId`. The sidecar derives identity from the API key lookup, not from the request body. If the body `principalId` conflicts with the authenticated identity, the request is rejected (403). | High — identity is server-bound, not client-supplied. Required for production multi-agent deployments. |
+
+```typescript
+// Authenticated mode: API key → principal binding
+const server = createSidecarServer({
+  policy: './policy.yaml',
+  principals: {
+    'sk-agent-a-token': { principalId: 'agent-a' },
+    'sk-agent-b-token': { principalId: 'agent-b' },
+  },
+});
+```
+
 ---
 
 ## Quick start
@@ -176,17 +196,21 @@ const firewall = createFirewall({
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `principalId` | string | yes | Agent identifier. Each principal gets its own run-state and audit log. |
+| `principalId` | string | yes* | Agent identifier. Each principal gets its own run-state and audit log. *In authenticated mode (API key binding), this is derived from the API key and the body value must match or be omitted.* |
 | `toolClass` | string | yes | One of: `http`, `file`, `shell`, `database`, `retrieval` |
 | `action` | string | yes | Tool-specific action (`get`, `post`, `read`, `write`, `exec`, `query`, ...). Case-insensitive — normalized to lowercase internally. |
 | `params` | object | yes | Tool-specific parameters (passed to the executor) |
 | `taint` | TaintLabel[] | no | Upstream taint labels to attach to this call (objects with `source`, `origin`, `confidence`, `addedAt`) |
+| `capabilityToken` | string | no | Serialized capability token from a prior `/request-capability` call. If provided with a signing key, the token is cryptographically verified. If omitted, the sidecar auto-issues a server-side grant. |
+
+**Capability token flow**: Clients can either (a) call `/request-capability` first to obtain a `grantId`, then pass a serialized `capabilityToken` in `/execute`, or (b) omit the token and let the sidecar auto-issue a grant server-side. Option (a) provides explicit capability tracking; option (b) is simpler for trusted deployments.
 
 HTTP status codes:
 - `200` — call allowed and executed successfully
 - `400` — malformed request
 - `401` — missing or malformed Authorization header (when auth is enabled)
 - `403` — call denied by policy, quarantine, or invalid auth token
+- `429` — rate limit exceeded (includes `Retry-After` header)
 - `500` — internal error during execution
 
 ### `POST /request-capability`

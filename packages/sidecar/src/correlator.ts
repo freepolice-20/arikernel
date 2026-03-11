@@ -1,9 +1,20 @@
+import { resolve, normalize } from "node:path";
 import type { AuditEvent } from "@arikernel/core";
 import { generateId, now } from "@arikernel/core";
 
 /**
  * Configuration for the cross-principal correlator.
  */
+/** CP-3 specific configuration to reduce noise and improve signal quality. */
+export interface CP3Config {
+	/** Hosts to ignore for CP-3 correlation (e.g. shared APIs that all agents use). */
+	allowHosts?: string[];
+	/** Hosts to suppress alerts for (still tracked, but alerts are not emitted). */
+	suppressHosts?: string[];
+	/** Deduplication window for CP-3 alerts per host. Default: 300000 (5 min). */
+	dedupeWindowMs?: number;
+}
+
 export interface CorrelatorConfig {
 	/** Time window for correlation in milliseconds. Default: 60000 (60s). */
 	windowMs?: number;
@@ -11,6 +22,8 @@ export interface CorrelatorConfig {
 	maxEventsPerPrincipal?: number;
 	/** When true, CP alerts automatically quarantine the offending principals. Default: false. */
 	quarantineOnAlert?: boolean;
+	/** CP-3 specific configuration for noise reduction. */
+	cp3?: CP3Config;
 }
 
 export interface CrossPrincipalAlert {
@@ -21,6 +34,13 @@ export interface CrossPrincipalAlert {
 	principals: string[];
 	reason: string;
 	events: { principalId: string; toolClass: string; action: string; timestamp: string }[];
+	/** Additional metadata for CP-3 alerts. */
+	metadata?: {
+		hostname?: string;
+		principalsWithSensitiveReads?: string[];
+		/** Whether the triggering calls were allowed or blocked by policy. */
+		callsAllowed?: boolean;
+	};
 }
 
 export type AlertHandler = (alert: CrossPrincipalAlert) => void;
@@ -61,13 +81,13 @@ const SHARED_READ_ACTIONS = new Set(["query", "read", "select", "get"]);
 function extractResourceKey(toolClass: string, action: string, params?: Record<string, unknown>): string | null {
 	if (toolClass === "database") {
 		const table = params?.table as string | undefined;
-		if (table) return `db:${table}`;
+		if (table) return `db:${table.normalize("NFKC").toLowerCase()}`;
 		const database = params?.database as string | undefined;
-		if (database) return `db:${database}`;
+		if (database) return `db:${database.normalize("NFKC").toLowerCase()}`;
 	}
 	if (toolClass === "file") {
-		const path = params?.path as string | undefined;
-		if (path) return `file:${path}`;
+		const filePath = params?.path as string | undefined;
+		if (filePath) return `file:${normalize(resolve(filePath.normalize("NFKC")))}`;
 	}
 	return null;
 }
@@ -89,6 +109,9 @@ export class CrossPrincipalCorrelator {
 	private readonly windowMs: number;
 	private readonly maxEvents: number;
 	private readonly quarantineOnAlert: boolean;
+	private readonly cp3AllowHosts: Set<string>;
+	private readonly cp3SuppressHosts: Set<string>;
+	private readonly cp3DedupeWindowMs: number;
 	private readonly events = new Map<string, PrincipalEvent[]>();
 	private readonly handlers: AlertHandler[] = [];
 	private quarantineHandler: QuarantineHandler | null = null;
@@ -97,13 +120,16 @@ export class CrossPrincipalCorrelator {
 	 * Used by CP-3 to detect multiple principals converging on the same host.
 	 */
 	private readonly egressHosts = new Map<string, { principalId: string; timestamp: string }[]>();
-	/** Hosts that have already fired a CP-3 alert (deduplicate within window). */
-	private readonly cp3FiredHosts = new Set<string>();
+	/** Hosts that have already fired a CP-3 alert: hostname → fire timestamp. */
+	private readonly cp3FiredHosts = new Map<string, number>();
 
 	constructor(config?: CorrelatorConfig) {
 		this.windowMs = config?.windowMs ?? 60_000;
 		this.maxEvents = config?.maxEventsPerPrincipal ?? 50;
 		this.quarantineOnAlert = config?.quarantineOnAlert ?? false;
+		this.cp3AllowHosts = new Set((config?.cp3?.allowHosts ?? []).map((h) => h.toLowerCase()));
+		this.cp3SuppressHosts = new Set((config?.cp3?.suppressHosts ?? []).map((h) => h.toLowerCase()));
+		this.cp3DedupeWindowMs = config?.cp3?.dedupeWindowMs ?? 300_000;
 	}
 
 	/** Register an alert handler. */
@@ -292,6 +318,9 @@ export class CrossPrincipalCorrelator {
 			return;
 		}
 
+		// Skip hosts explicitly allowed in CP-3 config (shared APIs all agents use)
+		if (this.cp3AllowHosts.has(hostname.toLowerCase())) return;
+
 		// Record this egress
 		let hostEntries = this.egressHosts.get(hostname);
 		if (!hostEntries) {
@@ -310,11 +339,10 @@ export class CrossPrincipalCorrelator {
 		);
 		this.egressHosts.set(hostname, active);
 
-		// Prune expired CP-3 dedup entries
-		// (simple: clear fired hosts when their entries are fully expired)
-		for (const [firedHost] of this.cp3FiredHosts.entries()) {
-			const firedEntries = this.egressHosts.get(firedHost);
-			if (!firedEntries || firedEntries.length === 0) {
+		// Prune expired CP-3 dedup entries using configurable dedup window
+		const dedupCutoff = Date.now() - this.cp3DedupeWindowMs;
+		for (const [firedHost, firedAt] of this.cp3FiredHosts.entries()) {
+			if (firedAt < dedupCutoff) {
 				this.cp3FiredHosts.delete(firedHost);
 			}
 		}
@@ -323,7 +351,7 @@ export class CrossPrincipalCorrelator {
 		const distinctPrincipals = new Set(active.map((e) => e.principalId));
 		if (distinctPrincipals.size < 2) return;
 
-		// Already fired for this host in this window?
+		// Already fired for this host in dedup window?
 		if (this.cp3FiredHosts.has(hostname)) return;
 
 		// At least one principal must have a recent sensitive read
@@ -345,7 +373,10 @@ export class CrossPrincipalCorrelator {
 
 		if (principalsWithSensitiveRead.length === 0) return;
 
-		this.cp3FiredHosts.add(hostname);
+		// Skip suppressed hosts (still tracked, no alert emitted)
+		if (this.cp3SuppressHosts.has(hostname.toLowerCase())) return;
+
+		this.cp3FiredHosts.set(hostname, Date.now());
 
 		// Build event list from active entries
 		const alertEvents = active.map((e) => ({
@@ -366,6 +397,10 @@ export class CrossPrincipalCorrelator {
 				`within ${this.windowMs / 1000}s. Principals with sensitive reads: ${principalsWithSensitiveRead.join(", ")}. ` +
 				`Possible out-of-band relay attack.`,
 			events: alertEvents,
+			metadata: {
+				hostname,
+				principalsWithSensitiveReads: principalsWithSensitiveRead,
+			},
 		});
 	}
 

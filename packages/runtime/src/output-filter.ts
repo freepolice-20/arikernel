@@ -38,34 +38,64 @@ export interface OutputFilterOptions {
 }
 
 /**
+ * Recursively scan and redact secrets in structured data (objects, arrays, nested JSON).
+ * Returns the redacted data and a set of detected pattern names.
+ */
+function scanAndRedact(
+	data: unknown,
+	patterns: SecretPattern[],
+	replacement: string,
+	detected: Set<string>,
+	depth = 0,
+): unknown {
+	// Prevent infinite recursion on deeply nested structures
+	if (depth > 20) return data;
+
+	if (typeof data === "string") {
+		let filtered = data;
+		for (const pattern of patterns) {
+			pattern.regex.lastIndex = 0;
+			if (pattern.regex.test(filtered)) {
+				detected.add(pattern.name);
+				pattern.regex.lastIndex = 0;
+				filtered = filtered.replace(pattern.regex, replacement);
+			}
+		}
+		return filtered;
+	}
+
+	if (Array.isArray(data)) {
+		return data.map((item) => scanAndRedact(item, patterns, replacement, detected, depth + 1));
+	}
+
+	if (data !== null && typeof data === "object") {
+		const result: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+			result[key] = scanAndRedact(value, patterns, replacement, detected, depth + 1);
+		}
+		return result;
+	}
+
+	return data;
+}
+
+/**
  * Create an `onOutputFilter` hook that scans tool result data for secrets.
- * String data is scanned and redacted. Non-string data passes through unchanged.
+ * Recursively traverses strings, objects, and arrays to redact secrets.
  */
 export function createSecretPatternFilter(options?: OutputFilterOptions) {
 	const patterns = options?.patterns ?? [...DEFAULT_PATTERNS, ...(options?.extraPatterns ?? [])];
 	const replacement = options?.replacement ?? "[REDACTED]";
 
 	return (_toolCall: ToolCall, result: ToolResult): ToolResult => {
-		if (typeof result.data !== "string") return result;
+		const detected = new Set<string>();
+		const filtered = scanAndRedact(result.data, patterns, replacement, detected);
 
-		let filtered = result.data;
-		const detected: string[] = [];
-
-		for (const pattern of patterns) {
-			// Reset lastIndex for global regexes
-			pattern.regex.lastIndex = 0;
-			if (pattern.regex.test(filtered)) {
-				detected.push(pattern.name);
-				pattern.regex.lastIndex = 0;
-				filtered = filtered.replace(pattern.regex, replacement);
-			}
-		}
-
-		if (detected.length === 0) return result;
+		if (detected.size === 0) return result;
 
 		const redactedLabel: TaintLabel = {
 			source: "tool-output",
-			origin: `redacted:${detected.join(",")}`,
+			origin: `redacted:${Array.from(detected).join(",")}`,
 			confidence: 1.0,
 			addedAt: now(),
 		};

@@ -1,3 +1,4 @@
+import { resolve, normalize } from "node:path";
 import type { TaintLabel, ToolCallRequest } from "@arikernel/core";
 import { now } from "@arikernel/core";
 
@@ -12,6 +13,26 @@ export interface SharedStoreConfig {
 	sharedDatabases?: string[];
 	/** Table names considered shared. */
 	sharedTables?: string[];
+}
+
+/**
+ * Canonicalize a resource key for consistent comparison.
+ * - Database keys: lowercased table/database names
+ * - File keys: NFKC-normalized, resolved, normalized paths
+ */
+function canonicalizeResourceKey(key: string): string {
+	if (key.startsWith("db:")) {
+		// Normalize database/table names to lowercase to prevent case-mismatch bypass
+		return `db:${key.slice(3).normalize("NFKC").toLowerCase()}`;
+	}
+	if (key.startsWith("file:")) {
+		const rawPath = key.slice(5);
+		// NFKC normalization + resolve + normalize to collapse traversals and unicode tricks
+		const normalized = rawPath.normalize("NFKC");
+		const resolved = normalize(resolve(normalized));
+		return `file:${resolved}`;
+	}
+	return key;
 }
 
 interface ContaminatedResource {
@@ -40,8 +61,9 @@ export class SharedTaintRegistry {
 
 	/** Mark a shared resource as contaminated by a principal. */
 	markContaminated(key: string, principalId: string): void {
-		this.contaminated.set(key, {
-			key,
+		const canonical = canonicalizeResourceKey(key);
+		this.contaminated.set(canonical, {
+			key: canonical,
 			principalId,
 			timestamp: now(),
 		});
@@ -49,12 +71,12 @@ export class SharedTaintRegistry {
 
 	/** Check if a shared resource has been contaminated. */
 	isContaminated(key: string): boolean {
-		return this.contaminated.has(key);
+		return this.contaminated.has(canonicalizeResourceKey(key));
 	}
 
 	/** Get contamination metadata for a resource. */
 	getContamination(key: string): ContaminatedResource | undefined {
-		return this.contaminated.get(key);
+		return this.contaminated.get(canonicalizeResourceKey(key));
 	}
 
 	/**
@@ -70,9 +92,13 @@ export class SharedTaintRegistry {
 			const table = params.table as string | undefined;
 			if (!table) return null;
 			const db = params.database as string | undefined;
-			// Check if this DB or table is configured as shared
-			if (this.config.sharedTables?.includes(table)) return `db:${table}`;
-			if (db && this.config.sharedDatabases?.includes(db)) return `db:${table}`;
+			const normalizedTable = table.normalize("NFKC").toLowerCase();
+			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
+				return canonicalizeResourceKey(`db:${table}`);
+			}
+			if (db && this.config.sharedDatabases?.some((d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase())) {
+				return canonicalizeResourceKey(`db:${table}`);
+			}
 			return null;
 		}
 
@@ -80,22 +106,27 @@ export class SharedTaintRegistry {
 			const table = params.table as string | undefined;
 			if (!table) return null;
 			const db = params.database as string | undefined;
-			if (this.config.sharedTables?.includes(table)) return `db:${table}`;
-			if (db && this.config.sharedDatabases?.includes(db)) return `db:${table}`;
+			const normalizedTable = table.normalize("NFKC").toLowerCase();
+			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
+				return canonicalizeResourceKey(`db:${table}`);
+			}
+			if (db && this.config.sharedDatabases?.some((d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase())) {
+				return canonicalizeResourceKey(`db:${table}`);
+			}
 			return null;
 		}
 
 		if (toolClass === "file" && action === "write") {
-			const path = params.path as string | undefined;
-			if (!path) return null;
-			if (this.isSharedPath(path)) return `file:${path}`;
+			const filePath = params.path as string | undefined;
+			if (!filePath) return null;
+			if (this.isSharedPath(filePath)) return canonicalizeResourceKey(`file:${filePath}`);
 			return null;
 		}
 
 		if (toolClass === "file" && action === "read") {
-			const path = params.path as string | undefined;
-			if (!path) return null;
-			if (this.isSharedPath(path)) return `file:${path}`;
+			const filePath = params.path as string | undefined;
+			if (!filePath) return null;
+			if (this.isSharedPath(filePath)) return canonicalizeResourceKey(`file:${filePath}`);
 			return null;
 		}
 
@@ -103,11 +134,14 @@ export class SharedTaintRegistry {
 	}
 
 	/** Check if a file path matches any configured shared store path prefix. */
-	private isSharedPath(path: string): boolean {
+	private isSharedPath(filePath: string): boolean {
 		if (!this.config.sharedStorePaths) return false;
-		return this.config.sharedStorePaths.some(
-			(prefix) => path === prefix || path.startsWith(prefix.endsWith("/") ? prefix : prefix + "/"),
-		);
+		const normalizedPath = normalize(resolve(filePath.normalize("NFKC")));
+		return this.config.sharedStorePaths.some((prefix) => {
+			const normalizedPrefix = normalize(resolve(prefix.normalize("NFKC")));
+			const sep = process.platform === "win32" ? "\\" : "/";
+			return normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + sep);
+		});
 	}
 
 	/**

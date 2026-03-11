@@ -14,11 +14,14 @@ export { SharedTaintRegistry } from "./shared-taint-registry.js";
 export type { SharedStoreConfig } from "./shared-taint-registry.js";
 export { CrossPrincipalCorrelator } from "./correlator.js";
 export type {
+	CP3Config,
 	CorrelatorConfig,
 	CrossPrincipalAlert,
 	AlertHandler,
 	QuarantineHandler,
 } from "./correlator.js";
+export { DecisionDelegate } from "./decision-delegate.js";
+export type { DecisionMode, RemoteDecision, RemoteDecisionConfig } from "./decision-delegate.js";
 export type {
 	SidecarConfig,
 	ExecuteRequest,
