@@ -17,7 +17,9 @@
 5. [Behavioral Detection](#5-behavioral-detection)
 6. [Sidecar Deployment](#6-sidecar-deployment)
 7. [Limitations](#7-limitations)
-8. [Future Work](#8-future-work)
+8. [Enforcement Scope](#8-enforcement-scope)
+9. [Prompt Injection Defense Flow](#9-prompt-injection-defense-flow)
+10. [Future Work](#10-future-work)
 
 ---
 
@@ -643,40 +645,105 @@ The tamper-evident audit log provides **local consistency guarantees**, not abso
 
 ---
 
-## 8. Future Work
+## 8. Enforcement Scope
 
-### 8.1 Capability Tokens — Extended Model
+Ari Kernel enforces the following at the tool execution boundary:
+
+- **Capability-based tool execution** — agents cannot use tools without explicit, scoped, time-limited grants
+- **Taint propagation** — data provenance labels track untrusted input across tool chains
+- **Behavioral policy evaluation** — multi-step attack patterns trigger irrecoverable quarantine
+- **Cross-principal correlation** — detects tag-team attacks across agent boundaries (CP-1 through CP-3)
+- **Policy evaluation** — priority-sorted rules with fail-closed deny-all default
+
+Ari Kernel does **not** enforce:
+
+| Outside Scope | What Provides It |
+|---------------|------------------|
+| OS-level syscall mediation | seccomp-BPF, AppArmor, SELinux |
+| Process isolation | Containers, VMs, gVisor, Firecracker |
+| Network firewalling | iptables, eBPF, Kubernetes NetworkPolicy |
+| Filesystem mount isolation | chroot, overlay filesystems, read-only mounts |
+
+These should be provided by the runtime environment. Together, Ari Kernel and system-level controls form a defense-in-depth architecture.
+
+---
+
+## 9. Prompt Injection Defense Flow
+
+```
+User Prompt
+     │
+     ▼
+LLM / Agent Reasoning
+     │
+     │ (malicious instruction injected)
+     ▼
+Agent attempts tool call
+     │
+     ▼
+┌─────────────────────────────┐
+│         Ari Kernel          │
+│                             │
+│ 1. Capability check         │
+│ 2. Taint propagation        │
+│ 3. Behavioral rules         │
+│ 4. Policy evaluation        │
+│ 5. Cross-agent correlation  │
+└──────────────┬──────────────┘
+               │
+        Decision Engine
+         │           │
+         │           │
+         ▼           ▼
+     ALLOW        BLOCK
+       │             │
+       ▼             ▼
+Tool executes    Tool call denied
+                Run may be quarantined
+```
+
+Ari Kernel intercepts tool execution requests before they reach the underlying system. When an AI agent attempts to use a tool, the request is evaluated against capability policies, taint signals, and behavioral rules.
+
+If the request violates policy, the kernel blocks execution and records the event in the audit log. In some cases the run may be quarantined to prevent further actions.
+
+This approach assumes prompt injection may succeed and instead enforces security at the tool execution boundary, where real-world side effects occur.
+
+---
+
+## 10. Future Work
+
+### 10.1 Capability Tokens — Extended Model
 
 - **Persistent token store**: Currently tokens are in-memory and lost on process restart. A persistent store (SQLite, Redis) would enable durable grants across restarts.
 - **Token revocation lists**: Broadcast revocation events across distributed sidecar instances for multi-node deployments.
 - **Delegated token issuance**: Allow sub-agents to request tokens from their parent, subject to the delegation narrowing invariant, without returning to the root authority.
 
-### 8.2 Capability Delegation — Formal Model
+### 10.2 Capability Delegation — Formal Model
 
 - **Lattice-based delegation**: Model capability delegation as a lattice where the meet operation (∩) defines the delegated capability. Formally verify that delegation is monotonically narrowing.
 - **Delegation depth limits**: Configurable maximum chain length to prevent unbounded transitive delegation.
 - **Temporal delegation**: Capabilities that expire not just by wall-clock time but by event count or run phase.
 
-### 8.3 OS-Level Sandboxing Integration
+### 10.3 OS-Level Sandboxing Integration
 
 - **Seccomp-BPF profiles**: Generate minimal syscall allowlists from declared capabilities (e.g., an `http`-only agent needs `connect`, `sendto`, `recvfrom` but not `execve`).
 - **Landlock**: File-path-based access control at the kernel level, mirroring `allowedPaths` constraints.
 - **gVisor / Firecracker**: Lightweight VM isolation for maximum containment.
 - **Network policy**: eBPF-based egress filtering that mirrors `allowedHosts` constraints at the network layer.
 
-### 8.4 User-Defined Behavioral Rules
+### 10.4 User-Defined Behavioral Rules
 
 - **Rule DSL**: A declarative language for expressing multi-step attack patterns, replacing hardcoded rules.
 - **Configurable thresholds**: Per-rule confidence levels, window sizes, and quarantine severity.
 - **Anomaly detection**: Statistical baselines for "normal" agent behavior with alerts on deviation.
 
-### 8.5 Multi-Agent Coordination
+### 10.5 Multi-Agent Coordination
 
 - **Cross-agent taint propagation**: Track data flow across agent boundaries in multi-agent systems.
 - **Shared quarantine**: Quarantining one agent in a coordinated group can restrict others that share data.
 - **Federated audit**: Unified audit trail across multiple sidecar instances.
 
-### 8.6 Formal Verification
+### 10.6 Formal Verification
 
 - **Policy completeness**: Prove that the default deny-all policy, combined with user-supplied rules, covers all tool class / action pairs without gaps.
 - **Delegation safety**: Formally verify that the delegation intersection operation never widens capabilities.

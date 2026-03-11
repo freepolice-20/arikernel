@@ -362,3 +362,40 @@ pnpm demo:sidecar:security
 ```
 
 See [examples/sidecar-security-demo/agent.ts](../examples/sidecar-security-demo/agent.ts) for the full source.
+
+---
+
+## High-Assurance Deployment
+
+Sidecar mode is designed to work alongside hardened runtime environments. The sidecar mediates agent tool execution — it evaluates capability tokens, taint, policy rules, and behavioral patterns before any tool executes. It does **not** mediate host syscalls, network connections, or filesystem access at the OS level.
+
+For production deployments handling sensitive data, pair the sidecar with:
+
+| Control | Purpose |
+|---------|---------|
+| **Containerized runners** (Docker, gVisor, Firecracker) | Restrict ambient OS capabilities — the agent process cannot access tools outside the sidecar |
+| **Network policy restrictions** (iptables, eBPF, Kubernetes NetworkPolicy) | Prevent egress paths that bypass the sidecar's HTTP executor |
+| **Restricted process permissions** (`--cap-drop ALL`, read-only root filesystem) | Limit what the agent can do even if it bypasses the sidecar |
+| **Separate UID for agent processes** | Prevent privilege escalation to the sidecar process |
+
+```
+  ┌─────────────────────────────────────────────────┐
+  │  Container / VM                                  │
+  │                                                  │
+  │  ┌──────────────┐        ┌──────────────────┐   │
+  │  │ Agent Process │  HTTP  │ Sidecar Process  │   │
+  │  │ (restricted)  │──────►│ (Ari Kernel)     │   │
+  │  │               │ :8787  │                  │   │
+  │  │ No direct     │        │ Policy engine    │   │
+  │  │ tool access   │        │ Taint tracker    │   │
+  │  │               │        │ Behavioral rules │   │
+  │  └──────────────┘        │ Audit log        │   │
+  │                           └──────────────────┘   │
+  │                                                  │
+  │  Network policy: egress restricted               │
+  │  Filesystem: read-only except /tmp               │
+  │  Capabilities: dropped                           │
+  └─────────────────────────────────────────────────┘
+```
+
+Together, the sidecar (application-layer enforcement) and the hardened container (system-layer isolation) provide defense-in-depth. The sidecar evaluates every tool call against security policy; the container ensures the agent cannot circumvent that evaluation.
