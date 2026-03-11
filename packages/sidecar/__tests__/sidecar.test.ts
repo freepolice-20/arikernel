@@ -715,7 +715,10 @@ describe("Rate limiting", () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18798,
-			policy: ALLOW_HTTP_POLICY,
+			// DENY_ALL_POLICY: rate-limit check fires before policy eval, so
+			// rate-limited requests still get 429. Allowed requests return
+			// immediately ({allowed:false}) without real network calls, preventing timeout.
+			policy: DENY_ALL_POLICY,
 			auditLog: join(dir, "audit.db"),
 			rateLimits: { maxRequestsPerSecond: 2 },
 		});
@@ -830,5 +833,75 @@ describe("Rate limiting", () => {
 		});
 		expect(rB.status).not.toBe(429);
 		await rB.text();
+	});
+});
+
+// ── dev mode production guard ─────────────────────────────────────────────────
+
+describe("SidecarServer dev mode production guard", () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = tempDir();
+	});
+
+	afterEach(() => {
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("throws when NODE_ENV=production and principals is not configured", () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "production";
+		try {
+			expect(
+				() =>
+					new SidecarServer({
+						port: 18820,
+						policy: ALLOW_HTTP_POLICY,
+						auditLog: join(dir, "audit.db"),
+					}),
+			).toThrow("AriKernel: dev mode cannot be enabled in production");
+		} finally {
+			process.env.NODE_ENV = prev;
+		}
+	});
+
+	it("allows startup when NODE_ENV=production and principals is configured", async () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "production";
+		let server: SidecarServer | undefined;
+		try {
+			server = new SidecarServer({
+				port: 18821,
+				policy: ALLOW_HTTP_POLICY,
+				auditLog: join(dir, "audit.db"),
+				principals: { "test-key": { principalId: "agent-a" } },
+			});
+			await server.listen();
+			const res = await fetch("http://localhost:18821/health");
+			expect(res.status).toBe(200);
+		} finally {
+			process.env.NODE_ENV = prev;
+			await server?.close();
+		}
+	});
+
+	it("allows startup in non-production without principals (dev mode)", async () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "development";
+		let server: SidecarServer | undefined;
+		try {
+			server = new SidecarServer({
+				port: 18822,
+				policy: ALLOW_HTTP_POLICY,
+				auditLog: join(dir, "audit.db"),
+			});
+			await server.listen();
+			const res = await fetch("http://localhost:18822/health");
+			expect(res.status).toBe(200);
+		} finally {
+			process.env.NODE_ENV = prev;
+			await server?.close();
+		}
 	});
 });

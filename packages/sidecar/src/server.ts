@@ -40,6 +40,21 @@ export class SidecarServer {
 		const authToken = config.authToken;
 		const principals = config.principals;
 
+		// Dev mode = no `principals` configured; clients supply their own principalId.
+		// This is unsafe in production — fail fast so misconfigurations are caught at startup.
+		if (!principals) {
+			if (process.env.NODE_ENV === "production") {
+				throw new Error(
+					"AriKernel: dev mode cannot be enabled in production. " +
+						"Configure `principals` with per-principal API keys for production deployments.",
+				);
+			}
+			console.warn(
+				"[AriKernel] DEV MODE active: authentication is relaxed. " +
+					"Do not use in production.",
+			);
+		}
+
 		const registryConfig = resolveRegistryConfig({
 			policy: config.policy,
 			preset: config.preset,

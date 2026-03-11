@@ -14,14 +14,18 @@ export type SecurityMode = "dev" | "secure";
 /**
  * Enforcement mode determines where tool execution actually happens.
  *
- * - `"embedded"` (default): Tools execute in-process. The host has direct
- *   access to executors. Security is cooperative — the host could bypass
- *   the pipeline. Suitable for trusted environments or development.
+ * - `"sidecar"` (recommended for production): Tools execute only via the
+ *   sidecar HTTP API. The host process has no direct access to real
+ *   executors — all execution is delegated through SidecarProxyExecutors.
+ *   The sidecar is the authoritative enforcement boundary.
  *
- * - `"sidecar"`: Tools execute only via the sidecar HTTP API. The host
- *   process has no direct access to real executors — all execution is
- *   delegated through SidecarProxyExecutors. The sidecar is the
- *   authoritative enforcement boundary. Recommended for production.
+ * - `"embedded"`: Tools execute in-process. Security is cooperative —
+ *   the host could bypass the pipeline. Suitable for development or
+ *   trusted environments only. Must be set explicitly.
+ *
+ * **Mode must be set explicitly.** Omitting it in production throws a
+ * startup error. In non-production, omitting it warns and defaults to
+ * `"embedded"` for backward compatibility.
  */
 export type EnforcementMode = "embedded" | "sidecar";
 
@@ -52,14 +56,21 @@ export interface FirewallOptions {
 	 */
 	securityMode?: SecurityMode;
 	/**
-	 * Enforcement mode. Default: "embedded".
+	 * Enforcement mode. **Must be set explicitly in production.**
 	 *
-	 * In "sidecar" mode, all tool execution is delegated to the sidecar
-	 * HTTP server. The host process cannot execute tools directly.
-	 * `sidecar` connection options must be provided when using this mode.
+	 * - `"sidecar"` (recommended): delegates all tool execution to the
+	 *   sidecar HTTP server. Requires `sidecar` connection options.
+	 * - `"embedded"`: runs tools in-process. Suitable for development
+	 *   or trusted environments only.
+	 *
+	 * Omitting this field in production throws a startup error.
+	 * In non-production it defaults to `"embedded"` with a warning.
 	 */
 	mode?: EnforcementMode;
-	/** Sidecar connection config. Required when mode is "sidecar". */
+	/**
+	 * Sidecar connection config. Required when mode is `"sidecar"`.
+	 * Defaults: baseUrl = http://localhost:8787, principalId = principal.name.
+	 */
 	sidecar?: SidecarConnectionOptions;
 	/**
 	 * Persistent taint tracking across runs for the same principal.
