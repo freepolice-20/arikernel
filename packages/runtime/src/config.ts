@@ -1,6 +1,7 @@
 import type { Capability, PolicyRule, SigningKey } from "@arikernel/core";
 import { firewallConfigSchema } from "@arikernel/core";
 import type { FirewallHooks } from "./hooks.js";
+import type { PersistentTaintConfig } from "./persistent-taint-registry.js";
 import type { RunStatePolicy } from "./run-state.js";
 
 /**
@@ -60,6 +61,13 @@ export interface FirewallOptions {
 	mode?: EnforcementMode;
 	/** Sidecar connection config. Required when mode is "sidecar". */
 	sidecar?: SidecarConnectionOptions;
+	/**
+	 * Persistent taint tracking across runs for the same principal.
+	 * When enabled, sticky flags (sensitiveReadObserved, secretAccessObserved, etc.)
+	 * survive across run boundaries, preventing attackers from splitting attacks
+	 * across multiple runs.
+	 */
+	persistentTaint?: PersistentTaintConfig;
 }
 
 export function validateOptions(options: FirewallOptions): FirewallOptions {

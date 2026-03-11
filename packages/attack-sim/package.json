@@ -5,7 +5,7 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
-	"files": ["dist"],
+	"files": ["dist", "scenarios"],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -23,7 +23,9 @@
 	},
 	"dependencies": {
 		"@arikernel/core": "workspace:*",
-		"@arikernel/runtime": "workspace:*"
+		"@arikernel/runtime": "workspace:*",
+		"yaml": "^2.7.0",
+		"zod": "^3.24.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.2"

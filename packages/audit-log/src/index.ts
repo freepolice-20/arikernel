@@ -1,4 +1,4 @@
-export { AuditStore } from "./store.js";
+export { AuditStore, type PersistentTaintEventRow } from "./store.js";
 export { computeHash, genesisHash, verifyChain } from "./hash-chain.js";
 export {
 	replayRun,

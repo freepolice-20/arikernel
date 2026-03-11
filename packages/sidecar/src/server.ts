@@ -1,5 +1,6 @@
 import { type Server, createServer } from "node:http";
 import { dirname, resolve } from "node:path";
+import { DecisionDelegate } from "./decision-delegate.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { PrincipalRegistry, resolveRegistryConfig } from "./registry.js";
 import {
@@ -55,6 +56,20 @@ export class SidecarServer {
 		this.registry = new PrincipalRegistry(auditDir, registryConfig);
 		this.rateLimiter = new RateLimiter(config.rateLimits);
 
+		// Remote decision delegation: when decisionMode is 'remote', the sidecar
+		// calls the control plane for policy decisions before executing tools.
+		let decisionDelegate: DecisionDelegate | undefined;
+		if (config.decisionMode === "remote") {
+			if (!config.controlPlaneUrl) {
+				throw new Error("controlPlaneUrl is required when decisionMode is 'remote'");
+			}
+			decisionDelegate = new DecisionDelegate({
+				controlPlaneUrl: config.controlPlaneUrl,
+				controlPlaneAuthToken: config.controlPlaneAuthToken,
+				controlPlaneTimeoutMs: config.controlPlaneTimeoutMs,
+			});
+		}
+
 		this.server = createServer((req, res) => {
 			const url = req.url ?? "/";
 			const method = req.method ?? "GET";
@@ -81,7 +96,7 @@ export class SidecarServer {
 			let handler: Promise<void> | undefined;
 
 			if (method === "POST" && url === "/execute") {
-				handler = handleExecute(req, res, this.registry, authCtx, this.rateLimiter);
+				handler = handleExecute(req, res, this.registry, authCtx, this.rateLimiter, decisionDelegate);
 			} else if (method === "POST" && url === "/request-capability") {
 				handler = handleRequestCapability(req, res, this.registry, authCtx, this.rateLimiter);
 			} else if (method === "POST" && url === "/status") {

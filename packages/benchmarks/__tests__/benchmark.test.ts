@@ -23,8 +23,8 @@ afterEach(() => {
 });
 
 describe("SCENARIOS registry", () => {
-	it("exports 13 scenarios", () => {
-		expect(SCENARIOS).toHaveLength(13);
+	it("exports 18 scenarios", () => {
+		expect(SCENARIOS).toHaveLength(18);
 	});
 
 	it("each scenario has unique id", () => {
@@ -40,27 +40,33 @@ describe("SCENARIOS registry", () => {
 		expect(categories).toContain("filesystem_traversal");
 		expect(categories).toContain("database_escalation");
 		expect(categories).toContain("taint_chain");
+		expect(categories).toContain("cross_run_exfiltration");
+		expect(categories).toContain("shared_store_contamination");
+		expect(categories).toContain("egress_convergence");
+		expect(categories).toContain("path_ambiguity_bypass");
+		expect(categories).toContain("low_entropy_exfiltration");
 	});
 });
 
 describe("benchmark — all attacks blocked", () => {
-	it("blocks all 13 attack scenarios", async () => {
+	it("blocks or mitigates all 18 attack scenarios", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
 		const { results, summary } = await benchmark(dir);
 
-		expect(results).toHaveLength(13);
+		expect(results).toHaveLength(18);
 
 		for (const r of results) {
-			expect(r.verdict).toBe("BLOCKED");
+			expect(["BLOCKED", "PARTIAL"]).toContain(r.verdict);
 			expect(r.enforcementMechanism).toBeTruthy();
 			expect(r.runId).toBeTruthy();
 			expect(r.durationMs).toBeGreaterThanOrEqual(0);
 		}
 
-		expect(summary.attacksBlocked).toBe(13);
-		expect(summary.attacksBlockedPct).toBe(100);
+		// No attacks should be fully allowed
+		expect(summary.attacksAllowed).toBe(0);
+		expect(summary.attacksBlocked + summary.attacksPartial).toBe(18);
 	});
 
 	it("reports correct enforcement mechanisms", async () => {
@@ -81,7 +87,8 @@ describe("benchmark — all attacks blocked", () => {
 		const { summary } = await benchmark(dir);
 
 		for (const [, counts] of Object.entries(summary.byCategory)) {
-			expect(counts.blocked).toBe(counts.total);
+			// Every category should have all attacks either blocked or partially mitigated
+			expect(counts.blocked + counts.partial).toBe(counts.total);
 		}
 	});
 });
@@ -127,5 +134,58 @@ describe("individual scenarios", () => {
 		expect(result.verdict).toBe("BLOCKED");
 		expect(result.wasQuarantined).toBe(true);
 		expect(result.enforcementMechanism).toBe("quarantine");
+	});
+
+	it("cross-run credential exfil blocked by behavioral rules", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		const scenario = SCENARIOS.find((s) => s.id === "cross_run_credential_exfil")!;
+		const result = await scenario.run(join(dir, "cross_run.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.wasQuarantined).toBe(true);
+		expect(result.enforcementMechanism).toBe("behavioral");
+	});
+
+	it("shared store contamination blocked by taint policy", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		const scenario = SCENARIOS.find((s) => s.id === "shared_store_contamination")!;
+		const result = await scenario.run(join(dir, "shared_store.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("taint");
+	});
+
+	it("egress convergence detected and blocked", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		const scenario = SCENARIOS.find((s) => s.id === "egress_convergence_cp3")!;
+		const result = await scenario.run(join(dir, "egress.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.wasQuarantined).toBe(true);
+		expect(result.enforcementMechanism).toBe("behavioral");
+	});
+
+	it("path ambiguity bypass blocked by capability constraints", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		const scenario = SCENARIOS.find((s) => s.id === "path_ambiguity_bypass")!;
+		const result = await scenario.run(join(dir, "path_ambig.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("capability");
+	});
+
+	it("low-entropy exfil at least partially mitigated", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		const scenario = SCENARIOS.find((s) => s.id === "low_entropy_exfil")!;
+		const result = await scenario.run(join(dir, "low_entropy.db"));
+		expect(["BLOCKED", "PARTIAL"]).toContain(result.verdict);
+		expect(result.wasQuarantined).toBe(true);
+		expect(result.enforcementMechanism).toBe("behavioral");
 	});
 });

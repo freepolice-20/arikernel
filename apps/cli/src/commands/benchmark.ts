@@ -21,7 +21,12 @@ export async function runBenchmark(resultsDir?: string): Promise<void> {
 	const { results, summary } = await benchmark(
 		dir,
 		(result: BenchmarkResult, index: number, total: number) => {
-			const icon = result.verdict === "BLOCKED" ? "BLOCKED" : "ALLOWED";
+			const icon =
+				result.verdict === "BLOCKED"
+					? "BLOCKED"
+					: result.verdict === "PARTIAL"
+						? "PARTIAL"
+						: "ALLOWED";
 			console.log(
 				`  [${index + 1}/${total}] ${icon}  ${result.scenarioId} (${result.durationMs}ms)`,
 			);

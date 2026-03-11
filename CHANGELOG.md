@@ -2,6 +2,41 @@
 
 All notable changes to Ari Kernel are documented here.
 
+## [0.1.7] — 2026-03-11
+
+### Security Hardening
+- **F-07**: Sticky escalation denial flag on `RunStateTracker` — Rule 2 (`denied_capability_then_escalation`) now persists across event window eviction, preventing attackers from spacing denial and escalation steps across >20 events to avoid detection
+- **F-06**: Model-generated taint injection — all tool call requests originating from LLM output now carry `source: "model-generated"` taint labels, injected at pipeline entry before policy evaluation
+- **F-09**: NFKC normalization in AutoScope — `classifyScope()` now normalizes input via `normalizeInput()` before keyword matching, preventing homoglyph and zero-width character bypass of scope classification
+
+### Fixed
+- **F-11**: `require-approval` policy verdict now emits `console.warn` when no `onApprovalRequired` handler is registered, making silent denials visible in logs
+- Scenario-runner test counts updated to match actual 10 built-in YAML scenarios
+
+## [0.1.6] — 2026-03-11
+
+### Added
+- **Decision replay protection**: Control plane rejects duplicate `requestNonce` values with HTTP 409, preventing request replay attacks
+- **Policy versioning and receipts**: Every decision response now includes `decisionId`, `policyHash` (SHA-256 prefix), `policyVersion`, and `kernelBuild` — all signed into the Ed25519 receipt
+- **`arikernel verify-receipt`**: CLI command to verify Ed25519 signature, required fields, and payload integrity of decision receipts
+- **`arikernel control-plane export-audit`**: Export control plane audit logs in JSONL format for external analysis
+- **`arikernel compliance-report`**: Generate compliance/evidence reports in human-readable, JSON, or Markdown format — covers deployment mode, policy state, security protections, benchmark coverage, and attack simulation availability
+- `ControlPlaneAuditStore.exportJsonl()` and `queryAll()` methods
+- `ControlPlaneServer.policyHash` getter
+- `docs/compliance-reporting.md` documentation
+- Updated `docs/control-plane.md` with replay protection, signed receipts, trust model, and audit export sections
+
+## [0.1.5] — 2026-03-10
+
+### Security Hardening
+- **Low-entropy exfiltration eliminated**: Post-sensitive-read quarantine GET budget reduced to 0 — all parameterized GETs are blocked after sensitive file reads in quarantine mode
+- **Cumulative egress accounting**: RunStateTracker now tracks total outbound query-string bytes per hostname per run, enabling detection of chunked exfiltration across multiple small requests
+- **Low-entropy encoding detection**: New `hasEncodedPayload()` detector identifies base64 and hex-encoded data in query parameter values, blocking encoded exfil chunks in quarantine
+- **Hostname risk context**: `egressAllowHosts` policy option exempts known-safe hostnames from post-sensitive-read egress tightening
+
+### Fixed
+- Low-entropy exfiltration benchmark now returns BLOCKED instead of PARTIAL — quarantine no longer allows 3 parameterized GETs after sensitive reads
+
 ## [0.1.4] — 2026-03-10
 
 ### Security Hardening

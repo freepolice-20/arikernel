@@ -10,6 +10,7 @@ import {
 	verifyCapabilityToken,
 } from "@arikernel/core";
 import type { SigningKey } from "@arikernel/core";
+import type { DecisionDelegate } from "./decision-delegate.js";
 import type { RateLimiter } from "./rate-limiter.js";
 import type { PrincipalRegistry } from "./registry.js";
 import type { AuthContext } from "./server.js";
@@ -126,6 +127,7 @@ export async function handleExecute(
 	registry: PrincipalRegistry,
 	authCtx: AuthContext,
 	rateLimiter: RateLimiter,
+	decisionDelegate?: DecisionDelegate,
 ): Promise<void> {
 	let body: unknown;
 	try {
@@ -182,6 +184,42 @@ export async function handleExecute(
 	rateLimiter.acquire(principalId);
 
 	try {
+		// Remote decision mode: delegate policy check to control plane before executing
+		if (decisionDelegate) {
+			const remoteDecision = await decisionDelegate.requestDecision({
+				principalId,
+				toolClass: execReq.toolClass,
+				action: execReq.action,
+				parameters: execReq.params,
+				taintLabels: execReq.taint ?? [],
+				runId: firewall.runId,
+			});
+
+			if (!remoteDecision) {
+				// Control plane unreachable — fail closed
+				return jsonResponse(res, 503, {
+					allowed: false,
+					error: "Control plane unreachable — failing closed",
+				});
+			}
+
+			if (remoteDecision.verdict === "deny") {
+				return jsonResponse(res, 403, {
+					allowed: false,
+					error: remoteDecision.reason,
+				});
+			}
+
+			if (remoteDecision.verdict === "require-approval") {
+				return jsonResponse(res, 403, {
+					allowed: false,
+					error: `Approval required: ${remoteDecision.reason}`,
+				});
+			}
+
+			// Control plane allowed — continue to local execution
+		}
+
 		// If a client provides a serialized capability token, verify it server-side
 		if (execReq.capabilityToken && signingKey) {
 			try {

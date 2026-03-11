@@ -19,7 +19,8 @@ export function printConsoleSummary(report: BenchmarkReport): void {
 	const maxName = Math.max(...report.scenarios.map((r) => r.scenarioName.length));
 
 	for (const r of report.scenarios) {
-		const icon = r.verdict === "BLOCKED" ? "BLOCKED" : "ALLOWED";
+		const icon =
+			r.verdict === "BLOCKED" ? "BLOCKED" : r.verdict === "PARTIAL" ? "PARTIAL" : "ALLOWED";
 		const pad = " ".repeat(maxName - r.scenarioName.length + 2);
 		const mech = r.enforcementMechanism ? ` (${r.enforcementMechanism})` : "";
 		console.log(`  ${r.scenarioName}${pad}${icon}${mech}`);
@@ -27,16 +28,18 @@ export function printConsoleSummary(report: BenchmarkReport): void {
 
 	console.log("");
 	console.log("  ──────────────────────────────────────────────────────────────");
-	console.log(`  Total attacks:   ${s.totalScenarios}`);
-	console.log(`  Blocked:         ${s.attacksBlocked}`);
-	console.log(`  Allowed:         ${s.totalScenarios - s.attacksBlocked}`);
-	console.log(`  Block rate:      ${s.attacksBlockedPct}%`);
-	console.log(`  Quarantined:     ${s.quarantinedRuns}`);
+	console.log(`  Attacks tested:              ${s.totalScenarios}`);
+	console.log(`  Attacks blocked:             ${s.attacksBlocked}`);
+	console.log(`  Attacks partially mitigated: ${s.attacksPartial}`);
+	console.log(`  Attacks successful:          ${s.attacksAllowed}`);
+	console.log(`  Block rate:                  ${s.attacksBlockedPct}%`);
+	console.log(`  Quarantined:                 ${s.quarantinedRuns}`);
 	console.log("");
 
 	console.log("  By category:");
 	for (const [cat, counts] of Object.entries(s.byCategory)) {
-		console.log(`    ${cat}: ${counts.blocked}/${counts.total} blocked`);
+		const partial = counts.partial > 0 ? `, ${counts.partial} partial` : "";
+		console.log(`    ${cat}: ${counts.blocked}/${counts.total} blocked${partial}`);
 	}
 	console.log("");
 
@@ -71,8 +74,10 @@ export function writeMarkdownReport(report: BenchmarkReport, outPath: string): v
 	lines.push("");
 
 	lines.push("## Summary\n");
-	lines.push(`- **Total attacks**: ${s.totalScenarios}`);
-	lines.push(`- **Blocked**: ${s.attacksBlocked}`);
+	lines.push(`- **Attacks tested**: ${s.totalScenarios}`);
+	lines.push(`- **Attacks blocked**: ${s.attacksBlocked}`);
+	lines.push(`- **Attacks partially mitigated**: ${s.attacksPartial}`);
+	lines.push(`- **Attacks successful**: ${s.attacksAllowed}`);
 	lines.push(`- **Block rate**: ${s.attacksBlockedPct}%`);
 	lines.push(`- **Quarantined runs**: ${s.quarantinedRuns}`);
 	lines.push("");
@@ -143,6 +148,68 @@ export function buildReport(
 		scenarios: results,
 		summary,
 	};
+}
+
+/**
+ * Print a concise security validation report for pre-release checks.
+ * Shows: attacks tested, blocked, partially mitigated, successful.
+ */
+export function printSecurityReport(report: BenchmarkReport): void {
+	const s = report.summary;
+	const env = report.environment;
+
+	console.log("");
+	console.log("  AriKernel Security Benchmark Report");
+	console.log("  ══════════════════════════════════════════════════════════════");
+	console.log(`  Version: ${env.ariKernelVersion}  Git: ${env.gitSha}  ${env.platform}`);
+	console.log("  ──────────────────────────────────────────────────────────────");
+	console.log("");
+
+	const maxName = Math.max(...report.scenarios.map((r) => r.scenarioName.length));
+
+	for (const r of report.scenarios) {
+		const pad = " ".repeat(maxName - r.scenarioName.length + 2);
+		const mech = r.enforcementMechanism ? ` [${r.enforcementMechanism}]` : "";
+		const q = r.wasQuarantined ? " (quarantined)" : "";
+		console.log(`  ${r.scenarioName}${pad}${r.verdict}${mech}${q}`);
+	}
+
+	console.log("");
+	console.log("  ══════════════════════════════════════════════════════════════");
+	console.log(`  Attacks tested:              ${s.totalScenarios}`);
+	console.log(`  Attacks blocked:             ${s.attacksBlocked}`);
+	console.log(`  Attacks partially mitigated: ${s.attacksPartial}`);
+	console.log(`  Attacks successful:          ${s.attacksAllowed}`);
+	console.log("  ──────────────────────────────────────────────────────────────");
+
+	if (s.attacksAllowed > 0) {
+		console.log("");
+		console.log("  SECURITY VALIDATION FAILED");
+		console.log("  The following attacks were not blocked:");
+		for (const r of report.scenarios) {
+			if (r.verdict === "ALLOWED") {
+				console.log(`    - ${r.scenarioName}: ${r.description}`);
+			}
+		}
+	}
+
+	if (s.attacksPartial > 0) {
+		console.log("");
+		console.log("  PARTIALLY MITIGATED (review required):");
+		for (const r of report.scenarios) {
+			if (r.verdict === "PARTIAL") {
+				console.log(`    - ${r.scenarioName}: ${r.description}`);
+			}
+		}
+	}
+
+	if (s.attacksAllowed === 0 && s.attacksPartial === 0) {
+		console.log("");
+		console.log("  SECURITY VALIDATION PASSED");
+		console.log("  All attacks blocked. Safe for release.");
+	}
+
+	console.log("");
 }
 
 export function defaultResultsPaths(repoRoot: string) {

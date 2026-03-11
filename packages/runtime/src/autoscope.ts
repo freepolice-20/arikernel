@@ -1,4 +1,5 @@
 import type { PresetId } from "@arikernel/core";
+import { normalizeInput } from "./unicode-safety.js";
 
 interface ScopeRule {
 	preset: PresetId;
@@ -113,7 +114,9 @@ export interface ScopeResult {
 }
 
 export function classifyScope(task: string): ScopeResult {
-	const lower = task.toLowerCase();
+	// SECURITY: NFKC normalize before keyword matching to prevent homoglyph bypass.
+	// Without this, Unicode variants (e.g. Cyrillic "а" for Latin "a") could evade scope detection.
+	const lower = normalizeInput(task).toLowerCase();
 	const scores: Record<string, number> = {};
 
 	for (const rule of SCOPE_RULES) {

@@ -39,17 +39,43 @@ CREATE INDEX IF NOT EXISTS idx_events_verdict ON events(verdict);
 CREATE INDEX IF NOT EXISTS idx_events_tool ON events(tool_class, action);
 `;
 
+const MIGRATION_002_PERSISTENT_TAINT = `
+CREATE TABLE IF NOT EXISTS persistent_taint_events (
+  id            TEXT PRIMARY KEY,
+  principal_id  TEXT NOT NULL,
+  event_type    TEXT NOT NULL,
+  resource      TEXT,
+  taint_label   TEXT,
+  timestamp     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pte_principal ON persistent_taint_events(principal_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_pte_type ON persistent_taint_events(event_type, principal_id);
+`;
+
+/** Row shape for persistent taint event queries. */
+export interface PersistentTaintEventRow {
+	id: string;
+	principal_id: string;
+	event_type: string;
+	resource: string | null;
+	taint_label: string | null;
+	timestamp: string;
+}
+
 export class AuditStore {
 	private db: Database.Database;
 	private lastHash: string;
 	private insertEvent: Database.Statement;
 	private insertRun: Database.Statement;
+	private insertPersistentTaintEvent: Database.Statement;
 
 	constructor(dbPath: string) {
 		this.db = new Database(dbPath);
 		this.db.pragma("journal_mode = WAL");
 		this.db.pragma("foreign_keys = ON");
 		this.db.exec(MIGRATION_001);
+		this.db.exec(MIGRATION_002_PERSISTENT_TAINT);
 		this.migrateSchema();
 
 		this.lastHash = this.getLastHash();
@@ -64,6 +90,11 @@ export class AuditStore {
 				tool_call_json, decision_json, result_json, duration_ms, taint_sources, verdict,
 				previous_hash, hash)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`);
+
+		this.insertPersistentTaintEvent = this.db.prepare(`
+			INSERT INTO persistent_taint_events (id, principal_id, event_type, resource, taint_label, timestamp)
+			VALUES (?, ?, ?, ?, ?, ?)
 		`);
 	}
 
@@ -257,6 +288,53 @@ export class AuditStore {
 			eventCount: (row.event_count as number) ?? 0,
 			startPreviousHash: (row.start_previous_hash as string) ?? undefined,
 		}));
+	}
+
+	// ── Persistent taint events ──────────────────────────────────────
+
+	/** Record a persistent taint event for cross-run tracking. */
+	recordPersistentTaintEvent(
+		principalId: string,
+		eventType: string,
+		resource?: string,
+		taintLabel?: string,
+	): void {
+		this.insertPersistentTaintEvent.run(
+			generateId(),
+			principalId,
+			eventType,
+			resource ?? null,
+			taintLabel ?? null,
+			now(),
+		);
+	}
+
+	/**
+	 * Query recent persistent taint events for a principal within a time window.
+	 * Used at run startup to restore sticky flags from prior runs.
+	 */
+	queryPersistentTaintEvents(
+		principalId: string,
+		windowMs: number,
+	): PersistentTaintEventRow[] {
+		const cutoff = new Date(Date.now() - windowMs).toISOString();
+		return this.db
+			.prepare(
+				`SELECT id, principal_id, event_type, resource, taint_label, timestamp
+				 FROM persistent_taint_events
+				 WHERE principal_id = ? AND timestamp > ?
+				 ORDER BY timestamp DESC`,
+			)
+			.all(principalId, cutoff) as PersistentTaintEventRow[];
+	}
+
+	/** Delete persistent taint events older than the retention window. */
+	purgePersistentTaintEvents(retentionMs: number): number {
+		const cutoff = new Date(Date.now() - retentionMs).toISOString();
+		const result = this.db
+			.prepare("DELETE FROM persistent_taint_events WHERE timestamp < ?")
+			.run(cutoff);
+		return result.changes;
 	}
 
 	close(): void {
