@@ -27,6 +27,8 @@ const CHOICES: Choice[] = [
 	{ key: "5", label: "Auto-detect per task (AutoScope)", autoScope: true },
 ];
 
+type EnforcementMode = "sidecar" | "embedded";
+
 function ask(question: string): Promise<string> {
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
 	return new Promise((resolve) => {
@@ -37,21 +39,43 @@ function ask(question: string): Promise<string> {
 	});
 }
 
-function generateConfig(choice: Choice): string {
-	if (choice.autoScope) {
-		return JSON.stringify({ autoScope: true }, null, 2);
+function generateConfig(choice: Choice, mode: EnforcementMode): string {
+	const base = choice.autoScope ? { autoScope: true } : { preset: choice.preset };
+	if (mode === "sidecar") {
+		return JSON.stringify(
+			{
+				...base,
+				mode: "sidecar",
+				sidecar: {
+					baseUrl: "http://localhost:8787",
+					authToken: "${SIDECAR_TOKEN}",
+				},
+			},
+			null,
+			2,
+		);
 	}
-	return JSON.stringify({ preset: choice.preset }, null, 2);
+	return JSON.stringify({ ...base, mode: "embedded" }, null, 2);
 }
 
-function generateSnippet(choice: Choice): string {
+function generateSnippet(choice: Choice, mode: EnforcementMode): string {
 	const presetLine = choice.autoScope
-		? "const kernel = createKernel({ autoScope: true })"
-		: `const kernel = createKernel({ preset: "${choice.preset}" })`;
+		? "const kernel = createKernel({ autoScope: true, mode: 'embedded' })"
+		: `const kernel = createKernel({ preset: "${choice.preset}", mode: '${mode}'${
+				mode === "sidecar"
+					? `,\n  sidecar: { baseUrl: 'http://localhost:8787', authToken: process.env.SIDECAR_TOKEN }`
+					: ""
+			} })`;
+
+	const modeNote =
+		mode === "sidecar"
+			? "// Sidecar mode: tools execute in the sidecar process. Start sidecar first.\n// See: https://arikernel.dev/docs/sidecar-mode\n"
+			: "// Embedded mode: tools run in-process. For development / trusted environments only.\n";
 
 	return `import { createKernel } from "@arikernel/runtime"
 import { protectTools } from "@arikernel/adapters"
 
+${modeNote}
 ${presetLine}
 
 const tools = protectTools({
@@ -83,18 +107,45 @@ export async function runInit(): Promise<void> {
 	if (!selected) {
 		console.log(`\n${YELLOW}Invalid choice. Using safe defaults (safe-research).${RESET}`);
 		const fallback = CHOICES[0];
-		writeFileSync(configPath, generateConfig(fallback), "utf-8");
+		writeFileSync(configPath, generateConfig(fallback, "sidecar"), "utf-8");
 		console.log(`${GREEN}Created ${configPath}${RESET}\n`);
 		return;
 	}
 
-	const config = generateConfig(selected);
+	// ── Mode selection ───────────────────────────────────────────────
+	console.log(`\n${BOLD}Enforcement mode:${RESET}\n`);
+	console.log(
+		`  ${BOLD}1)${RESET} Sidecar ${GREEN}(recommended)${RESET} — tools execute in an isolated process. Strongest enforcement.`,
+	);
+	console.log(
+		`  ${BOLD}2)${RESET} Embedded ${YELLOW}(dev / trusted environments only)${RESET} — tools run in-process. Cooperative enforcement.`,
+	);
+	console.log("");
+
+	const modeAnswer = await ask(`${DIM}Enter choice [1-2, default: 1]:${RESET} `);
+	const mode: EnforcementMode = modeAnswer === "2" ? "embedded" : "sidecar";
+
+	if (mode === "embedded") {
+		console.log(
+			`\n${YELLOW}Note: embedded mode is cooperative — the host process can bypass enforcement.${RESET}`,
+		);
+		console.log(`${YELLOW}Use sidecar mode for production deployments.${RESET}`);
+	}
+
+	const config = generateConfig(selected, mode);
 	writeFileSync(configPath, config, "utf-8");
 
 	console.log(`\n${GREEN}${BOLD}Created ${configPath}${RESET}`);
 	console.log(`${DIM}${config}${RESET}\n`);
 
+	if (mode === "sidecar") {
+		console.log(`${CYAN}${BOLD}Next step — start the sidecar:${RESET}`);
+		console.log(
+			`${DIM}  SIDECAR_TOKEN=<your-token> npx tsx examples/sidecar-secure/server.ts${RESET}\n`,
+		);
+	}
+
 	console.log(`${CYAN}${BOLD}Quick start:${RESET}\n`);
-	console.log(generateSnippet(selected));
+	console.log(generateSnippet(selected, mode));
 	console.log("");
 }

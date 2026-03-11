@@ -1,8 +1,12 @@
 /**
- * Ari Kernel — Quickstart (60 seconds)
+ * Ari Kernel — Quickstart (60 seconds) — EMBEDDED / DEVELOPMENT MODE
  *
- * A minimal example showing how Ari Kernel protects tool execution.
- * No API keys needed. No configuration files. Just run it.
+ * This example uses embedded mode: tools run in-process with stub executors.
+ * Enforcement is cooperative — it demonstrates policy enforcement semantics,
+ * not production isolation.
+ *
+ * For production use, start a sidecar server and use mode: 'sidecar'.
+ * See: examples/sidecar-secure/server.ts and docs/sidecar-mode.md
  *
  *   pnpm example:quickstart
  */
@@ -10,10 +14,11 @@
 import { ToolCallDeniedError } from "@arikernel/core";
 import { createKernel } from "@arikernel/runtime";
 
-// ── Create a kernel with safe defaults ──────────────────────────────
-// HTTP GET allowed, file reads restricted to ./data/**, shell blocked.
+// ── Create a kernel with safe defaults (embedded / dev mode) ────────
+// Embedded mode: tools run in-process. Suitable for demos and development.
+// For production, use: createKernel({ preset: "safe", mode: "sidecar", sidecar: { ... } })
 
-const kernel = createKernel({ preset: "safe" });
+const kernel = createKernel({ preset: "safe", mode: "embedded" });
 const firewall = kernel.createFirewall({ auditLog: ":memory:" });
 
 // Register stub executors (no real I/O — just demonstrates enforcement)

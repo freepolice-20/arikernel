@@ -29,7 +29,9 @@ const PORT = 18_801;
 const server = new SidecarServer({
 	port: PORT,
 	preset: "safe",
-	authToken: process.env.AUTH_TOKEN ?? "demo-token-do-not-use-in-production",
+	// Set ARIKERNEL_DEMO_TOKEN in your environment for real use.
+	// The fallback value below is example-only and will not authenticate any real deployment.
+	authToken: process.env.ARIKERNEL_DEMO_TOKEN ?? "example-only-set-ARIKERNEL_DEMO_TOKEN",
 	auditLog: "./sidecar-secure-audit.db",
 });
 

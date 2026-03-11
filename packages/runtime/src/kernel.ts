@@ -24,14 +24,21 @@ export interface KernelOptions {
 	hooks?: FirewallHooks;
 	runStatePolicy?: RunStatePolicy;
 	/**
-	 * Enforcement mode. Default: "embedded".
+	 * Enforcement mode. **Must be set explicitly in production.**
 	 *
-	 * In "sidecar" mode, all tool execution is delegated to the sidecar
-	 * HTTP server. The host process cannot execute tools directly.
-	 * Provide `sidecar` connection options when using this mode.
+	 * - `"sidecar"` (recommended): delegates all tool execution to the sidecar
+	 *   HTTP server. Requires `sidecar` connection options.
+	 * - `"embedded"`: runs tools in-process. Suitable for development or
+	 *   trusted environments only.
+	 *
+	 * Omitting this field in production throws a startup error.
+	 * In non-production it defaults to `"embedded"` with a warning.
 	 */
 	mode?: EnforcementMode;
-	/** Sidecar connection config. Required when mode is "sidecar". */
+	/**
+	 * Sidecar connection config. Required when mode is `"sidecar"`.
+	 * Defaults: baseUrl = http://localhost:8787, principalId = principal name.
+	 */
 	sidecar?: SidecarConnectionOptions;
 }
 

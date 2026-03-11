@@ -61,8 +61,36 @@ export class Firewall {
 	constructor(options: FirewallOptions) {
 		validateOptions(options);
 
+		// Enforcement mode must be explicit in production.
+		// Omitting it in production is a misconfiguration — fail fast rather than
+		// silently falling back to cooperative (embedded) enforcement.
+		if (options.mode === undefined) {
+			if (process.env.NODE_ENV === "production") {
+				throw new Error(
+					"AriKernel: enforcement mode must be explicit in production. " +
+						"Set mode: 'sidecar' (recommended) or mode: 'embedded' (trusted environments only). " +
+						"See the sidecar-mode docs for minimum sidecar setup.",
+				);
+			}
+			console.warn(
+				"[AriKernel] No enforcement mode set — defaulting to 'embedded'. " +
+					"Embedded mode runs tools in-process and is not suitable for production. " +
+					"Set mode: 'sidecar' for production deployments.",
+			);
+		}
+
 		this._mode = options.mode ?? "embedded";
 		this._sidecarOptions = options.sidecar;
+
+		// Embedded mode in production is allowed only when explicitly chosen,
+		// but warn clearly — it provides cooperative enforcement only.
+		if (this._mode === "embedded" && process.env.NODE_ENV === "production") {
+			console.warn(
+				"[AriKernel] Embedded mode is active in production. " +
+					"Enforcement is cooperative — the host process can bypass the pipeline. " +
+					"Use mode: 'sidecar' for strongest enforcement in production.",
+			);
+		}
 
 		if (this._mode === "sidecar" && !options.sidecar) {
 			throw new Error(
