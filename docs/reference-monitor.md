@@ -463,7 +463,12 @@ Apply formal methods to verify key safety invariants:
 
 ### Multi-Agent Collusion Detection
 
-Cross-principal behavioral analysis to detect coordinated attack patterns where individual principals operate within policy but the collective behavior is adversarial. The CP-3 egress-destination convergence rule (§8.5) is a first step — future work includes full cross-principal behavioral pattern analysis, transitive HTTP taint propagation, and integration with network-level isolation policies.
+Cross-principal behavioral analysis to detect coordinated attack patterns where individual principals operate within policy but the collective behavior is adversarial. The CP-3 egress-destination convergence rule (§8.5) is a first step. Planned additions:
+
+- **CP-4: Unusual-host detection.** Build a per-principal baseline of normal egress destinations (e.g. `api.openai.com`, `stripe.com`, `slack.com`). Alert when a principal with recent sensitive reads suddenly contacts a host outside its baseline (e.g. `relay-91832.net`). This would catch relay attacks even without a second principal converging on the same host.
+- Full cross-principal behavioral pattern analysis.
+- Transitive HTTP taint propagation across principal boundaries.
+- Integration with network-level isolation policies.
 
 ### Dynamic Policy Updates
 
