@@ -395,6 +395,28 @@ export class Firewall {
 	}
 
 	/**
+	 * Quarantine this firewall externally (e.g., from a cross-principal correlator alert).
+	 * Returns QuarantineInfo if newly quarantined, null if already restricted.
+	 */
+	quarantineExternal(ruleId: string, reason: string): QuarantineInfo | null {
+		const result = this._runState.quarantineByRule(ruleId, reason, []);
+		if (result) {
+			this.auditStore.appendSystemEvent(
+				this.runId,
+				this.principal.id,
+				"quarantine",
+				reason,
+				{
+					triggerType: "cross_principal_alert",
+					ruleId,
+					counters: result.countersSnapshot,
+				},
+			);
+		}
+		return result;
+	}
+
+	/**
 	 * Inject external taint labels into this firewall's run-state.
 	 * Used by cross-principal systems (e.g., SharedTaintRegistry) to propagate
 	 * contamination from one principal's actions to another.

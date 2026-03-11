@@ -9,6 +9,8 @@ export interface CorrelatorConfig {
 	windowMs?: number;
 	/** Max events buffered per principal. Default: 50. */
 	maxEventsPerPrincipal?: number;
+	/** When true, CP alerts automatically quarantine the offending principals. Default: false. */
+	quarantineOnAlert?: boolean;
 }
 
 export interface CrossPrincipalAlert {
@@ -22,6 +24,9 @@ export interface CrossPrincipalAlert {
 }
 
 export type AlertHandler = (alert: CrossPrincipalAlert) => void;
+
+/** Callback to quarantine a specific principal when an alert fires. */
+export type QuarantineHandler = (principalId: string, ruleId: string, reason: string) => void;
 
 interface PrincipalEvent {
 	principalId: string;
@@ -83,8 +88,10 @@ function extractResourceKey(toolClass: string, action: string, params?: Record<s
 export class CrossPrincipalCorrelator {
 	private readonly windowMs: number;
 	private readonly maxEvents: number;
+	private readonly quarantineOnAlert: boolean;
 	private readonly events = new Map<string, PrincipalEvent[]>();
 	private readonly handlers: AlertHandler[] = [];
+	private quarantineHandler: QuarantineHandler | null = null;
 	/**
 	 * Tracks recent egress destinations: hostname → set of {principalId, timestamp}.
 	 * Used by CP-3 to detect multiple principals converging on the same host.
@@ -96,11 +103,17 @@ export class CrossPrincipalCorrelator {
 	constructor(config?: CorrelatorConfig) {
 		this.windowMs = config?.windowMs ?? 60_000;
 		this.maxEvents = config?.maxEventsPerPrincipal ?? 50;
+		this.quarantineOnAlert = config?.quarantineOnAlert ?? false;
 	}
 
 	/** Register an alert handler. */
 	onAlert(handler: AlertHandler): void {
 		this.handlers.push(handler);
+	}
+
+	/** Register a handler to quarantine principals when alerts fire. */
+	onQuarantine(handler: QuarantineHandler): void {
+		this.quarantineHandler = handler;
 	}
 
 	/** Ingest an audit event from any principal. */
@@ -362,6 +375,17 @@ export class CrossPrincipalCorrelator {
 				handler(alert);
 			} catch {
 				/* handler errors must not crash correlator */
+			}
+		}
+
+		// Quarantine all principals involved in the alert
+		if (this.quarantineOnAlert && this.quarantineHandler) {
+			for (const pid of alert.principals) {
+				try {
+					this.quarantineHandler(pid, alert.ruleId, alert.reason);
+				} catch {
+					/* quarantine errors must not crash correlator */
+				}
 			}
 		}
 	}
