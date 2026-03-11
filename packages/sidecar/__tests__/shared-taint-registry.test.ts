@@ -1,3 +1,4 @@
+import { resolve, normalize } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SharedTaintRegistry, type SharedStoreConfig } from "../src/shared-taint-registry.js";
 
@@ -48,7 +49,9 @@ describe("SharedTaintRegistry", () => {
 	it("extractResourceKey returns file key for shared path write", () => {
 		const reg = new SharedTaintRegistry(config);
 		const key = reg.extractResourceKey("file", "write", { path: "/shared/data/report.csv" });
-		expect(key).toBe("file:/shared/data/report.csv");
+		// Key is canonicalized: resolved + normalized path
+		const expectedPath = normalize(resolve("/shared/data/report.csv"));
+		expect(key).toBe(`file:${expectedPath}`);
 	});
 
 	it("extractResourceKey returns null for non-shared file path", () => {
@@ -66,6 +69,12 @@ describe("SharedTaintRegistry", () => {
 	it("extractResourceKey returns db key for shared table read (query)", () => {
 		const reg = new SharedTaintRegistry(config);
 		const key = reg.extractResourceKey("database", "query", { table: "messages" });
+		expect(key).toBe("db:messages");
+	});
+
+	it("case-insensitive table matching prevents bypass", () => {
+		const reg = new SharedTaintRegistry(config);
+		const key = reg.extractResourceKey("database", "insert", { table: "Messages" });
 		expect(key).toBe("db:messages");
 	});
 
