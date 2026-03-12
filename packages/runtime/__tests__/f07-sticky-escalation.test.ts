@@ -143,14 +143,46 @@ describe("F-07: Rule 2 sticky flag for denied_capability_then_escalation", () =>
 
 		state.markEscalationDenied("http");
 		expect(state.escalationDeniedObserved).toBe(true);
+		// escalationDeniedToolClass returns the highest-risk class from the set
 		expect(state.escalationDeniedToolClass).toBe("http");
+		expect(state.escalationDeniedClasses.has("http")).toBe(true);
 
-		// Higher risk replaces
+		// Both classes accumulate in the set; highest-risk getter returns file
 		state.markEscalationDenied("file");
 		expect(state.escalationDeniedToolClass).toBe("file");
+		expect(state.escalationDeniedClasses.has("http")).toBe(true);
+		expect(state.escalationDeniedClasses.has("file")).toBe(true);
 
-		// Lower risk does not replace
+		// Adding a lower-risk class doesn't change highest-risk getter
 		state.markEscalationDenied("http");
 		expect(state.escalationDeniedToolClass).toBe("file");
+	});
+
+	it("NF-06: lower-risk denial (http) is not lost after higher-risk denial (shell)", () => {
+		const state = new RunStateTracker({ behavioralRules: true });
+
+		// Need at least 2 events to proceed
+		state.pushEvent(makeEvent({ type: "tool_call_allowed", toolClass: "http", action: "get" }));
+
+		// Deny http (risk 1), then deny shell (risk 5)
+		state.pushEvent(makeEvent({ type: "capability_denied", toolClass: "http" }));
+		state.pushEvent(makeEvent({ type: "capability_denied", toolClass: "shell" }));
+
+		// Evaluate to set sticky flags for both denials
+		evaluateBehavioralRules(state);
+		expect(state.escalationDeniedClasses.has("http")).toBe(true);
+		expect(state.escalationDeniedClasses.has("shell")).toBe(true);
+
+		// Evict both denials from the window
+		pushFillerEvents(state, 25);
+
+		// Request database (risk 2): riskier than http (1) but not than shell (5)
+		// Old single-slot: only shell tracked → database < shell → no match
+		// New Set: http also tracked → database > http → should trigger
+		state.pushEvent(makeEvent({ type: "capability_requested", toolClass: "database" }));
+
+		const match = evaluateBehavioralRules(state);
+		expect(match).not.toBeNull();
+		expect(match?.ruleId).toBe("denied_capability_then_escalation");
 	});
 });

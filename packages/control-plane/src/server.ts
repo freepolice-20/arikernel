@@ -45,12 +45,26 @@ export class ControlPlaneServer {
 		this.config = config;
 		this.engine = new PolicyEngine(config.policy);
 		this.signer = new DecisionSigner(config.signingKey);
-		this.taintRegistry = new GlobalTaintRegistry();
 		this.auditStore = new ControlPlaneAuditStore(config.auditLog ?? ":memory:");
+		this.taintRegistry = new GlobalTaintRegistry(this.auditStore);
 		this.requestNonceStore = new NonceStore();
 		this._policyHash = computePolicyHash(config.policy);
 
 		const authToken = config.authToken;
+
+		// Production guard: unauthenticated control plane is unsafe in production.
+		if (!authToken) {
+			if (process.env.NODE_ENV === "production") {
+				throw new Error(
+					"AriKernel: control plane authToken is required in production. " +
+						"Configure authToken for authenticated deployments.",
+				);
+			}
+			console.warn(
+				"[AriKernel] Control plane running without authToken — all endpoints unauthenticated. " +
+					"Do not use in production.",
+			);
+		}
 
 		this.server = createServer((req, res) => {
 			const url = req.url ?? "/";

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { DecisionVerdict, TaintLabel, ToolClass } from "@arikernel/core";
 
 /**
@@ -62,11 +63,13 @@ export class DecisionDelegate {
 		runId: string;
 	}): Promise<RemoteDecision | null> {
 		try {
+			const requestNonce = randomBytes(16).toString("hex");
 			const res = await fetch(`${this.endpoint}/decision`, {
 				method: "POST",
 				headers: this.headers,
 				body: JSON.stringify({
 					...params,
+					requestNonce,
 					timestamp: new Date().toISOString(),
 				}),
 				signal: AbortSignal.timeout(this.timeoutMs),
