@@ -1,19 +1,45 @@
 # Ari Kernel — Python Runtime
 
-Native Python runtime for [Ari Kernel](https://github.com/petermanrique101-sys/AriKernel). Enforces capability tokens, taint-aware policies, behavioral quarantine, and tamper-evident audit logging — all in-process, no TypeScript server required.
+Python runtime for [Ari Kernel](https://github.com/petermanrique101-sys/AriKernel). Delegates **all security decisions** to the TypeScript sidecar process, providing process-boundary isolation that cannot be bypassed from Python.
+
+## Architecture: Sidecar-First by Design
+
+Python support is sidecar-first by design. This ensures Python agents use the same enforcement authority as the primary Ari Kernel runtime — a single enforcement authority with multi-language clients, not multiple runtimes with drift risk.
+
+The Python runtime uses a **sidecar-authoritative** enforcement model:
+
+1. Python calls `create_kernel()` which connects to the TypeScript sidecar over HTTP
+2. Every `execute_tool()` / `request_capability()` call is sent to the sidecar for decision
+3. The sidecar evaluates policy, checks capabilities, tracks taint, runs behavioral rules, and logs the audit event
+4. Only if the sidecar returns **"allow"** does the Python tool function execute
+
+This guarantees:
+- **Complete mediation** — every tool call is checked by the TypeScript runtime
+- **Tamper resistance** — Python cannot modify enforcement logic (it lives in a separate process)
+- **Audit integrity** — the sidecar owns the hash-chained audit log
+- **Full parity** — same policy engine, same behavioral rules, same taint tracking as TypeScript
 
 ## Install
 
 ```bash
-pip install -e python/
+pip install arikernel
 ```
 
-## Usage
+## Quick Start
+
+**Step 1: Start the TypeScript sidecar**
+
+```bash
+pnpm build && pnpm server
+# → listening on http://localhost:9099
+```
+
+**Step 2: Use from Python**
 
 ```python
 from arikernel import create_kernel, protect_tool
 
-kernel = create_kernel(preset="safe-research", audit_log="./audit.db")
+kernel = create_kernel(preset="safe-research")
 
 @protect_tool("file.read", kernel=kernel)
 def read_file(path: str) -> str:
@@ -23,41 +49,69 @@ def read_file(path: str) -> str:
 def fetch_url(url: str) -> str:
     return httpx.get(url).text
 
-read_file(path="./data/report.csv")    # ALLOWED
-read_file(path="/etc/shadow")          # DENIED (path constraint)
-fetch_url(url="https://example.com")   # ALLOWED
+read_file(path="./data/report.csv")    # ALLOWED by sidecar
+read_file(path="/etc/shadow")          # DENIED by sidecar (path constraint)
+fetch_url(url="https://example.com")   # ALLOWED by sidecar
+```
+
+### Handling `require-approval` verdicts
+
+```python
+def my_approval_handler(tool_call: dict, decision: dict) -> bool:
+    """Return True to approve, False to deny."""
+    print(f"Approval requested for {tool_call['toolClass']}.{tool_call['action']}")
+    return input("Approve? [y/N] ").lower() == "y"
+
+kernel = create_kernel(
+    preset="safe-research",
+    on_approval=my_approval_handler,
+)
 ```
 
 ## API
 
-- `create_kernel(preset, principal, audit_log, ...)` — create enforcement kernel
+- `create_kernel(preset, principal, on_approval, ...)` — connect to the TypeScript sidecar (default)
+- `create_kernel(..., mode="local")` — local enforcement for dev/testing only (emits warning)
 - `@protect_tool("capability.class", kernel=kernel)` — decorator to protect a tool function
 - `kernel.execute_tool(tool_class, action, parameters, ...)` — direct execution with enforcement
 - `kernel.request_capability(capability_class)` — request a capability token
-- `kernel.close()` — end session, finalize audit log
+- `kernel.close()` — end session, release sidecar resources
 - Context manager support (`with create_kernel(...) as kernel:`)
+
+## Exceptions
+
+- `ToolCallDenied` — raised on policy denial
+- `ApprovalRequiredError(ToolCallDenied)` — raised when `require-approval` verdict is denied (no handler or handler returns `False`)
+- `ConnectionError` — raised when the TypeScript sidecar is not reachable
+
+## Deployment Modes
+
+| Mode | Usage | Isolation |
+|------|-------|-----------|
+| **Sidecar** (default) | `create_kernel(preset="safe-research")` | Process boundary — Python cannot bypass enforcement |
+| **Local** (dev/testing) | `create_kernel(preset="safe-research", mode="local")` | In-process — can be bypassed by Python code |
+| **High assurance** | Sidecar + container egress controls + network policies | Process + OS-level isolation |
+
+**There is no silent fallback.** If the sidecar is unreachable, `create_kernel()` raises `ConnectionError` immediately. It does not fall back to local enforcement.
+
+### Local Mode (Dev/Testing Only)
+
+For development and testing without running the sidecar:
+
+```python
+kernel = create_kernel(preset="safe-research", mode="local")
+# ⚠️ Emits warning: local enforcement can be bypassed by Python code
+```
+
+Local mode runs the same policy engine in-process but **does not provide process-boundary isolation**. It should never be used in production.
 
 ## Audit Compatibility
 
-Python audit logs use the same SQLite schema and SHA-256 hash chain as the TypeScript runtime. Trace and replay with the CLI:
+The sidecar writes audit logs using the same SQLite schema and SHA-256 hash chain as the TypeScript runtime. Trace and replay with the CLI:
 
 ```bash
 pnpm ari trace --latest --db ./audit.db
 pnpm ari replay --latest --verbose --db ./audit.db
-```
-
-## Alternative: HTTP Decision Server
-
-For environments that need centralized enforcement via the TypeScript server:
-
-```bash
-pip install -e "python/[server]"
-```
-
-```python
-from arikernel import FirewallClient
-
-fw = FirewallClient(url="http://localhost:9099", principal="my-agent", capabilities=[...])
 ```
 
 See the main [README](../README.md) for full documentation.

@@ -8,7 +8,7 @@ from arikernel.integrations.autogen import protect_autogen_tool, AutoGenToolWrap
 
 @pytest.fixture
 def kernel():
-    k = create_kernel(preset="safe-research", audit_log=":memory:")
+    k = create_kernel(mode="local", preset="safe-research", audit_log=":memory:")
     yield k
     k.close()
 
@@ -51,6 +51,7 @@ class TestProtectAutogenTool:
 
     def test_quarantine_after_repeated_denials(self):
         k = create_kernel(
+            mode="local",
             preset="safe-research",
             audit_log=":memory:",
             max_denied_sensitive_actions=2,

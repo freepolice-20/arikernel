@@ -78,7 +78,7 @@ arikernel/
 ├── apps/
 │   ├── cli/                           # CLI application (arikernel binary)
 │   └── server/                        # HTTP decision server (legacy, port 9099)
-├── python/                            # Native Python runtime
+├── python/                            # Python runtime (experimental — not in v0.1.0)
 ├── policies/                          # YAML policy files (safe-defaults, deny-all)
 ├── examples/                          # Runnable demos
 ├── docs/                              # Design docs, threat model, benchmarks
@@ -685,7 +685,7 @@ In sidecar mode, the kernel runs as a separate HTTP process on port 8787. Tools 
 | Enforcement type | Cooperative | Mandatory |
 | Agent can bypass? | Only if framework code is modified to skip enforcement | No — no direct path to tools |
 | Audit tamper resistance | Tamper-evident (hash chain, same process) | Tamper-evident + process-isolated (agent cannot access audit DB) |
-| Language support | TypeScript/JavaScript or Python (native runtimes) | Any (HTTP API) |
+| Language support | TypeScript/JavaScript (Python experimental, not in v0.1.0) | Any (HTTP API) |
 | Latency | In-process (microseconds) | Network hop (milliseconds) |
 | Setup complexity | `npm install` + `createKernel()` | Separate service deployment |
 

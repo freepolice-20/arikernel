@@ -238,7 +238,7 @@ Constraints narrow a capability's scope. They are checked at execution time — 
 | Constraint | Applies To | Semantics |
 |------------|-----------|-----------|
 | `allowedHosts` | `http` | Hostname must appear in allowlist (or `"*"` for wildcard) |
-| `allowedPaths` | `file` | Path must match glob pattern after symlink resolution |
+| `allowedPaths` | `file` | Path must match exactly, or fall under a `/**` directory prefix, after symlink resolution. Not a general glob — only exact paths and `dir/**` prefixes are supported. |
 | `allowedCommands` | `shell` | Executable name must appear in allowlist |
 | `allowedDatabases` | `database` | Database name must appear in allowlist |
 | `maxCallsPerMinute` | all | Sliding-window rate limit per tool class |

@@ -57,7 +57,8 @@ def _create_middleware_kernel(
     principal: str = "agent",
     audit_log: str = ":memory:",
     max_denied: int = 10,
-) -> Kernel:
+):
+    """Create a kernel for middleware use. Defaults to sidecar mode."""
     return create_kernel(
         preset=preset,
         principal=principal,

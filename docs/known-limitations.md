@@ -6,6 +6,18 @@ Honest documentation of what Ari Kernel does not protect against, where enforcem
 
 ---
 
+## Python runtime scope
+
+The Python runtime (`pip install arikernel`) uses **sidecar-authoritative** enforcement by default: all security decisions are delegated to the TypeScript sidecar over HTTP, providing process-boundary isolation. This means Python inherits all TypeScript enforcement capabilities (SSRF protection, behavioral rules, taint tracking, audit logging) via the sidecar.
+
+Remaining Python-specific limitations:
+
+- **Sidecar dependency** — the TypeScript sidecar must be running for Python enforcement to work. If the sidecar is unreachable, `create_kernel()` raises `ConnectionError`.
+- **Local mode is dev-only** — `mode="local"` provides in-process enforcement for development and testing but does not offer process-boundary isolation and should not be used in production.
+- **No persistent cross-run taint in local mode** — when using `mode="local"`, the Python runtime does not have an equivalent of the TypeScript `PersistentTaintRegistry`. In sidecar mode, the sidecar handles this.
+
+---
+
 ## Enforcement boundary
 
 **Embedded mode is cooperative enforcement only.** The host process has ambient authority and can bypass the pipeline. If agent framework code, tool code, or injected dependencies invoke OS APIs directly (e.g., `fs.readFileSync`, raw `fetch`, `child_process.exec`), those calls are not mediated by the kernel. Embedded mode is suitable for development and trusted environments only.
@@ -30,7 +42,7 @@ Honest documentation of what Ari Kernel does not protect against, where enforcem
 
 ## Content inspection
 
-**Content scanner patterns are heuristic only.** The DLP output filter and `isSuspiciousGetExfil()` detector use pattern matching (regex, entropy analysis, base64/hex detection) to identify potential data exfiltration. These are defense-in-depth heuristics, not a security boundary. A determined attacker can encode data in ways that evade pattern detection. Do not rely on content scanning as a primary control.
+**Content scanner patterns are heuristic and opt-in.** The DLP output filter is an optional hook (`onOutputFilter`) — it is not enabled by default. When registered, it and the `isSuspiciousGetExfil()` detector use pattern matching (regex, entropy analysis, base64/hex detection) to identify potential data exfiltration. These are defense-in-depth heuristics, not a security boundary. A determined attacker can encode data in ways that evade pattern detection. Do not rely on content scanning as a primary control.
 
 ## Replay and verification
 

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arikernel"
-version = "0.2.0"
-description = "Runtime security layer for AI agents — native Python enforcement"
+version = "0.1.0"
+description = "Runtime security layer for AI agents — native Python enforcement with TypeScript-parity semantics"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -18,3 +18,9 @@ dev = ["pytest>=8", "python-ulid>=3"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["arikernel"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"arikernel/runtime/arikernel-policy.json" = "arikernel/runtime/arikernel-policy.json"
+
+[tool.hatch.build.targets.sdist]
+include = ["arikernel/**", "tests/**", "README.md", "pyproject.toml"]

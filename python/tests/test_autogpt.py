@@ -8,7 +8,7 @@ from arikernel.integrations.autogpt import protect_autogpt_command, AutoGPTComma
 
 @pytest.fixture
 def kernel():
-    k = create_kernel(preset="safe-research", audit_log=":memory:")
+    k = create_kernel(mode="local", preset="safe-research", audit_log=":memory:")
     yield k
     k.close()
 
@@ -51,6 +51,7 @@ class TestProtectAutogptCommand:
 
     def test_quarantine_on_repeated_denials(self):
         k = create_kernel(
+            mode="local",
             preset="safe-research",
             audit_log=":memory:",
             max_denied_sensitive_actions=2,

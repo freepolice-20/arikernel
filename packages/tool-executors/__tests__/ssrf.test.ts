@@ -93,6 +93,63 @@ describe("isPrivateIP", () => {
 	it("allows 2001:db8::1 (public IPv6)", () => {
 		expect(isPrivateIP("2001:db8::1")).toBe(false);
 	});
+
+	// --- IPv4-mapped IPv6 bypass vectors ---
+	it("blocks ::ffff:127.0.0.1 (IPv4-mapped loopback)", () => {
+		expect(isPrivateIP("::ffff:127.0.0.1")).toBe(true);
+	});
+
+	it("blocks ::ffff:10.0.0.1 (IPv4-mapped RFC1918 class A)", () => {
+		expect(isPrivateIP("::ffff:10.0.0.1")).toBe(true);
+	});
+
+	it("blocks ::ffff:192.168.1.10 (IPv4-mapped RFC1918 class C)", () => {
+		expect(isPrivateIP("::ffff:192.168.1.10")).toBe(true);
+	});
+
+	it("blocks ::ffff:172.16.0.1 (IPv4-mapped RFC1918 class B)", () => {
+		expect(isPrivateIP("::ffff:172.16.0.1")).toBe(true);
+	});
+
+	it("blocks ::ffff:169.254.169.254 (IPv4-mapped cloud metadata)", () => {
+		expect(isPrivateIP("::ffff:169.254.169.254")).toBe(true);
+	});
+
+	it("blocks ::ffff:0.0.0.0 (IPv4-mapped unspecified)", () => {
+		expect(isPrivateIP("::ffff:0.0.0.0")).toBe(true);
+	});
+
+	it("allows ::ffff:8.8.8.8 (IPv4-mapped public)", () => {
+		expect(isPrivateIP("::ffff:8.8.8.8")).toBe(false);
+	});
+
+	it("allows ::ffff:93.184.216.34 (IPv4-mapped public)", () => {
+		expect(isPrivateIP("::ffff:93.184.216.34")).toBe(false);
+	});
+
+	// --- Additional IPv6 reserved ranges ---
+	it("blocks ff02::1 (IPv6 multicast)", () => {
+		expect(isPrivateIP("ff02::1")).toBe(true);
+	});
+
+	it("blocks 255.255.255.255 (IPv4 broadcast)", () => {
+		expect(isPrivateIP("255.255.255.255")).toBe(true);
+	});
+
+	// --- Case insensitivity ---
+	it("blocks ::FFFF:127.0.0.1 (uppercase mapped prefix)", () => {
+		expect(isPrivateIP("::FFFF:127.0.0.1")).toBe(true);
+	});
+
+	// --- Fail-closed on garbage input ---
+	it("blocks garbage input (fail-closed)", () => {
+		expect(isPrivateIP("not-an-ip")).toBe(true);
+	});
+
+	// --- Public IPv6 that must still pass ---
+	it("allows 2607:f8b0:4004:800::200e (public IPv6)", () => {
+		expect(isPrivateIP("2607:f8b0:4004:800::200e")).toBe(false);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -110,6 +167,18 @@ describe("resolveHost", () => {
 	it("returns the IP unchanged for public IP literals", async () => {
 		const ip = await resolveHost("8.8.8.8");
 		expect(ip).toBe("8.8.8.8");
+	});
+
+	it("blocks IPv4-mapped IPv6 private literals", async () => {
+		await expect(resolveHost("::ffff:127.0.0.1")).rejects.toThrow("SSRF blocked");
+		await expect(resolveHost("::ffff:10.0.0.1")).rejects.toThrow("SSRF blocked");
+		await expect(resolveHost("::ffff:192.168.1.10")).rejects.toThrow("SSRF blocked");
+		await expect(resolveHost("::ffff:169.254.169.254")).rejects.toThrow("SSRF blocked");
+	});
+
+	it("blocks IPv6 loopback and link-local literals", async () => {
+		await expect(resolveHost("::1")).rejects.toThrow("SSRF blocked");
+		await expect(resolveHost("fe80::1")).rejects.toThrow("SSRF blocked");
 	});
 });
 

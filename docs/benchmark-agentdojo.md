@@ -25,7 +25,10 @@ Results are written to:
 |-------------|---------------------|---------|
 | `prompt_injection` | Indirect prompt injection via web content | Scenarios 1, 2, 4 |
 | `privilege_escalation` | Capability escalation after denial | Scenario 3 |
-| `data_exfiltration` | Repeated sensitive data probing | Scenario 5 |
+| `data_exfiltration` | Repeated sensitive data probing; multi-step exfil | Scenarios 5, 9 |
+| `tool_abuse` | Shell command injection via metacharacters | Scenario 6 |
+| `filesystem_traversal` | Path traversal and filesystem escape | Scenario 7 |
+| `ssrf` | SSRF to internal/private endpoints | Scenario 8 |
 
 ---
 
@@ -137,7 +140,7 @@ This ensures any result can be reproduced or compared across environments.
 ## How to run
 
 ```bash
-# Full benchmark (all 5 scenarios)
+# Full benchmark (all 9 scenarios)
 npx pnpm benchmark:agentdojo
 
 # Individual scenario (via tsx)
@@ -198,5 +201,5 @@ A high "attacks blocked" score means the enforcement pipeline consistently inter
 
 - **Not an official AgentDojo evaluation**: This harness is independently written and tests a subset of AgentDojo's attack taxonomy. Official AgentDojo evaluations run against live agent task environments with real LLM reasoning.
 - **Deterministic by design**: Scenarios do not use a live LLM. They simulate the tool call sequences an attacker-controlled agent would produce. This makes results reproducible but means "attack creativity" is not tested.
-- **Coverage**: Five scenarios cover the core enforcement mechanisms. Expanding coverage to additional attack classes (CSRF, confused deputy, indirect injection via RAG) is future work.
+- **Coverage**: Nine scenarios cover the core enforcement mechanisms (prompt injection, escalation, exfiltration, shell abuse, path traversal, SSRF). Expanding coverage to additional attack classes (CSRF, confused deputy, indirect injection via RAG) is future work.
 - **Executor stubs**: HTTP scenarios stub `globalThis.fetch`. File scenarios exercise the real file system executor, which will report "file not found" errors — these are executor-level failures, not pipeline denials, and do not affect benchmark accuracy.

@@ -1,13 +1,14 @@
-"""AriKernel native Python runtime — create_kernel() and Kernel class.
+"""AriKernel Python runtime — create_kernel() and enforcement classes.
 
-Usage:
-    from arikernel import create_kernel, protect_tool
+Default mode is sidecar-authoritative: all security decisions are delegated
+to the TypeScript sidecar process, providing process-boundary isolation.
 
+Usage (sidecar — default, production):
     kernel = create_kernel(preset="safe-research")
+    # Requires: TypeScript sidecar running at localhost:9099
 
-    @protect_tool("file.read")
-    def read_file(path: str):
-        return open(path).read()
+Usage (local — dev/testing only):
+    kernel = create_kernel(preset="safe-research", mode="local")
 """
 
 from __future__ import annotations
@@ -49,6 +50,13 @@ class ToolCallDenied(Exception):
         self.rule = rule
 
 
+class ApprovalRequiredError(ToolCallDenied):
+    """Raised when a tool call requires approval but no handler is registered or approval is denied."""
+
+    def __init__(self, reason: str, rule: str | None = None):
+        super().__init__(reason=reason, verdict="require-approval", rule=rule)
+
+
 class Kernel:
     """Native Python AriKernel runtime.
 
@@ -71,6 +79,7 @@ class Kernel:
         audit_log: str | None = None,
         max_denied_sensitive_actions: int = 5,
         behavioral_rules: bool = True,
+        on_approval: Callable[[dict[str, Any], dict[str, Any]], bool] | None = None,
     ):
         self._preset_name = preset_name
         self._auto_scope = auto_scope
@@ -78,6 +87,8 @@ class Kernel:
         self._policies = policies
         self._principal = principal
         self._principal_id = _generate_id()
+
+        self._on_approval = on_approval
 
         # Subsystems
         self._policy_engine = PolicyEngine(policies)
@@ -311,9 +322,46 @@ class Kernel:
             )
 
         if decision["verdict"] == "require-approval":
-            # In native runtime, require-approval is treated as allow
-            # (no approval handler configured — same behavior as TS runtime)
-            pass
+            # Fail closed: if no approval handler is registered, deny.
+            # This matches TypeScript pipeline.ts behavior exactly.
+            if self._on_approval is None:
+                import warnings
+                warnings.warn(
+                    f"[arikernel] Policy returned 'require-approval' for "
+                    f"{tool_class}.{action} but no on_approval handler is "
+                    f"registered. Action will be denied by default. Register "
+                    f"an on_approval callback to handle approval requests.",
+                    stacklevel=2,
+                )
+                denied_decision = {
+                    "verdict": "deny",
+                    "matchedRule": decision.get("matchedRule"),
+                    "reason": f"require-approval denied: no approval handler registered for {tool_class}.{action}",
+                    "taintLabels": decision.get("taintLabels", []),
+                    "timestamp": _now(),
+                }
+                self._run_state.record_denied_action()
+                self._log_event(tool_call, denied_decision)
+                raise ApprovalRequiredError(
+                    reason=denied_decision["reason"],
+                    rule=decision["matchedRule"]["id"] if decision.get("matchedRule") else None,
+                )
+
+            approved = self._on_approval(tool_call, decision)
+            if not approved:
+                denied_decision = {
+                    "verdict": "deny",
+                    "matchedRule": decision.get("matchedRule"),
+                    "reason": f"require-approval denied by handler for {tool_class}.{action}",
+                    "taintLabels": decision.get("taintLabels", []),
+                    "timestamp": _now(),
+                }
+                self._run_state.record_denied_action()
+                self._log_event(tool_call, denied_decision)
+                raise ApprovalRequiredError(
+                    reason=denied_decision["reason"],
+                    rule=decision["matchedRule"]["id"] if decision.get("matchedRule") else None,
+                )
 
         # Step 4: Execute tool
         result_data = None
@@ -421,21 +469,34 @@ def create_kernel(
     audit_log: str | None = None,
     max_denied_sensitive_actions: int = 5,
     behavioral_rules: bool = True,
-) -> Kernel:
+    on_approval: Callable[[dict[str, Any], dict[str, Any]], bool] | None = None,
+    *,
+    mode: str = "sidecar",
+    sidecar_url: str = "http://localhost:9099",
+) -> "Kernel | Any":
     """Create a new AriKernel instance.
 
+    By default, creates a sidecar-authoritative kernel that delegates ALL
+    security decisions to the TypeScript sidecar process. This provides
+    process-boundary isolation — Python cannot bypass enforcement.
+
     Args:
-        preset: Named preset (safe-research, rag-reader, workspace-assistant, automation-agent)
+        preset: Named preset (safe-research, rag-reader, workspace-assistant, etc.)
         auto_scope: Enable AutoScope (keyword-based task-to-preset classifier)
         allow: Custom allow overrides dict
         principal: Principal name
-        audit_log: Path to SQLite audit log (None for no logging)
-        max_denied_sensitive_actions: Threshold for quarantine
-        behavioral_rules: Enable behavioral sequence rules
+        audit_log: Path to SQLite audit log (only used in local mode)
+        max_denied_sensitive_actions: Threshold for quarantine (only used in local mode)
+        behavioral_rules: Enable behavioral sequence rules (only used in local mode)
+        on_approval: Callback for require-approval verdicts
+        mode: "sidecar" (default, recommended) or "local" (dev/testing only).
+              Sidecar mode requires the TypeScript server to be running.
+        sidecar_url: URL of the TypeScript sidecar (default: http://localhost:9099)
 
     Returns:
-        Kernel instance ready for tool protection.
+        Kernel instance (SidecarKernel or local Kernel) ready for tool protection.
     """
+    # Resolve capabilities for sidecar mode
     if allow:
         caps, pols = _allow_to_config(allow)
         preset_name = "custom"
@@ -450,6 +511,30 @@ def create_kernel(
         pols = data["policies"]
         preset_name = "default"
 
+    if mode == "sidecar":
+        from ..sidecar import SidecarKernel
+        return SidecarKernel(
+            url=sidecar_url,
+            principal=principal,
+            capabilities=caps,
+            preset_name=preset_name,
+            on_approval=on_approval,
+        )
+
+    if mode != "local":
+        raise ValueError(
+            f'Invalid mode: {mode!r}. Use "sidecar" (default) or "local" (dev/testing only).'
+        )
+
+    import warnings
+    warnings.warn(
+        "[arikernel] Using local enforcement mode. This is intended for "
+        "development and testing only. In production, use mode='sidecar' "
+        "to delegate security decisions to the TypeScript sidecar, which "
+        "provides process-boundary isolation that cannot be bypassed.",
+        stacklevel=2,
+    )
+
     return Kernel(
         capabilities=caps,
         policies=pols,
@@ -459,6 +544,7 @@ def create_kernel(
         audit_log=audit_log,
         max_denied_sensitive_actions=max_denied_sensitive_actions,
         behavioral_rules=behavioral_rules,
+        on_approval=on_approval,
     )
 
 

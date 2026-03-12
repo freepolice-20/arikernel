@@ -1,10 +1,10 @@
 # Ari Kernel
 
-**Runtime security kernel for AI agents.** Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior.
+**Application-layer runtime enforcement for AI agents.** Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the tool execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
 
 Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious instructions, it prevents dangerous actions from executing — regardless of what the model decided.
 
-> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
+> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call routed through it and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 
 Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
 
@@ -90,7 +90,7 @@ Sidecar mode is the recommended default for any deployment where the agent is no
 
 Most AI security tools operate on text — filtering prompts, classifying outputs, flagging jailbreaks. They have no enforcement mechanism at the tool execution boundary.
 
-Ari Kernel operates at a different layer. It sits between the agent and every tool it can invoke, enforcing security decisions before execution. Even if prompt injection succeeds and the agent is fully compromised, dangerous actions cannot run.
+Ari Kernel operates at a different layer. It sits between the agent and every tool it can invoke, enforcing security decisions before execution. Even if prompt injection succeeds and the agent is fully compromised, dangerous actions cannot execute through mediated tool calls.
 
 ---
 
@@ -233,7 +233,7 @@ When all tool calls are routed through the kernel, Ari Kernel enforces the follo
 - **Taint propagation** — data provenance labels (`web`, `rag`, `email`) propagate through tool chains; untrusted taint blocks sensitive operations
 - **Path containment** — file access is canonicalized with symlink resolution to prevent traversal and TOCTOU attacks
 - **Atomic capability tokens** — token validation and consumption are atomic, preventing double-spend race conditions
-- **Bounded regex output filters** — DLP secret detection patterns use bounded quantifiers to prevent ReDoS
+- **Bounded regex output filters (opt-in)** — when the `onOutputFilter` hook is registered, DLP secret detection patterns use bounded quantifiers to prevent ReDoS. This is an optional hook, not enabled by default
 - **Audit logging and replay** — all security decisions are recorded in a SHA-256 hash-chained audit log and can be deterministically replayed
 
 These properties cover file access, database queries, HTTP requests, shell execution, and external tool calls (including MCP).
@@ -249,7 +249,7 @@ Ari Kernel does **not** attempt to:
 - Detect malicious content in natural language
 - Replace model alignment or prompt guardrails
 
-Ari Kernel focuses on **runtime containment**. Even if an agent is successfully manipulated by prompt injection, the kernel prevents dangerous actions from executing.
+Ari Kernel focuses on **runtime containment**. Even if an agent is successfully manipulated by prompt injection, the kernel prevents dangerous actions from executing through mediated tool calls. In embedded mode, enforcement is cooperative — calls that bypass the kernel are not mediated. In sidecar mode, the process boundary provides stronger isolation.
 
 ## Security Assumptions
 
@@ -359,35 +359,29 @@ const tools = protectTools({
 await tools.web_search({ url: "https://example.com" })  // ALLOWED
 ```
 
-### Python
+### Python (sidecar-authoritative)
 
 ```bash
-pip install -e python/
+pip install arikernel
+# Start the TypeScript sidecar first:
+pnpm build && pnpm server
 ```
 
 ```python
 from arikernel import create_kernel, protect_tool
 
-kernel = create_kernel(preset="safe-research", audit_log="./audit.db")
+# Connects to TypeScript sidecar — all decisions made server-side
+kernel = create_kernel(preset="safe-research")
 
 @protect_tool("file.read", kernel=kernel)
 def read_file(path: str) -> str:
     return open(path).read()
 
-@protect_tool("http.read", kernel=kernel)
-def fetch_url(url: str) -> str:
-    return httpx.get(url).text
-
-read_file(path="./data/report.csv")    # ALLOWED
-read_file(path="/etc/shadow")          # DENIED (path constraint)
+read_file(path="./data/report.csv")    # ALLOWED by sidecar
+read_file(path="/etc/shadow")          # DENIED by sidecar
 ```
 
-Both runtimes produce compatible audit logs — same SQLite schema, same hash chain format:
-
-```bash
-pnpm ari trace --latest --db ./audit.db
-pnpm ari replay --latest --verbose --db ./audit.db
-```
+Python delegates all security decisions to the TypeScript sidecar process. This provides process-boundary isolation — Python cannot bypass enforcement. See [Python README](python/README.md) for details.
 
 ---
 
@@ -458,13 +452,13 @@ Nine reproducible attack scenarios aligned with the [AgentDojo](https://github.c
 | Tainted shell exfiltration | `prompt_injection` | Policy rule `deny-tainted-shell` | Shell denied at policy layer |
 | Privilege escalation after denial | `privilege_escalation` | Behavioral rule `denied_capability_then_escalation` | Quarantined, shell blocked |
 | Tainted file write staging | `prompt_injection` | Policy rule `deny-tainted-file-write` | Write denied, quarantined |
-| Repeated sensitive probing | `data_exfiltration` | Threshold quarantine (5 denied reads) | All reads blocked, quarantined |
+| Repeated sensitive probing | `data_exfiltration` | Threshold quarantine (5 denied sensitive actions, configurable) | All reads blocked, quarantined |
 | Shell command injection | `tool_abuse` | Metacharacter validation + taint policy | All 5 payloads blocked |
 | Path traversal / filesystem escape | `filesystem_traversal` | Policy parameter matching + path canonicalization | All 5 traversal paths blocked |
 | SSRF to internal endpoints | `ssrf` | Policy + IP validation (`isPrivateIP`) | All 5 targets blocked |
 | Multi-step data exfiltration | `data_exfiltration` | Behavioral rule + quarantine (defense-in-depth) | DB denied, HTTP + shell exfil blocked |
 
-**9/9 attacks blocked in controlled benchmark scenarios. 100% exfiltration prevented. 100% quarantine rate.** These are deterministic, reproducible results against defined attack patterns — not a claim of protection against all possible attacks. See [Limitations](#current-limitations) and [Threat Model](docs/threat-model.md) for boundary conditions.
+**9/9 attacks blocked in controlled benchmark scenarios.** These are deterministic, reproducible results against defined attack patterns using stub executors — not a claim of protection against all possible attacks or a measurement of real-world attack coverage. See [Limitations](#current-limitations) and [Threat Model](docs/threat-model.md) for boundary conditions.
 
 ```bash
 pnpm benchmark:agentdojo          # run all 9 scenarios
@@ -662,7 +656,7 @@ AriKernel/
 |   +-- benchmarks-agentdojo/     # AgentDojo-style attack benchmark harness
 +-- apps/
 |   +-- cli/                      # CLI (simulate, trace, replay, replay-trace, sidecar, init, policy)
-+-- python/                       # Native Python runtime
++-- python/                       # Python runtime (sidecar-authoritative, delegates to TS sidecar)
 +-- policies/                     # YAML policy files and preset definitions
 +-- examples/                     # Runnable demos
 +-- docs/                         # Design docs, threat model, benchmarks
@@ -699,6 +693,33 @@ For security researchers, red-teamers, and auditors — start here:
 - [Attack Simulations](docs/attack-simulations.md) — deterministic attack scenario runner and YAML scenario format
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
 - [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
+
+---
+
+## Python Runtime
+
+The Python runtime (`pip install arikernel`) uses a **sidecar-authoritative** enforcement model: all security decisions are delegated to the TypeScript sidecar over HTTP. Python code physically cannot bypass or alter enforcement logic because it lives in a separate process.
+
+```python
+from arikernel import create_kernel, protect_tool
+
+# Connects to TypeScript sidecar at localhost:9099 (default)
+kernel = create_kernel(preset="safe-research")
+
+@protect_tool("file.read", kernel=kernel)
+def read_file(path: str) -> str:
+    return open(path).read()
+```
+
+This guarantees:
+- **Complete mediation** — every tool call is checked by the TypeScript runtime
+- **Tamper resistance** — Python cannot modify enforcement logic
+- **Audit integrity** — the sidecar owns the hash-chained audit log
+- **Full parity** — same policy engine, behavioral rules, and taint tracking
+
+A local enforcement mode (`mode="local"`) is available for development and testing but emits a warning and should not be used in production.
+
+See [Python README](python/README.md) for installation and usage.
 
 ---
 

@@ -16,8 +16,32 @@ export interface StoredToken {
 export class TokenStore {
 	private grants = new Map<string, StoredToken>();
 
+	/** Evict expired/revoked grants when the store exceeds this size. */
+	private static readonly EVICTION_THRESHOLD = 100;
+
 	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void {
 		this.grants.set(grant.id, { grant, signature, algorithm });
+		if (this.grants.size > TokenStore.EVICTION_THRESHOLD) {
+			this.evictExpired();
+		}
+	}
+
+	/** Remove all expired, exhausted, or revoked grants. Returns count removed. */
+	evictExpired(): number {
+		const now = Date.now();
+		let removed = 0;
+		for (const [id, stored] of this.grants) {
+			const { grant } = stored;
+			if (
+				grant.revoked ||
+				new Date(grant.lease.expiresAt).getTime() <= now ||
+				grant.lease.callsUsed >= grant.lease.maxCalls
+			) {
+				this.grants.delete(id);
+				removed++;
+			}
+		}
+		return removed;
 	}
 
 	get(grantId: string): CapabilityGrant | null {

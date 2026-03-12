@@ -1,26 +1,18 @@
 """Helper decorator for protecting Python tool functions with AriKernel.
 
-Supports two modes:
+The default mode is sidecar-authoritative: all enforcement decisions are
+delegated to the TypeScript sidecar process over HTTP. This provides
+process-boundary isolation that cannot be bypassed by the Python runtime.
 
-1. Native runtime (no server required):
+Usage:
 
     from arikernel import create_kernel, protect_tool
 
-    kernel = create_kernel(preset="safe-research")
+    kernel = create_kernel(preset="safe-research")  # sidecar by default
 
-    @protect_tool("file.read")
+    @protect_tool("file.read", kernel=kernel)
     def read_file(path: str) -> str:
         return open(path).read()
-
-2. HTTP decision server (legacy):
-
-    from arikernel import FirewallClient
-    from arikernel.protect import protect_tool_remote
-
-    fw = FirewallClient(url="http://localhost:9099", ...)
-
-    @protect_tool_remote(fw, tool_class="http", action="get")
-    def fetch_url(url: str) -> str: ...
 """
 
 from __future__ import annotations
@@ -30,7 +22,7 @@ from typing import Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-# Global default kernel (set by create_kernel or protect_tool)
+# Global default kernel (set by create_kernel or set_default_kernel)
 _default_kernel = None
 
 
@@ -41,11 +33,11 @@ def set_default_kernel(kernel) -> None:
 
 
 def get_default_kernel():
-    """Get or lazily create the default kernel."""
+    """Get or lazily create the default kernel (sidecar mode by default)."""
     global _default_kernel
     if _default_kernel is None:
         from .runtime.kernel import create_kernel
-        _default_kernel = create_kernel()
+        _default_kernel = create_kernel()  # sidecar mode
     return _default_kernel
 
 
@@ -55,11 +47,15 @@ def protect_tool(
     kernel=None,
     taint_labels=None,
 ) -> Callable[[F], F]:
-    """Decorator that routes a tool function through AriKernel native enforcement.
+    """Decorator that routes a tool function through AriKernel enforcement.
+
+    By default, uses the sidecar-authoritative kernel (TypeScript sidecar).
+    All security decisions are made by the sidecar — Python only executes
+    the tool function after receiving an "allow" verdict.
 
     Args:
         capability_class: Capability class string (e.g. "file.read", "http.get").
-        kernel: Optional Kernel instance. Uses global default if not provided.
+        kernel: Optional kernel instance (SidecarKernel or Kernel). Uses global default if not provided.
         taint_labels: Optional taint labels to attach to every call.
 
     Usage::
@@ -108,6 +104,7 @@ def protect_tool(
                 params["_args"] = list(args)
 
             # Execute through kernel enforcement pipeline
+            # Both SidecarKernel and Kernel support execute_tool()
             result = k.execute_tool(
                 tool_class=tool_class,
                 action=action,
@@ -124,7 +121,7 @@ def protect_tool(
     return decorator
 
 
-# ── Legacy HTTP client decorator ──────────────────────────────────────
+# ── Low-level HTTP client decorator ──────────────────────────────────
 
 def protect_tool_remote(
     client,
@@ -134,10 +131,10 @@ def protect_tool_remote(
     capability: str | None = None,
     taint_labels=None,
 ) -> Callable[[F], F]:
-    """Decorator that routes a tool function through AriKernel HTTP decision server.
+    """Decorator that routes a tool function through the raw FirewallClient.
 
-    This is the legacy mode that requires a running TypeScript server.
-    Prefer protect_tool() for native Python enforcement.
+    For most use cases, prefer protect_tool() with a SidecarKernel instead.
+    This low-level decorator is kept for backwards compatibility.
     """
     from .types import TaintLabel, ToolCallDenied
 

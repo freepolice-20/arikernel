@@ -12,7 +12,7 @@ the policy, runs the tool, and returns the result (or a denial).
 
 | Mode | Description |
 |------|-------------|
-| **Library** | `createKernel()` embedded in the agent process. Zero network overhead. Native runtimes for TypeScript/JavaScript and Python. |
+| **Library** | `createKernel()` embedded in the agent process. Zero network overhead. TypeScript/JavaScript runtime (Python experimental, not in v0.1.0). |
 | **Sidecar** | Separate process on port 8787. Language-agnostic — any HTTP client works. Isolation: policy bugs can't crash the agent. |
 | **Decision server** (`apps/server`) | Session-based multi-principal API on port 9099. Returns decisions only; agent executes tools itself. Defaults to localhost binding, optional bearer auth (`AUTH_TOKEN`), 1 MB body limit, and per-IP rate limiting (120 req/min). |
 
@@ -182,7 +182,7 @@ const firewall = createFirewall({
 | Criterion | Embedded (`mode: "embedded"`) | Sidecar (`mode: "sidecar"`) |
 |-----------|-------------------------------|----------------------------|
 | Latency | ~0ms (in-process) | ~1ms (localhost HTTP) |
-| Language | TypeScript/JavaScript or Python | Any language with HTTP |
+| Language | TypeScript/JavaScript (Python experimental) | Any language with HTTP |
 | Isolation | Agent can inspect internals | Policy state is opaque |
 | Executor access | Direct — host can bypass pipeline | None — host has proxy executors only |
 | Quarantine bypass | Agent could tamper with in-process state | Agent has no way to reset quarantine |

@@ -4,6 +4,8 @@ Ari Kernel middleware provides single-function wrappers that secure any AI agent
 
 > See also: [Security Model](security-model.md) | [Architecture](../ARCHITECTURE.md)
 
+> **Note:** Python middleware wrappers shown below are experimental and not part of the v0.1.0 release. See the main [README](../README.md#python-status) for known issues.
+
 ## Quickstart
 
 ### TypeScript
@@ -25,6 +27,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ### Python
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 from arikernel.middleware import protect_langchain_agent
 
 agent = protect_langchain_agent(agent, preset="safe")
@@ -36,12 +39,12 @@ agent = protect_langchain_agent(agent, preset="safe")
 
 ## Supported Frameworks
 
-| Framework | TypeScript | Python |
-|-----------|-----------|--------|
-| LangChain | `protectLangChainAgent()` | `protect_langchain_agent()` |
-| OpenAI Agents SDK | `protectOpenAIAgent()` | `protect_openai_agent()` |
-| CrewAI | `protectCrewAITools()` | `protect_crewai_agent()` |
-| AutoGen | `protectAutoGenTools()` | `protect_autogen_agent()` |
+| Framework | TypeScript | Python | Status |
+|-----------|-----------|--------|--------|
+| LangChain | `protectLangChainAgent()` | `protect_langchain_agent()` | TS: stable, Python: experimental |
+| OpenAI Agents SDK | `protectOpenAIAgent()` | `protect_openai_agent()` | TS: stable, Python: experimental |
+| CrewAI | `protectCrewAITools()` | `protect_crewai_agent()` | TS: stable, Python: experimental |
+| AutoGen | `protectAutoGenTools()` | `protect_autogen_agent()` | TS: stable, Python: experimental |
 
 ---
 
@@ -70,6 +73,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ### Python
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 from arikernel.middleware import protect_langchain_agent
 
 agent = protect_langchain_agent(agent, preset="safe-research")
@@ -105,6 +109,7 @@ const { tools, firewall } = protectOpenAIAgent(agentTools, {
 ### Python
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 from arikernel.middleware import protect_openai_agent
 
 result = protect_openai_agent(tools, preset="safe-research")
@@ -136,6 +141,7 @@ await execute("web_search", { url: "https://example.com" })  // Enforced
 ### Python
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 from arikernel.middleware import protect_crewai_agent
 
 result = protect_crewai_agent({
@@ -171,6 +177,7 @@ await execute("run_shell", { cmd: "whoami" })    // BLOCKED
 ### Python
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 from arikernel.middleware import protect_autogen_agent
 
 result = protect_autogen_agent({
@@ -241,6 +248,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ```
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 # Python — any middleware wrapper
 agent = protect_langchain_agent(agent, preset="safe")
 ```
@@ -277,6 +285,7 @@ firewall.close()
 ```
 
 ```python
+# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
 agent = protect_langchain_agent(agent, preset="safe-research")
 
 if agent._arikernel.restricted:

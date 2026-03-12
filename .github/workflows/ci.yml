@@ -68,3 +68,86 @@ jobs:
         # test_integration.py requires a pre-built TypeScript server (apps/server/dist/main.js)
         # which is only available after pnpm build. Exclude it from the Python-only CI job.
         run: cd python && python -m pytest tests/ -v --ignore=tests/test_integration.py
+
+      - name: Verify packaging integrity
+        run: |
+          pip install python/
+          python -c "
+          from arikernel.runtime.spec_loader import load_spec
+          spec = load_spec()
+          assert 'presets' in spec, 'spec missing presets'
+          assert 'defaults' in spec, 'spec missing defaults'
+          print('Packaging integrity check passed')
+          "
+
+      - name: Verify sidecar-authoritative architecture
+        run: |
+          python -c "
+          # Verify create_kernel() defaults to sidecar mode
+          try:
+              from arikernel import create_kernel
+              kernel = create_kernel(preset='safe-research')
+              print('ERROR: should have raised ConnectionError (no sidecar running)')
+              exit(1)
+          except ConnectionError as e:
+              assert 'sidecar' in str(e).lower(), f'Error should mention sidecar: {e}'
+              print('OK: create_kernel() defaults to sidecar mode')
+
+          # Verify local mode requires explicit opt-in
+          import warnings
+          with warnings.catch_warnings(record=True) as w:
+              warnings.simplefilter('always')
+              kernel = create_kernel(preset='safe-research', mode='local')
+              kernel.close()
+              local_warns = [x for x in w if 'local enforcement' in str(x.message).lower()]
+              assert len(local_warns) >= 1, 'Local mode should emit warning'
+              print('OK: local mode emits dev/testing warning')
+
+          # Verify SidecarKernel has correct interface
+          from arikernel.sidecar import SidecarKernel
+          for method in ['request_capability', 'execute_tool', 'close', 'health']:
+              assert hasattr(SidecarKernel, method), f'SidecarKernel missing {method}'
+          print('OK: SidecarKernel interface complete')
+          print('Sidecar architecture verification passed')
+          "
+
+  # Integration test: Python + TypeScript sidecar
+  python-sidecar:
+    runs-on: ubuntu-latest
+    needs: [typescript]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Install Python runtime
+        run: pip install -e "python/[dev,server]"
+
+      - name: Start TypeScript sidecar
+        run: |
+          cd apps/server && node dist/main.js &
+          # Wait for sidecar to be ready
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:9099/health > /dev/null 2>&1; then
+              echo "Sidecar is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Python sidecar integration tests
+        run: cd python && python -m pytest tests/test_integration.py -v

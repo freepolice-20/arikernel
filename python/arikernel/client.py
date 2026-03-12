@@ -1,7 +1,8 @@
-"""Synchronous HTTP client for the AriKernel decision server.
+"""Low-level synchronous HTTP client for the AriKernel TypeScript sidecar.
 
-This v1 client is a decision/enforcement API layer over the TypeScript core.
-Actual tool execution still occurs in Python after an allow verdict.
+For most use cases, prefer ``create_kernel()`` which returns a SidecarKernel
+with the same interface as the local Kernel. This module is the underlying
+HTTP transport layer used by SidecarKernel.
 """
 
 from __future__ import annotations
