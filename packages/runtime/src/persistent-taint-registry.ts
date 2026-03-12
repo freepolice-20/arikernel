@@ -91,18 +91,13 @@ export class PersistentTaintRegistry {
 				case "sensitive_read":
 					// Set the sticky flag so behavioral rules like
 					// sensitive_read_then_egress can fire in the new run
-					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
-					(runState as any)._sensitiveReadObserved = true;
+					runState.seedSensitiveRead();
 					break;
 				case "secret_access":
-					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
-					(runState as any)._secretAccessObserved = true;
-					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
-					(runState as any)._sensitiveReadObserved = true;
+					runState.seedSecretAccess();
 					break;
 				case "egress":
-					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
-					(runState as any)._egressObserved = true;
+					runState.seedEgress();
 					break;
 				case "taint_observed":
 					if (event.taint_label) {

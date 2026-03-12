@@ -456,6 +456,64 @@ describe("ControlPlaneServer", () => {
 	});
 });
 
+describe("ControlPlaneServer production guard (NF-04)", () => {
+	it("throws when NODE_ENV=production and authToken is not set", () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "production";
+		try {
+			expect(
+				() =>
+					new ControlPlaneServer({
+						signingKey: TEST_KEY,
+						policy: ALLOW_HTTP_POLICY,
+						port: 9300,
+					}),
+			).toThrow("AriKernel: control plane authToken is required in production");
+		} finally {
+			process.env.NODE_ENV = prev;
+		}
+	});
+
+	it("allows startup when NODE_ENV=production and authToken is set", async () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "production";
+		let s: ControlPlaneServer | undefined;
+		try {
+			s = new ControlPlaneServer({
+				signingKey: TEST_KEY,
+				policy: ALLOW_HTTP_POLICY,
+				port: 9301,
+				authToken: "prod-token",
+			});
+			await s.listen();
+			const res = await fetch("http://127.0.0.1:9301/health");
+			expect(res.status).toBe(200);
+		} finally {
+			process.env.NODE_ENV = prev;
+			await s?.close();
+		}
+	});
+
+	it("allows startup in non-production without authToken", async () => {
+		const prev = process.env.NODE_ENV;
+		process.env.NODE_ENV = "development";
+		let s: ControlPlaneServer | undefined;
+		try {
+			s = new ControlPlaneServer({
+				signingKey: TEST_KEY,
+				policy: ALLOW_HTTP_POLICY,
+				port: 9302,
+			});
+			await s.listen();
+			const res = await fetch("http://127.0.0.1:9302/health");
+			expect(res.status).toBe(200);
+		} finally {
+			process.env.NODE_ENV = prev;
+			await s?.close();
+		}
+	});
+});
+
 describe("Taint registry endpoints", () => {
 	it("registers and queries taint labels", async () => {
 		server = new ControlPlaneServer({

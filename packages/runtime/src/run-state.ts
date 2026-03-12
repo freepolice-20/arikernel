@@ -137,7 +137,7 @@ export class RunStateTracker {
 	private _egressObserved = false;
 	private _secretAccessObserved = false;
 	private _escalationDeniedObserved = false;
-	private _escalationDeniedToolClass: string | null = null;
+	private _escalationDeniedClasses: Set<string> = new Set();
 	private _quarantineGetCount = 0;
 	private readonly _egressByHostname = new Map<string, HostnameEgressRecord>();
 	private readonly _egressAllowHosts: ReadonlySet<string>;
@@ -198,20 +198,53 @@ export class RunStateTracker {
 		return this._escalationDeniedObserved;
 	}
 
-	/** The tool class of the denied capability (for escalation risk comparison). */
-	get escalationDeniedToolClass(): string | null {
-		return this._escalationDeniedToolClass;
+	/** The set of all tool classes that have been denied (for escalation risk comparison). */
+	get escalationDeniedClasses(): ReadonlySet<string> {
+		return this._escalationDeniedClasses;
 	}
 
-	/** Mark that a capability was denied. Sticky — survives window eviction. */
+	/**
+	 * The highest-risk denied tool class, derived from the full set.
+	 * Returns null if no capability has been denied yet.
+	 */
+	get escalationDeniedToolClass(): string | null {
+		if (this._escalationDeniedClasses.size === 0) return null;
+		let max: string | null = null;
+		let maxRisk = -1;
+		for (const tc of this._escalationDeniedClasses) {
+			const risk = TOOL_CLASS_RISK_MAP[tc] ?? 0;
+			if (risk > maxRisk) {
+				maxRisk = risk;
+				max = tc;
+			}
+		}
+		return max;
+	}
+
+	/** Mark that a capability was denied. Adds to the full set — survives window eviction. */
 	markEscalationDenied(toolClass: string): void {
 		this._escalationDeniedObserved = true;
-		// Track the highest-risk denied tool class
-		const currentRisk = TOOL_CLASS_RISK_MAP[this._escalationDeniedToolClass ?? ""] ?? 0;
-		const newRisk = TOOL_CLASS_RISK_MAP[toolClass] ?? 0;
-		if (newRisk >= currentRisk) {
-			this._escalationDeniedToolClass = toolClass;
-		}
+		this._escalationDeniedClasses.add(toolClass);
+	}
+
+	// ── Cross-run seeder methods (NF-05) ──────────────────────────────
+	// Called by PersistentTaintRegistry.initializeRunState() to propagate
+	// sticky flags from prior runs without unsafe (as any) casts.
+
+	/** Seed sensitive-read sticky flag from a prior persistent run. */
+	seedSensitiveRead(): void {
+		this._sensitiveReadObserved = true;
+	}
+
+	/** Seed secret-access sticky flag from a prior persistent run. */
+	seedSecretAccess(): void {
+		this._secretAccessObserved = true;
+		this._sensitiveReadObserved = true;
+	}
+
+	/** Seed egress-observed sticky flag from a prior persistent run. */
+	seedEgress(): void {
+		this._egressObserved = true;
 	}
 
 	/** Mark the run as tainted by an external source. Sticky — never resets. */

@@ -149,21 +149,28 @@ function checkDeniedCapabilityThenEscalation(
 	// Sticky flag: capability denial happened earlier but was evicted from window.
 	// Only activates when NO capability_denied events remain in the window
 	// (otherwise the for-loop above already handles them with proper ordering).
+	// Compares the new request against ALL previously denied classes (not just the
+	// highest-risk one) so that lower-risk denials are not silently discarded.
 	const hasDenialInWindow = events.some((e) => e.type === "capability_denied");
 	if (state.escalationDeniedObserved && !hasDenialInWindow) {
-		const deniedRisk = TOOL_CLASS_RISK[state.escalationDeniedToolClass ?? ""] ?? 0;
+		const deniedClasses = state.escalationDeniedClasses;
 		const escalation = findRecent(events, (e) => {
 			if (e.type !== "capability_requested" && e.type !== "capability_granted") return false;
 			const requestedRisk = TOOL_CLASS_RISK[e.toolClass ?? ""] ?? 0;
-			if (requestedRisk > deniedRisk) return true;
+			// Fire if riskier than ANY previously denied class
+			const escalatesAny = [...deniedClasses].some(
+				(denied) => requestedRisk > (TOOL_CLASS_RISK[denied] ?? 0),
+			);
+			if (escalatesAny) return true;
 			if (DANGEROUS_CLASSES.has(e.toolClass ?? "")) return true;
 			return false;
 		});
 
 		if (escalation) {
+			const deniedList = [...deniedClasses].join(", ") || "unknown";
 			return {
 				ruleId: "denied_capability_then_escalation",
-				reason: `Previous denied ${state.escalationDeniedToolClass ?? "unknown"} capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
+				reason: `Previous denied [${deniedList}] capability was followed by escalation to ${escalation.toolClass ?? "unknown"}`,
 				matchedEvents: [escalation],
 			};
 		}

@@ -360,3 +360,47 @@ describe("PersistentTaintRegistry", () => {
 		});
 	});
 });
+
+describe("RunStateTracker seeder methods (NF-05)", () => {
+	it("seedSensitiveRead() sets sensitiveReadObserved", () => {
+		const state = new RunStateTracker();
+		expect(state.sensitiveReadObserved).toBe(false);
+		state.seedSensitiveRead();
+		expect(state.sensitiveReadObserved).toBe(true);
+	});
+
+	it("seedSecretAccess() sets both secretAccessObserved and sensitiveReadObserved", () => {
+		const state = new RunStateTracker();
+		expect(state.secretAccessObserved).toBe(false);
+		expect(state.sensitiveReadObserved).toBe(false);
+		state.seedSecretAccess();
+		expect(state.secretAccessObserved).toBe(true);
+		expect(state.sensitiveReadObserved).toBe(true);
+	});
+
+	it("seedEgress() sets egressObserved", () => {
+		const state = new RunStateTracker();
+		expect(state.egressObserved).toBe(false);
+		state.seedEgress();
+		expect(state.egressObserved).toBe(true);
+	});
+
+	it("initializeRunState uses seeder methods (no as-any casts)", () => {
+		const fw = createFirewall(makeOptions());
+		// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
+		const registry = fw.persistentTaintRegistry!;
+
+		registry.recordSensitiveRead("/etc/shadow");
+		registry.recordSecretAccess("/vault/creds");
+		registry.recordEgress("https://evil.com");
+
+		const freshState = new RunStateTracker();
+		registry.initializeRunState(freshState);
+
+		expect(freshState.sensitiveReadObserved).toBe(true);
+		expect(freshState.secretAccessObserved).toBe(true);
+		expect(freshState.egressObserved).toBe(true);
+
+		fw.close();
+	});
+});
