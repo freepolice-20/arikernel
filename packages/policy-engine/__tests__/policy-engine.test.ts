@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type { Capability, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_RULES, DENY_ALL_RULE, PolicyEngine, UnsafeMatchError, matchesRule } from "../src/index.js";
@@ -241,7 +242,7 @@ describe("Constraint checking", () => {
 		});
 		const decision = engine.evaluate(tc, [], [cap]);
 		expect(decision.verdict).toBe("deny");
-		expect(decision.reason).toContain("Path '/etc/shadow' not in allowed paths");
+		expect(decision.reason).toContain(`Path '${resolve("/etc/shadow")}' not in allowed paths`);
 	});
 
 	it("allows file path matching /** wildcard", () => {

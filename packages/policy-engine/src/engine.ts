@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type { Capability, Decision, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
 import { now } from "@arikernel/core";
 import { DEFAULT_RULES } from "./defaults.js";
@@ -126,15 +127,21 @@ function checkConstraints(toolCall: ToolCall, capability: Capability): string | 
 	}
 
 	if (constraints.allowedPaths && toolCall.toolClass === "file") {
-		const path = String(toolCall.parameters.path ?? "");
+		const rawPath = String(toolCall.parameters.path ?? "");
+		// Canonicalize via resolve() to strip ../ traversal sequences before comparing.
+		// Note: resolve() normalizes but does not follow symlinks; the execution-time
+		// pipeline.ts check uses isPathAllowed() (with realpathSync) as the final gate.
+		const canonicalPath = resolve(rawPath);
+		const sep = process.platform === "win32" ? "\\" : "/";
 		const allowed = constraints.allowedPaths.some((pattern) => {
 			if (pattern.endsWith("/**")) {
-				return path.startsWith(pattern.slice(0, -3));
+				const base = resolve(pattern.slice(0, -3));
+				return canonicalPath === base || canonicalPath.startsWith(base + sep);
 			}
-			return path === pattern;
+			return canonicalPath === resolve(pattern);
 		});
 		if (!allowed) {
-			return `Path '${path}' not in allowed paths: ${constraints.allowedPaths.join(", ")}`;
+			return `Path '${canonicalPath}' not in allowed paths: ${constraints.allowedPaths.join(", ")}`;
 		}
 	}
 
