@@ -1,5 +1,6 @@
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import { resolve } from "node:path";
+import type { CapabilityClass, TaintSource, ToolClass } from "@arikernel/core";
 import { ToolCallDeniedError } from "@arikernel/core";
 import { type SessionConfig, SessionManager } from "./sessions.js";
 
@@ -111,9 +112,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 			capabilityClass: string;
 			taintLabels?: Array<{ source: string; origin: string; confidence?: number }>;
 		};
-		const decision = firewall.requestCapability(body.capabilityClass as string, {
+		const decision = firewall.requestCapability(body.capabilityClass as CapabilityClass, {
 			taintLabels: body.taintLabels?.map((t) => ({
-				source: t.source as string,
+				source: t.source as TaintSource,
 				origin: t.origin,
 				confidence: t.confidence ?? 1.0,
 				addedAt: new Date().toISOString(),
@@ -146,12 +147,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 		};
 		try {
 			const result = await firewall.execute({
-				toolClass: body.toolClass as string,
+				toolClass: body.toolClass as ToolClass,
 				action: body.action,
 				parameters: body.parameters,
 				...(body.grantId ? { grantId: body.grantId } : {}),
 				taintLabels: body.taintLabels?.map((t) => ({
-					source: t.source as string,
+					source: t.source as TaintSource,
 					origin: t.origin,
 					confidence: t.confidence ?? 1.0,
 					addedAt: new Date().toISOString(),

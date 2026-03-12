@@ -6,7 +6,14 @@
  * are not re-executed — the engine stubs all executors.
  */
 
-import type { PolicyRule, ToolCall, ToolClass, ToolResult } from "@arikernel/core";
+import type {
+	CapabilityClass,
+	PolicyRule,
+	PresetId,
+	ToolCall,
+	ToolClass,
+	ToolResult,
+} from "@arikernel/core";
 import { DEFAULT_POLICIES, ToolCallDeniedError, getPreset, now } from "@arikernel/core";
 import { Firewall } from "./firewall.js";
 import type {
@@ -105,7 +112,7 @@ export async function replayTrace(
 
 			// Request capability if the original event did
 			if (event.capabilityClass) {
-				const grant = firewall.requestCapability(event.capabilityClass as string);
+				const grant = firewall.requestCapability(event.capabilityClass as CapabilityClass);
 				if (!grant.granted) {
 					replayedDecision = {
 						verdict: "deny",
@@ -244,7 +251,7 @@ function resolvePolicies(trace: ReplayTrace, options: ReplayEngineOptions): stri
 	if (options.preset || trace.metadata.preset) {
 		const presetId = options.preset ?? trace.metadata.preset;
 		try {
-			const preset = getPreset(presetId as string);
+			const preset = getPreset(presetId as PresetId);
 			return preset.policies;
 		} catch {
 			// Fall through to safe defaults
