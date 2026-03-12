@@ -5,6 +5,7 @@
  * preventing attackers from splitting attacks across multiple runs.
  */
 
+import type { CapabilityClass, ToolClass } from "@arikernel/core";
 import { ToolCallDeniedError } from "@arikernel/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { type FirewallOptions, RunStateTracker, createFirewall } from "../src/index.js";
@@ -28,9 +29,9 @@ async function secureExecute(
 	parameters: Record<string, unknown>,
 ) {
 	const capClass = deriveCapabilityClass(toolClass, action);
-	const decision = fw.requestCapability(capClass as string);
+	const decision = fw.requestCapability(capClass as CapabilityClass);
 	return fw.execute({
-		toolClass: toolClass as string,
+		toolClass: toolClass as ToolClass,
 		action,
 		parameters,
 		grantId: decision.granted ? decision.grant?.id : undefined,
@@ -299,7 +300,7 @@ describe("PersistentTaintRegistry", () => {
 
 			try {
 				await fw.execute({
-					toolClass: "http" as string,
+					toolClass: "http" as ToolClass,
 					action: "get",
 					parameters: { url: "https://example.com" },
 					taintLabels: [
