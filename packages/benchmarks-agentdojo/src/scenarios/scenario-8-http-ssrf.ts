@@ -61,8 +61,7 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 					toolClass: "http",
 					parameters: {
 						url: {
-							pattern:
-								"127\\.|10\\.|192\\.168\\.|169\\.254\\.|\\[?::1\\]?|0\\.0\\.0\\.0|localhost",
+							pattern: "127\\.|10\\.|192\\.168\\.|169\\.254\\.|\\[?::1\\]?|0\\.0\\.0\\.0|localhost",
 						},
 					},
 				},

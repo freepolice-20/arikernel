@@ -8,9 +8,9 @@
 
 import { ToolCallDeniedError } from "@arikernel/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { protectLangChainAgent, type LangChainTool } from "../src/langchain.js";
-import { protectCrewAITools } from "../src/crewai.js";
 import { protectAutoGenTools } from "../src/autogen.js";
+import { protectCrewAITools } from "../src/crewai.js";
+import { type LangChainTool, protectLangChainAgent } from "../src/langchain.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ describe("observeToolOutput — taint derivation", () => {
 		firewall = result.firewall;
 
 		// Execute the web_search tool — this calls the real func and observes output
-		await agent.tools[0].func!({ url: "http://example.com" });
+		await agent.tools[0].func?.({ url: "http://example.com" });
 
 		// The firewall should now have web taint in its run state
 		const taintState = result.firewall.taintState;
@@ -69,7 +69,7 @@ describe("observeToolOutput — taint derivation", () => {
 		const result = protectLangChainAgent(agent, ALLOW_HTTP_FILE);
 		firewall = result.firewall;
 
-		await agent.tools[0].func!({ url: "http://example.com" });
+		await agent.tools[0].func?.({ url: "http://example.com" });
 
 		const taintState = result.firewall.taintState;
 		expect(taintState.tainted).toBe(true);
@@ -82,11 +82,11 @@ describe("observeToolOutput — taint derivation", () => {
 		firewall = result.firewall;
 
 		// First observation: web taint
-		await agent.tools[0].func!({ url: "http://example.com/1" });
+		await agent.tools[0].func?.({ url: "http://example.com/1" });
 		expect(result.firewall.taintState.tainted).toBe(true);
 
 		// Second call — taint should persist (monotonic)
-		await agent.tools[0].func!({ url: "http://example.com/2" });
+		await agent.tools[0].func?.({ url: "http://example.com/2" });
 		expect(result.firewall.taintState.tainted).toBe(true);
 		expect(result.firewall.taintState.sources.includes("web")).toBe(true);
 	});
@@ -107,7 +107,7 @@ describe("observeToolOutput — behavioral events", () => {
 		const result = protectLangChainAgent(agent, ALLOW_HTTP_FILE);
 		firewall = result.firewall;
 
-		await agent.tools[0].func!({ url: "http://example.com" });
+		await agent.tools[0].func?.({ url: "http://example.com" });
 
 		// The run state should have taint_observed events
 		const taintState = result.firewall.taintState;

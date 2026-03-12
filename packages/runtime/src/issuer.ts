@@ -9,7 +9,13 @@ import type {
 	SigningKey,
 	TaintLabel,
 } from "@arikernel/core";
-import { CAPABILITY_CLASS_MAP, createCapabilityToken, generateId, generateNonce, now } from "@arikernel/core";
+import {
+	CAPABILITY_CLASS_MAP,
+	createCapabilityToken,
+	generateId,
+	generateNonce,
+	now,
+} from "@arikernel/core";
 import { type PolicyEngine, matchesRule } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
 import type { TokenStore } from "./token-store.js";

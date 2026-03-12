@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { RunStateTracker, type SecurityEvent } from "../src/run-state.js";
 import { evaluateBehavioralRules } from "../src/behavioral-rules.js";
+import { RunStateTracker, type SecurityEvent } from "../src/run-state.js";
 
 function makeEvent(overrides: Partial<SecurityEvent>): SecurityEvent {
 	return {
@@ -31,7 +31,7 @@ describe("F-07: Rule 2 sticky flag for denied_capability_then_escalation", () =>
 
 		const match = evaluateBehavioralRules(state);
 		expect(match).not.toBeNull();
-		expect(match!.ruleId).toBe("denied_capability_then_escalation");
+		expect(match?.ruleId).toBe("denied_capability_then_escalation");
 	});
 
 	it("triggers via sticky flag after denial is evicted from window", () => {
@@ -55,8 +55,8 @@ describe("F-07: Rule 2 sticky flag for denied_capability_then_escalation", () =>
 
 		const match = evaluateBehavioralRules(state);
 		expect(match).not.toBeNull();
-		expect(match!.ruleId).toBe("denied_capability_then_escalation");
-		expect(match!.reason).toContain("Previous denied");
+		expect(match?.ruleId).toBe("denied_capability_then_escalation");
+		expect(match?.reason).toContain("Previous denied");
 	});
 
 	it("multiple benign events between denial and escalation still trigger", () => {
@@ -80,7 +80,7 @@ describe("F-07: Rule 2 sticky flag for denied_capability_then_escalation", () =>
 
 		const match = evaluateBehavioralRules(state);
 		expect(match).not.toBeNull();
-		expect(match!.ruleId).toBe("denied_capability_then_escalation");
+		expect(match?.ruleId).toBe("denied_capability_then_escalation");
 	});
 
 	it("does NOT trigger when escalation is to a lower-risk class", () => {
@@ -123,7 +123,7 @@ describe("F-07: Rule 2 sticky flag for denied_capability_then_escalation", () =>
 
 		const match = evaluateBehavioralRules(state);
 		expect(match).not.toBeNull();
-		expect(match!.ruleId).toBe("denied_capability_then_escalation");
+		expect(match?.ruleId).toBe("denied_capability_then_escalation");
 	});
 
 	it("does NOT trigger without any prior denial", () => {

@@ -55,7 +55,7 @@ export async function runReplayTrace(
 	console.log(`${CYAN}${BOLD}${"─".repeat(56)}${RESET}\n`);
 
 	// Build replay options
-	const replayOptions: any = {};
+	const replayOptions: Record<string, unknown> = {};
 	if (options.policy) {
 		try {
 			const { PolicyEngine } = require("@arikernel/policy-engine");
@@ -231,9 +231,7 @@ function printTimeline(trace: ReplayTrace): void {
 			.find((e) => e.decision.verdict === "deny" && e.capabilityGranted !== false);
 		if (lastDenied) {
 			const time = relativeTime(lastDenied.timestamp);
-			console.log(
-				`  ${time}       ${MAGENTA}\ud83d\udd12 QUARANTINE ACTIVATED${RESET}`,
-			);
+			console.log(`  ${time}       ${MAGENTA}\ud83d\udd12 QUARANTINE ACTIVATED${RESET}`);
 			console.log(
 				`${" ".repeat(28)}${DIM}Run locked to read-only after behavioral rule match${RESET}`,
 			);
@@ -266,8 +264,7 @@ function printSummaryView(trace: ReplayTrace): void {
 		console.log(`  ${DIM}Preset:${RESET}    ${trace.metadata.preset}`);
 	}
 	const duration =
-		new Date(trace.timestampCompleted).getTime() -
-		new Date(trace.timestampStarted).getTime();
+		new Date(trace.timestampCompleted).getTime() - new Date(trace.timestampStarted).getTime();
 	console.log(`  ${DIM}Duration:${RESET}  ${duration}ms`);
 	console.log();
 
@@ -279,10 +276,7 @@ function printSummaryView(trace: ReplayTrace): void {
 		const short = target.length > 40 ? `${target.slice(0, 37)}...` : target;
 		const verdictColor = event.decision.verdict === "allow" ? GREEN : RED;
 		const verdict = event.decision.verdict.toUpperCase();
-		const taint =
-			(event.request.taintLabels?.length ?? 0) > 0
-				? ` ${YELLOW}[tainted]${RESET}`
-				: "";
+		const taint = (event.request.taintLabels?.length ?? 0) > 0 ? ` ${YELLOW}[tainted]${RESET}` : "";
 		console.log(
 			`    ${event.sequence + 1}. ${tool} ${DIM}${short}${RESET} \u2192 ${verdictColor}${verdict}${RESET}${taint}`,
 		);
@@ -347,7 +341,9 @@ function printGraph(trace: ReplayTrace): void {
 	// Quarantine marker
 	if (trace.outcome.quarantined) {
 		console.log(`             ${RED}\u2502${RESET}`);
-		console.log(`       ${MAGENTA}${BOLD}\ud83d\udd12 QUARANTINE${RESET} ${DIM}run locked to read-only${RESET}`);
+		console.log(
+			`       ${MAGENTA}${BOLD}\ud83d\udd12 QUARANTINE${RESET} ${DIM}run locked to read-only${RESET}`,
+		);
 	}
 
 	console.log();

@@ -41,8 +41,9 @@ function extractBinary(command: string): { binary: string; error?: string } {
 
 	if (hasPath) {
 		// Explicit path provided — validate against trusted locations
-		const isTrusted = TRUSTED_PATH_PREFIXES.some((prefix) =>
-			firstToken.startsWith(prefix) || firstToken.toLowerCase().startsWith(prefix.toLowerCase()),
+		const isTrusted = TRUSTED_PATH_PREFIXES.some(
+			(prefix) =>
+				firstToken.startsWith(prefix) || firstToken.toLowerCase().startsWith(prefix.toLowerCase()),
 		);
 		if (!isTrusted) {
 			return {

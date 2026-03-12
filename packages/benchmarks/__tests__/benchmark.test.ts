@@ -98,6 +98,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "pi_secret_exfiltration")!;
 		const result = await scenario.run(join(dir, "pi_exfil.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -109,6 +110,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "fs_path_escape")!;
 		const result = await scenario.run(join(dir, "fs_escape.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -119,6 +121,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "tc_web_to_shell")!;
 		const result = await scenario.run(join(dir, "tc_web.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -129,6 +132,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "repeated_probe_quarantine")!;
 		const result = await scenario.run(join(dir, "repeated.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -140,6 +144,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "cross_run_credential_exfil")!;
 		const result = await scenario.run(join(dir, "cross_run.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -151,6 +156,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "shared_store_contamination")!;
 		const result = await scenario.run(join(dir, "shared_store.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -161,6 +167,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "egress_convergence_cp3")!;
 		const result = await scenario.run(join(dir, "egress.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -172,6 +179,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "path_ambiguity_bypass")!;
 		const result = await scenario.run(join(dir, "path_ambig.db"));
 		expect(result.verdict).toBe("BLOCKED");
@@ -182,6 +190,7 @@ describe("individual scenarios", () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "low_entropy_exfil")!;
 		const result = await scenario.run(join(dir, "low_entropy.db"));
 		expect(["BLOCKED", "PARTIAL"]).toContain(result.verdict);

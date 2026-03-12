@@ -50,8 +50,7 @@ export class SidecarServer {
 				);
 			}
 			console.warn(
-				"[AriKernel] DEV MODE active: authentication is relaxed. " +
-					"Do not use in production.",
+				"[AriKernel] DEV MODE active: authentication is relaxed. " + "Do not use in production.",
 			);
 		}
 
@@ -111,7 +110,14 @@ export class SidecarServer {
 			let handler: Promise<void> | undefined;
 
 			if (method === "POST" && url === "/execute") {
-				handler = handleExecute(req, res, this.registry, authCtx, this.rateLimiter, decisionDelegate);
+				handler = handleExecute(
+					req,
+					res,
+					this.registry,
+					authCtx,
+					this.rateLimiter,
+					decisionDelegate,
+				);
 			} else if (method === "POST" && url === "/request-capability") {
 				handler = handleRequestCapability(req, res, this.registry, authCtx, this.rateLimiter);
 			} else if (method === "POST" && url === "/status") {

@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-	simulateAttack,
-	simulateAll,
-	type AttackScenario,
-} from "../src/simulate.js";
+import { filesystemTraversalScenarios } from "../src/scenarios/filesystem-traversal.js";
 import { multiStepExfiltrationScenarios } from "../src/scenarios/multi-step-exfiltration.js";
 import { ssrfScenarios } from "../src/scenarios/ssrf.js";
-import { filesystemTraversalScenarios } from "../src/scenarios/filesystem-traversal.js";
 import { toolEscalationScenarios } from "../src/scenarios/tool-escalation.js";
+import { type AttackScenario, simulateAll, simulateAttack } from "../src/simulate.js";
 
 // ── Single-step scenarios via simulateAttack ──────────────────────────
 
@@ -50,9 +46,8 @@ describe("simulateAttack - single-step scenarios", () => {
 				{
 					label: s.name,
 					request: s.request,
-					capabilityClass: s.request.action === "write"
-						? ("file.write" as const)
-						: ("file.read" as const),
+					capabilityClass:
+						s.request.action === "write" ? ("file.write" as const) : ("file.read" as const),
 				},
 			],
 			expectedBlocked: true,

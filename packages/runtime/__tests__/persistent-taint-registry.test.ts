@@ -7,7 +7,7 @@
 
 import { ToolCallDeniedError } from "@arikernel/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFirewall, type FirewallOptions, RunStateTracker } from "../src/index.js";
+import { type FirewallOptions, RunStateTracker, createFirewall } from "../src/index.js";
 
 /** Helper to derive capability class from toolClass + action. */
 function deriveCapabilityClass(toolClass: string, action: string): string {
@@ -28,9 +28,9 @@ async function secureExecute(
 	parameters: Record<string, unknown>,
 ) {
 	const capClass = deriveCapabilityClass(toolClass, action);
-	const decision = fw.requestCapability(capClass as any);
+	const decision = fw.requestCapability(capClass as string);
 	return fw.execute({
-		toolClass: toolClass as any,
+		toolClass: toolClass as string,
 		action,
 		parameters,
 		grantId: decision.granted ? decision.grant?.id : undefined,
@@ -41,16 +41,30 @@ function makeOptions(overrides?: Partial<FirewallOptions>): FirewallOptions {
 	return {
 		principal: {
 			name: "test-agent",
-			capabilities: [
-				{ toolClass: "http" },
-				{ toolClass: "file" },
-				{ toolClass: "shell" },
-			],
+			capabilities: [{ toolClass: "http" }, { toolClass: "file" }, { toolClass: "shell" }],
 		},
 		policies: [
-			{ id: "allow-http-get", name: "Allow HTTP GET", priority: 5, match: { toolClass: "http", action: "get" }, decision: "allow" as const },
-			{ id: "allow-file-read", name: "Allow file read", priority: 10, match: { toolClass: "file", action: "read" }, decision: "allow" as const },
-			{ id: "allow-http-post", name: "Allow HTTP POST", priority: 15, match: { toolClass: "http", action: "post" }, decision: "allow" as const },
+			{
+				id: "allow-http-get",
+				name: "Allow HTTP GET",
+				priority: 5,
+				match: { toolClass: "http", action: "get" },
+				decision: "allow" as const,
+			},
+			{
+				id: "allow-file-read",
+				name: "Allow file read",
+				priority: 10,
+				match: { toolClass: "file", action: "read" },
+				decision: "allow" as const,
+			},
+			{
+				id: "allow-http-post",
+				name: "Allow HTTP POST",
+				priority: 15,
+				match: { toolClass: "http", action: "post" },
+				decision: "allow" as const,
+			},
 		],
 		auditLog: ":memory:",
 		persistentTaint: { enabled: true, retentionWindowMs: 60_000 },
@@ -83,7 +97,7 @@ describe("PersistentTaintRegistry", () => {
 			// Verify persistent taint events were recorded
 			const registry1 = fw1.persistentTaintRegistry;
 			expect(registry1).not.toBeNull();
-			const events = registry1!.queryRecentEvents();
+			const events = registry1?.queryRecentEvents();
 			expect(events.some((e) => e.event_type === "sensitive_read")).toBe(true);
 
 			// Close Run 1 — but DON'T close the audit store yet
@@ -95,6 +109,7 @@ describe("PersistentTaintRegistry", () => {
 	describe("persistent taint registry records and queries events", () => {
 		it("records sensitive reads, egress, and taint observations", async () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			// Manually record events
@@ -114,9 +129,12 @@ describe("PersistentTaintRegistry", () => {
 		});
 
 		it("respects retention window — old events are excluded", async () => {
-			const fw = createFirewall(makeOptions({
-				persistentTaint: { enabled: true, retentionWindowMs: 1 },
-			}));
+			const fw = createFirewall(
+				makeOptions({
+					persistentTaint: { enabled: true, retentionWindowMs: 1 },
+				}),
+			);
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			registry.recordSensitiveRead("/etc/shadow");
@@ -131,9 +149,12 @@ describe("PersistentTaintRegistry", () => {
 		});
 
 		it("purges expired events", () => {
-			const fw = createFirewall(makeOptions({
-				persistentTaint: { enabled: true, retentionWindowMs: 1 },
-			}));
+			const fw = createFirewall(
+				makeOptions({
+					persistentTaint: { enabled: true, retentionWindowMs: 1 },
+				}),
+			);
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			registry.recordSensitiveRead("/etc/shadow");
@@ -151,6 +172,7 @@ describe("PersistentTaintRegistry", () => {
 	describe("initializeRunState restores sticky flags from persistent events", () => {
 		it("restores sensitiveReadObserved from a prior sensitive_read event", () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			// Simulate a prior run's sensitive read
@@ -173,6 +195,7 @@ describe("PersistentTaintRegistry", () => {
 
 		it("restores secretAccessObserved from a prior secret_access event", () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			registry.recordSecretAccess("/vault/key");
@@ -190,6 +213,7 @@ describe("PersistentTaintRegistry", () => {
 
 		it("restores tainted flag from a prior taint_observed event", () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			registry.recordTaintObserved("web");
@@ -206,6 +230,7 @@ describe("PersistentTaintRegistry", () => {
 
 		it("restores egressObserved from a prior egress event", () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			registry.recordEgress("https://example.com");
@@ -221,6 +246,7 @@ describe("PersistentTaintRegistry", () => {
 
 		it("does not restore flags when no persistent events exist", () => {
 			const fw = createFirewall(makeOptions());
+			// biome-ignore lint/style/noNonNullAssertion: persistentTaint is enabled in test options
 			const registry = fw.persistentTaintRegistry!;
 
 			const freshState = new RunStateTracker();
@@ -246,7 +272,7 @@ describe("PersistentTaintRegistry", () => {
 				// Expected — may trigger quarantine
 			}
 
-			const events = fw.persistentTaintRegistry!.queryRecentEvents();
+			const events = fw.persistentTaintRegistry?.queryRecentEvents();
 			expect(events.some((e) => e.event_type === "sensitive_read")).toBe(true);
 			expect(events.some((e) => e.resource === "/home/user/.ssh/id_rsa")).toBe(true);
 
@@ -262,7 +288,7 @@ describe("PersistentTaintRegistry", () => {
 				// Expected
 			}
 
-			const events = fw.persistentTaintRegistry!.queryRecentEvents();
+			const events = fw.persistentTaintRegistry?.queryRecentEvents();
 			expect(events.some((e) => e.event_type === "egress")).toBe(true);
 
 			fw.close();
@@ -273,17 +299,26 @@ describe("PersistentTaintRegistry", () => {
 
 			try {
 				await fw.execute({
-					toolClass: "http" as any,
+					toolClass: "http" as string,
 					action: "get",
 					parameters: { url: "https://example.com" },
-					taintLabels: [{ source: "web", origin: "evil.com", confidence: 1.0, addedAt: new Date().toISOString() }],
+					taintLabels: [
+						{
+							source: "web",
+							origin: "evil.com",
+							confidence: 1.0,
+							addedAt: new Date().toISOString(),
+						},
+					],
 				});
 			} catch {
 				// Expected
 			}
 
-			const events = fw.persistentTaintRegistry!.queryRecentEvents();
-			expect(events.some((e) => e.event_type === "taint_observed" && e.taint_label === "web")).toBe(true);
+			const events = fw.persistentTaintRegistry?.queryRecentEvents();
+			expect(events.some((e) => e.event_type === "taint_observed" && e.taint_label === "web")).toBe(
+				true,
+			);
 
 			fw.close();
 		});

@@ -63,7 +63,10 @@ export function applyBehavioralRule(
 // If untrusted web taint was recently observed, and shortly after the run
 // attempts sensitive file reads, shell exec, or outbound egress → quarantine.
 
-function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
+function checkWebTaintSensitiveProbe(
+	events: readonly SecurityEvent[],
+	state: RunStateTracker,
+): BehavioralRuleMatch | null {
 	// Check window for taint event, OR consult sticky flag
 	const taintEvent = findRecent(
 		events,
@@ -71,7 +74,9 @@ function checkWebTaintSensitiveProbe(events: readonly SecurityEvent[], state: Ru
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	const hasTaintSticky =
+		state.tainted &&
+		[...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
 	if (!taintEvent && !hasTaintSticky) return null;
 
 	// If taint event is in window, look for dangerous follow-up after it
@@ -218,14 +223,19 @@ function checkSensitiveReadThenEgress(
 
 const DB_WRITE_ACTIONS = new Set(["exec", "write", "insert", "update", "delete", "mutate"]);
 
-function checkTaintedDatabaseWrite(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
+function checkTaintedDatabaseWrite(
+	events: readonly SecurityEvent[],
+	state: RunStateTracker,
+): BehavioralRuleMatch | null {
 	const taintEvent = findRecent(
 		events,
 		(e) =>
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	const hasTaintSticky =
+		state.tainted &&
+		[...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
 	if (!taintEvent && !hasTaintSticky) return null;
 
 	const searchFromIdx = taintEvent ? events.indexOf(taintEvent) : -1;
@@ -252,14 +262,19 @@ function checkTaintedDatabaseWrite(events: readonly SecurityEvent[], state: RunS
 
 const SHELL_DATA_CMD_LENGTH = 100;
 
-function checkTaintedShellWithData(events: readonly SecurityEvent[], state: RunStateTracker): BehavioralRuleMatch | null {
+function checkTaintedShellWithData(
+	events: readonly SecurityEvent[],
+	state: RunStateTracker,
+): BehavioralRuleMatch | null {
 	const taintEvent = findRecent(
 		events,
 		(e) =>
 			e.type === "taint_observed" &&
 			e.taintSources?.some((s) => s === "web" || s === "rag" || s === "email") === true,
 	);
-	const hasTaintSticky = state.tainted && [...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
+	const hasTaintSticky =
+		state.tainted &&
+		[...state.taintSources].some((s) => s === "web" || s === "rag" || s === "email");
 	if (!taintEvent && !hasTaintSticky) return null;
 
 	const searchFromIdx = taintEvent ? events.indexOf(taintEvent) : -1;

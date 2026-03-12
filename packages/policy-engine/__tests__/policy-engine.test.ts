@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import type { Capability, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RULES, DENY_ALL_RULE, PolicyEngine, UnsafeMatchError, matchesRule } from "../src/index.js";
+import {
+	DEFAULT_RULES,
+	DENY_ALL_RULE,
+	PolicyEngine,
+	UnsafeMatchError,
+	matchesRule,
+} from "../src/index.js";
 
 function makeToolCall(overrides: Partial<ToolCall> = {}): ToolCall {
 	return {
@@ -367,17 +373,17 @@ describe("matchesRule", () => {
 describe("fail-closed regex matching", () => {
 	it("throws UnsafeMatchError on invalid regex pattern", () => {
 		const tc = makeToolCall({ parameters: { url: "https://example.com" } });
-		expect(() =>
-			matchesRule({ parameters: { url: { pattern: "[invalid" } } }, tc, []),
-		).toThrow(UnsafeMatchError);
+		expect(() => matchesRule({ parameters: { url: { pattern: "[invalid" } } }, tc, [])).toThrow(
+			UnsafeMatchError,
+		);
 	});
 
 	it("throws UnsafeMatchError on oversized input", () => {
 		const oversized = "a".repeat(10000);
 		const tc = makeToolCall({ parameters: { url: oversized } });
-		expect(() =>
-			matchesRule({ parameters: { url: { pattern: "a+" } } }, tc, []),
-		).toThrow(UnsafeMatchError);
+		expect(() => matchesRule({ parameters: { url: { pattern: "a+" } } }, tc, [])).toThrow(
+			UnsafeMatchError,
+		);
 	});
 
 	it("engine denies on invalid regex in deny rule (fail-closed)", () => {

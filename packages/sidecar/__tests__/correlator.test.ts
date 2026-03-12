@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
 import type { AuditEvent } from "@arikernel/core";
-import { CrossPrincipalCorrelator, type CrossPrincipalAlert } from "../src/correlator.js";
+import { describe, expect, it, vi } from "vitest";
+import { type CrossPrincipalAlert, CrossPrincipalCorrelator } from "../src/correlator.js";
 
 function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
 	const toolCall = {
@@ -22,7 +22,13 @@ function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
 		timestamp: new Date().toISOString(),
 		principalId: "p1",
 		toolCall,
-		decision: { verdict: "allow", matchedRule: null, reason: "", taintLabels: [], timestamp: new Date().toISOString() },
+		decision: {
+			verdict: "allow",
+			matchedRule: null,
+			reason: "",
+			taintLabels: [],
+			timestamp: new Date().toISOString(),
+		},
 		previousHash: "",
 		hash: "",
 		...overrides,
@@ -70,16 +76,10 @@ describe("CrossPrincipalCorrelator", () => {
 		);
 
 		// Agent B reads from the SAME shared DB table "messages"
-		correlator.ingest(
-			makeEventWithToolCall("database", "query", { table: "messages" }),
-			"agent-B",
-		);
+		correlator.ingest(makeEventWithToolCall("database", "query", { table: "messages" }), "agent-B");
 
 		// Agent B egresses — should trigger CP-1
-		correlator.ingest(
-			makeEventWithToolCall("http", "post"),
-			"agent-B",
-		);
+		correlator.ingest(makeEventWithToolCall("http", "post"), "agent-B");
 
 		expect(alerts).toHaveLength(1);
 		expect(alerts[0].ruleId).toBe("cross-principal-sensitive-exfil");
@@ -98,10 +98,7 @@ describe("CrossPrincipalCorrelator", () => {
 			makeEventWithToolCall("file", "read", { path: "/home/user/.ssh/id_rsa" }),
 			"agent-A",
 		);
-		correlator.ingest(
-			makeEventWithToolCall("database", "insert", { table: "secrets" }),
-			"agent-A",
-		);
+		correlator.ingest(makeEventWithToolCall("database", "insert", { table: "secrets" }), "agent-A");
 
 		// Agent B reads from a DIFFERENT table "public_data"
 		correlator.ingest(
@@ -110,10 +107,7 @@ describe("CrossPrincipalCorrelator", () => {
 		);
 
 		// Agent B egresses — should NOT fire because resources don't match
-		correlator.ingest(
-			makeEventWithToolCall("http", "post"),
-			"agent-B",
-		);
+		correlator.ingest(makeEventWithToolCall("http", "post"), "agent-B");
 
 		const cp1Alerts = alerts.filter((a) => a.ruleId === "cross-principal-sensitive-exfil");
 		expect(cp1Alerts).toHaveLength(0);
@@ -124,22 +118,13 @@ describe("CrossPrincipalCorrelator", () => {
 		const alerts: CrossPrincipalAlert[] = [];
 		correlator.onAlert((a) => alerts.push(a));
 
-		correlator.ingest(
-			makeEventWithToolCall("file", "read", { path: "/home/.env" }),
-			"agent-A",
-		);
+		correlator.ingest(makeEventWithToolCall("file", "read", { path: "/home/.env" }), "agent-A");
 		correlator.ingest(
 			makeEventWithToolCall("database", "insert", { table: "messages" }),
 			"agent-A",
 		);
-		correlator.ingest(
-			makeEventWithToolCall("database", "query", { table: "messages" }),
-			"agent-A",
-		);
-		correlator.ingest(
-			makeEventWithToolCall("http", "post"),
-			"agent-A",
-		);
+		correlator.ingest(makeEventWithToolCall("database", "query", { table: "messages" }), "agent-A");
+		correlator.ingest(makeEventWithToolCall("http", "post"), "agent-A");
 
 		const cp1Alerts = alerts.filter((a) => a.ruleId === "cross-principal-sensitive-exfil");
 		expect(cp1Alerts).toHaveLength(0);
@@ -153,21 +138,25 @@ describe("CrossPrincipalCorrelator", () => {
 		const oldTimestamp = new Date(Date.now() - 200).toISOString();
 
 		correlator.ingest(
-			makeEventWithToolCall("file", "read", { path: "/home/.ssh/id_rsa" }, { timestamp: oldTimestamp }),
+			makeEventWithToolCall(
+				"file",
+				"read",
+				{ path: "/home/.ssh/id_rsa" },
+				{ timestamp: oldTimestamp },
+			),
 			"agent-A",
 		);
 		correlator.ingest(
-			makeEventWithToolCall("database", "insert", { table: "messages" }, { timestamp: oldTimestamp }),
+			makeEventWithToolCall(
+				"database",
+				"insert",
+				{ table: "messages" },
+				{ timestamp: oldTimestamp },
+			),
 			"agent-A",
 		);
-		correlator.ingest(
-			makeEventWithToolCall("database", "query", { table: "messages" }),
-			"agent-B",
-		);
-		correlator.ingest(
-			makeEventWithToolCall("http", "post"),
-			"agent-B",
-		);
+		correlator.ingest(makeEventWithToolCall("database", "query", { table: "messages" }), "agent-B");
+		correlator.ingest(makeEventWithToolCall("http", "post"), "agent-B");
 
 		const cp1Alerts = alerts.filter((a) => a.ruleId === "cross-principal-sensitive-exfil");
 		expect(cp1Alerts).toHaveLength(0);
@@ -189,7 +178,14 @@ describe("CrossPrincipalCorrelator", () => {
 					toolClass: "http",
 					action: "post",
 					parameters: {},
-					taintLabels: [{ source: "derived-sensitive", origin: "cross-principal:agent-X", confidence: 1, addedAt: new Date().toISOString() }],
+					taintLabels: [
+						{
+							source: "derived-sensitive",
+							origin: "cross-principal:agent-X",
+							confidence: 1,
+							addedAt: new Date().toISOString(),
+						},
+					],
 				},
 			} as any),
 			"agent-C",
@@ -217,7 +213,14 @@ describe("CrossPrincipalCorrelator", () => {
 					toolClass: "http",
 					action: "put",
 					parameters: {},
-					taintLabels: [{ source: "derived-sensitive", origin: "cross-principal:agent-Y", confidence: 1, addedAt: new Date().toISOString() }],
+					taintLabels: [
+						{
+							source: "derived-sensitive",
+							origin: "cross-principal:agent-Y",
+							confidence: 1,
+							addedAt: new Date().toISOString(),
+						},
+					],
 				},
 			} as any),
 			"agent-D",

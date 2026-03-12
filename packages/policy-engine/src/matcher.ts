@@ -86,8 +86,7 @@ function matchesParameters(
 			// Oversized input could trigger catastrophic backtracking even in simple patterns.
 			if (value.length > MAX_REGEX_INPUT_LENGTH) {
 				throw new UnsafeMatchError(
-					`Parameter '${key}' exceeds maximum safe length for regex evaluation (${value.length} > ${MAX_REGEX_INPUT_LENGTH}). ` +
-						`Treating as unsafe — rule will be force-matched to ensure deny rules fire.`,
+					`Parameter '${key}' exceeds maximum safe length for regex evaluation (${value.length} > ${MAX_REGEX_INPUT_LENGTH}). Treating as unsafe — rule will be force-matched to ensure deny rules fire.`,
 				);
 			}
 
@@ -99,8 +98,7 @@ function matchesParameters(
 				// Throw to ensure the policy engine denies the action rather than
 				// silently skipping a potentially critical deny rule.
 				throw new UnsafeMatchError(
-					`Invalid regex pattern '${matcher.pattern}' in policy parameter matcher for '${key}'. ` +
-						`Cannot evaluate — treating as unsafe.`,
+					`Invalid regex pattern '${matcher.pattern}' in policy parameter matcher for '${key}'. Cannot evaluate — treating as unsafe.`,
 				);
 			}
 		}

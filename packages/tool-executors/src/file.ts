@@ -1,5 +1,5 @@
-import { open, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
+import { open, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { ToolCall, ToolResult } from "@arikernel/core";
 import type { ToolExecutor } from "./base.js";
@@ -38,7 +38,10 @@ function getAllowedRoot(): string {
  * between path validation and file read: we validate *after* opening the
  * descriptor, so no attacker-controlled symlink swap can redirect the read.
  */
-async function secureOpen(filePath: string, flags: number): Promise<import("node:fs/promises").FileHandle> {
+async function secureOpen(
+	filePath: string,
+	flags: number,
+): Promise<import("node:fs/promises").FileHandle> {
 	const allowedRoot = getAllowedRoot();
 
 	// SECURITY: Resolve to absolute path and verify it is within the allowed root
@@ -95,7 +98,11 @@ export class FileExecutor implements ToolExecutor {
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
 		const start = Date.now();
-		const { path: filePath, content, encoding } = toolCall.parameters as {
+		const {
+			path: filePath,
+			content,
+			encoding,
+		} = toolCall.parameters as {
 			path: string;
 			content?: string;
 			encoding?: BufferEncoding;
@@ -111,7 +118,7 @@ export class FileExecutor implements ToolExecutor {
 						constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
 					);
 					try {
-						const data = await handle.readFile(encoding ?? "utf-8") as string;
+						const data = (await handle.readFile(encoding ?? "utf-8")) as string;
 						const result = makeResult(toolCall.id, true, start, { path: filePath, content: data });
 						return { ...result, taintLabels: [] };
 					} finally {
@@ -122,17 +129,11 @@ export class FileExecutor implements ToolExecutor {
 					// SECURITY: Open WITHOUT O_TRUNC first — truncation before
 					// post-open validation would destroy data if checks fail.
 					// O_CREAT allows creating new files; O_NOFOLLOW prevents symlink writes.
-					const writeFlags =
-						constants.O_WRONLY |
-						constants.O_CREAT |
-						(constants.O_NOFOLLOW ?? 0);
+					const writeFlags = constants.O_WRONLY | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0);
 
 					const allowedRoot = getAllowedRoot();
 					const resolved = path.resolve(filePath);
-					if (
-						!resolved.startsWith(allowedRoot + path.sep) &&
-						resolved !== allowedRoot
-					) {
+					if (!resolved.startsWith(allowedRoot + path.sep) && resolved !== allowedRoot) {
 						throw new Error(`Path traversal blocked: ${filePath} is outside allowed root`);
 					}
 

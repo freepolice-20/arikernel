@@ -22,11 +22,11 @@ import type { TaintTracker } from "@arikernel/taint-tracker";
 import type { ExecutorRegistry } from "@arikernel/tool-executors";
 import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
 import { validateCommand } from "./command-security.js";
+import type { SecurityMode } from "./config.js";
 import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
 import type { PersistentTaintRegistry } from "./persistent-taint-registry.js";
 import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil } from "./run-state.js";
-import type { SecurityMode } from "./config.js";
 import type { TokenStore } from "./token-store.js";
 
 /**
@@ -111,10 +111,7 @@ export class Pipeline {
 
 			// Even safe GET/HEAD is blocked if the URL carries suspicious exfil patterns
 			const url = String(toolCall.parameters.url ?? "");
-			const isGetExfil =
-				isSafeAction &&
-				toolCall.toolClass === "http" &&
-				isSuspiciousGetExfil(url);
+			const isGetExfil = isSafeAction && toolCall.toolClass === "http" && isSuspiciousGetExfil(url);
 
 			// Block GETs with query parameters after a budget is exhausted.
 			// After sensitive read, budget is 0 — all parameterized GETs are blocked.
@@ -137,7 +134,7 @@ export class Pipeline {
 
 			if (!isSafeAction || isGetExfil || isGetBudgetExhausted || isEncodedExfil) {
 				const reason = isEncodedExfil
-					? `HTTP GET with encoded payload blocked in quarantine. Base64/hex data detected in query parameters.`
+					? "HTTP GET with encoded payload blocked in quarantine. Base64/hex data detected in query parameters."
 					: isGetBudgetExhausted
 						? `HTTP GET with query parameters blocked: quarantine GET budget exhausted (${this.runState.quarantineGetCount} requests). Potential slow-drip exfiltration.`
 						: isGetExfil
@@ -186,10 +183,7 @@ export class Pipeline {
 					isSuspiciousGetExfil(httpUrl);
 
 				// Track cumulative GET egress bytes per hostname
-				if (
-					(toolCall.action === "get" || toolCall.action === "head") &&
-					httpUrl.includes("?")
-				) {
+				if ((toolCall.action === "get" || toolCall.action === "head") && httpUrl.includes("?")) {
 					this.runState.recordHttpGetEgress(httpUrl);
 				}
 
@@ -276,8 +270,10 @@ export class Pipeline {
 		// Step 2: Collect taint — merge tool-call labels with kernel-maintained run-level taint.
 		// This ensures taint propagates even when a tool or agent omits taintLabels.
 		let inputTaints = this.taintTracker.collectInputTaints(toolCall);
-		if (this.runState && this.runState.tainted) {
-			const runLabels = this.runState.accumulatedTaintLabels as import("@arikernel/core").TaintLabel[];
+		if (this.runState?.tainted) {
+			const runLabels = this.runState.accumulatedTaintLabels as import(
+				"@arikernel/core",
+			).TaintLabel[];
 			if (runLabels.length > 0) {
 				inputTaints = this.taintTracker.merge(inputTaints, [...runLabels]);
 			}
@@ -310,9 +306,7 @@ export class Pipeline {
 		if (decision.verdict === "require-approval") {
 			if (!this.hooks.onApprovalRequired) {
 				console.warn(
-					`[arikernel] Policy returned 'require-approval' for ${toolCall.toolClass}.${toolCall.action} ` +
-					`but no onApprovalRequired handler is registered. Action will be denied by default. ` +
-					`Register a handler via hooks.onApprovalRequired to enable interactive approval.`,
+					`[arikernel] Policy returned 'require-approval' for ${toolCall.toolClass}.${toolCall.action} but no onApprovalRequired handler is registered. Action will be denied by default. Register a handler via hooks.onApprovalRequired to enable interactive approval.`,
 				);
 			}
 			const approved = await this.hooks.onApprovalRequired?.(toolCall, decision);
@@ -357,8 +351,10 @@ export class Pipeline {
 		// Step 6.1: Enforce run-level taint — tools cannot silently clear taint.
 		// If the run is tainted, accumulated labels MUST appear in the output.
 		// Only an explicit policy rule with tag "allow-taint-clear" can bypass this.
-		if (this.runState && this.runState.tainted) {
-			const runLabels = this.runState.accumulatedTaintLabels as import("@arikernel/core").TaintLabel[];
+		if (this.runState?.tainted) {
+			const runLabels = this.runState.accumulatedTaintLabels as import(
+				"@arikernel/core",
+			).TaintLabel[];
 			result.taintLabels = this.taintTracker.merge(result.taintLabels, [...runLabels]);
 		}
 
@@ -430,10 +426,7 @@ export class Pipeline {
 		if (this.signingKey) {
 			const stored = this.tokenStore?.getStoredToken(grantId);
 			if (!stored?.signature || !stored?.algorithm) {
-				this.denyAndThrow(
-					toolCall,
-					`Signing is enabled but token '${grantId}' has no signature`,
-				);
+				this.denyAndThrow(toolCall, `Signing is enabled but token '${grantId}' has no signature`);
 			}
 			const verification = verifyCapabilityToken(
 				{ grant, signature: stored.signature, algorithm: stored.algorithm },

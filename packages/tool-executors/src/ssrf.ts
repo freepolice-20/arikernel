@@ -49,9 +49,7 @@ export async function resolveHost(hostname: string): Promise<string> {
 	try {
 		const { address } = await lookup(hostname);
 		if (isPrivateIP(address)) {
-			throw new Error(
-				`SSRF blocked: hostname '${hostname}' resolves to private IP ${address}`,
-			);
+			throw new Error(`SSRF blocked: hostname '${hostname}' resolves to private IP ${address}`);
 		}
 		return address;
 	} catch (err) {
@@ -158,6 +156,8 @@ export async function ssrfSafeRequest(
 	resolver: HostResolver = resolveHost,
 ): Promise<PinnedResponse> {
 	let currentUrl = url;
+	let currentMethod = method;
+	let currentBody = body;
 	const redirectChain: string[] = [];
 	const originalHost = new URL(url).hostname;
 
@@ -165,7 +165,14 @@ export async function ssrfSafeRequest(
 		const parsed = new URL(currentUrl);
 		const resolvedIP = await resolver(parsed.hostname);
 
-		const res = await pinnedRequest(resolvedIP, parsed, method, headers, body, timeoutMs);
+		const res = await pinnedRequest(
+			resolvedIP,
+			parsed,
+			currentMethod,
+			headers,
+			currentBody,
+			timeoutMs,
+		);
 
 		if (res.status >= 300 && res.status < 400 && res.location) {
 			if (hop >= maxRedirects) {
@@ -185,8 +192,8 @@ export async function ssrfSafeRequest(
 			currentUrl = redirectUrl.href;
 
 			// Subsequent redirect hops use GET per HTTP spec (PRG pattern)
-			method = "GET";
-			body = undefined;
+			currentMethod = "GET";
+			currentBody = undefined;
 			continue;
 		}
 

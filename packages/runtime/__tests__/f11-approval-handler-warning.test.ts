@@ -4,9 +4,9 @@
 
 import { unlinkSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { type Firewall, createFirewall } from "../src/index.js";
 import { ApprovalRequiredError } from "@arikernel/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type Firewall, createFirewall } from "../src/index.js";
 
 const auditFiles: string[] = [];
 
@@ -18,7 +18,9 @@ function auditPath(name: string): string {
 
 afterEach(() => {
 	for (const f of auditFiles) {
-		try { unlinkSync(f); } catch {}
+		try {
+			unlinkSync(f);
+		} catch {}
 	}
 	auditFiles.length = 0;
 });
@@ -71,7 +73,7 @@ describe("F-11: approval handler warning", () => {
 					toolClass: "http",
 					action: "get",
 					parameters: { url: "http://example.com" },
-					grantId: grant.grant!.id,
+					grantId: grant.grant?.id,
 				}),
 			).rejects.toThrow(ApprovalRequiredError);
 
@@ -130,7 +132,7 @@ describe("F-11: approval handler warning", () => {
 				toolClass: "http",
 				action: "get",
 				parameters: { url: "http://example.com" },
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			});
 
 			// No warning should have been emitted

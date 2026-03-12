@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { normalizeInput, containsDangerousUnicode } from "../src/unicode-safety.js";
 import { validateCommand } from "../src/command-security.js";
 import { RunStateTracker } from "../src/run-state.js";
+import { containsDangerousUnicode, normalizeInput } from "../src/unicode-safety.js";
 
 describe("Unicode normalization (NFKC)", () => {
 	it("normalizes fullwidth dollar sign to ASCII", () => {

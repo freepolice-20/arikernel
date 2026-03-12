@@ -25,10 +25,14 @@ export class DatabaseExecutor implements ToolExecutor {
 		// Raw SQL-only queries bypass SharedTaintRegistry resource key extraction.
 		if (!table) {
 			if (query && !database) {
-				const result = makeResult(toolCall.id, false, start, undefined,
+				const result = makeResult(
+					toolCall.id,
+					false,
+					start,
+					undefined,
 					"Database calls require an explicit 'table' parameter for cross-principal " +
-					"taint tracking. Raw SQL without structured metadata is rejected. " +
-					"Provide { table: 'name', ... } in parameters.",
+						"taint tracking. Raw SQL without structured metadata is rejected. " +
+						"Provide { table: 'name', ... } in parameters.",
 				);
 				return { ...result, taintLabels: [] };
 			}

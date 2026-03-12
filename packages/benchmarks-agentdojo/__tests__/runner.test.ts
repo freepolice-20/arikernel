@@ -43,6 +43,7 @@ describe("runScenario — determinism", () => {
 	it("scenario 2 (taint policy) always blocks exfiltration", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "prompt_injection_exfiltration")!;
 		const result = await runScenario(scenario, dir);
 		expect(result.exfiltrationPrevented).toBe(true);
@@ -52,6 +53,7 @@ describe("runScenario — determinism", () => {
 	it("scenario 3 (escalation) triggers quarantine", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "escalation_after_denial")!;
 		const result = await runScenario(scenario, dir);
 		expect(result.wasQuarantined).toBe(true);
@@ -60,6 +62,7 @@ describe("runScenario — determinism", () => {
 	it("scenario 5 (repeated probe) blocks all sensitive reads and quarantines", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "repeated_sensitive_probe")!;
 		const result = await runScenario(scenario, dir);
 		expect(result.sensitiveReadPrevented).toBe(true);
@@ -82,6 +85,7 @@ describe("runScenario — determinism", () => {
 	it("scenario 1 (prompt injection → shell) quarantines and blocks shell", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "prompt_injection_sensitive_file")!;
 
 		// Stub fetch for the HTTP executor
@@ -106,6 +110,7 @@ describe("runScenario — determinism", () => {
 	it("scenario 4 (web taint → file write) blocks tainted write", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
 		const scenario = SCENARIOS.find((s) => s.id === "web_taint_sensitive_probe")!;
 		const result = await runScenario(scenario, dir);
 		expect(result.exfiltrationPrevented).toBe(true);

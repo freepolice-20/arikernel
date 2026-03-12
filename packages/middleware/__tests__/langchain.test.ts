@@ -11,12 +11,14 @@ function makeTools(): LangChainTool[] {
 		{
 			name: "web_search",
 			description: "Search the web",
-			func: async (args: any) => `Results for: ${args?.url ?? args}`,
+			func: async (args: unknown) =>
+				`Results for: ${(args as Record<string, string>)?.url ?? String(args)}`,
 		},
 		{
 			name: "read_file",
 			description: "Read a file",
-			func: async (args: any) => `Contents of ${args?.path ?? args}`,
+			func: async (args: unknown) =>
+				`Contents of ${(args as Record<string, string>)?.path ?? String(args)}`,
 		},
 		{
 			name: "custom_tool",
@@ -108,7 +110,7 @@ describe("protectLangChainAgent", () => {
 		const tools: LangChainTool[] = [
 			{
 				name: "web_search",
-				invoke: async (input: any) => `Results for: ${input.url}`,
+				invoke: async (input: unknown) => `Results for: ${(input as Record<string, string>).url}`,
 			},
 		];
 		const agent = { tools };
@@ -142,7 +144,8 @@ describe("protectLangChainAgent", () => {
 		const tool: LangChainTool & { state: { called: number } } = {
 			name: "web_search",
 			state: { called: 0 },
-			func: async function (this: any, args: any) {
+			// biome-ignore lint/suspicious/noExplicitAny: `this` context requires any for non-arrow functions
+			func: async function (this: any, _args: unknown) {
 				this.state.called++;
 				return `called ${this.state.called}`;
 			},
@@ -162,7 +165,8 @@ describe("protectLangChainAgent", () => {
 		const tool: LangChainTool & { state: { called: number } } = {
 			name: "web_search",
 			state: { called: 0 },
-			invoke: async function (this: any, input: any) {
+			// biome-ignore lint/suspicious/noExplicitAny: `this` context requires any for non-arrow functions
+			invoke: async function (this: any, _input: unknown) {
 				this.state.called++;
 				return `called ${this.state.called}`;
 			},

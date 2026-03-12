@@ -50,4 +50,4 @@ writeJsonlReport(report, paths.jsonl);
 writeMarkdownReport(report, paths.markdown);
 writeMarkdownReport(report, agentDojoResultsPath);
 
-console.log(`  AgentDojo report: benchmarks/agentdojo-results.md\n`);
+console.log("  AgentDojo report: benchmarks/agentdojo-results.md\n");

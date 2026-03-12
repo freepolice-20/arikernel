@@ -1,4 +1,11 @@
-import type { AuditEvent, Decision, RunContext, ToolCall, ToolResult } from "@arikernel/core";
+import type {
+	AuditEvent,
+	Decision,
+	RunContext,
+	ToolCall,
+	ToolClass,
+	ToolResult,
+} from "@arikernel/core";
 import { generateId, now } from "@arikernel/core";
 import Database from "better-sqlite3";
 import { computeHash, genesisHash } from "./hash-chain.js";
@@ -200,7 +207,7 @@ export class AuditStore {
 			sequence,
 			timestamp,
 			principalId,
-			toolClass: "_system" as any,
+			toolClass: "_system" as unknown as ToolClass,
 			action,
 			parameters: metadata,
 			taintLabels: [],
@@ -313,10 +320,7 @@ export class AuditStore {
 	 * Query recent persistent taint events for a principal within a time window.
 	 * Used at run startup to restore sticky flags from prior runs.
 	 */
-	queryPersistentTaintEvents(
-		principalId: string,
-		windowMs: number,
-	): PersistentTaintEventRow[] {
+	queryPersistentTaintEvents(principalId: string, windowMs: number): PersistentTaintEventRow[] {
 		const cutoff = new Date(Date.now() - windowMs).toISOString();
 		return this.db
 			.prepare(

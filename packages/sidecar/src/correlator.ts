@@ -1,4 +1,4 @@
-import { resolve, normalize } from "node:path";
+import { normalize, resolve } from "node:path";
 import type { AuditEvent } from "@arikernel/core";
 import { generateId, now } from "@arikernel/core";
 
@@ -78,7 +78,11 @@ const SHARED_READ_ACTIONS = new Set(["query", "read", "select", "get"]);
  * Extract a canonical resource key from a tool event for correlation.
  * Returns null if the event doesn't target an identifiable shared resource.
  */
-function extractResourceKey(toolClass: string, action: string, params?: Record<string, unknown>): string | null {
+function extractResourceKey(
+	toolClass: string,
+	action: string,
+	params?: Record<string, unknown>,
+): string | null {
 	if (toolClass === "database") {
 		const table = params?.table as string | undefined;
 		if (table) return `db:${table.normalize("NFKC").toLowerCase()}`;
@@ -148,8 +152,11 @@ export class CrossPrincipalCorrelator {
 		const tc = event.toolCall;
 		const toolClass = tc?.toolClass ?? (event as any).toolClass ?? "unknown";
 		const action = tc?.action ?? (event as any).action ?? "unknown";
-		const params = tc?.parameters ?? (event as any).parameters as Record<string, unknown> | undefined;
-		const taintSources = tc?.taintLabels?.map((t: any) => t.source) ?? (event as any).taintSources as string[] | undefined;
+		const params =
+			tc?.parameters ?? ((event as any).parameters as Record<string, unknown> | undefined);
+		const taintSources =
+			tc?.taintLabels?.map((t: any) => t.source) ??
+			((event as any).taintSources as string[] | undefined);
 
 		const pe: PrincipalEvent = {
 			principalId,
@@ -207,16 +214,14 @@ export class CrossPrincipalCorrelator {
 		for (const [pid, buffer] of this.events) {
 			if (pid === egressPrincipal) continue; // same-principal excluded
 
-			const recentEvents = buffer.filter(
-				(e) => new Date(e.timestamp).getTime() >= cutoff,
-			);
+			const recentEvents = buffer.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
 
 			const hasSensitiveRead = recentEvents.some(
 				(e) =>
 					e.toolClass === "file" &&
 					e.action === "read" &&
 					e.params?.path &&
-					SENSITIVE_PATH_PATTERNS.some((p) => p.test(String(e.params!.path))),
+					SENSITIVE_PATH_PATTERNS.some((p) => p.test(String(e.params?.path))),
 			);
 
 			// Resource-key linkage: the write must target the SAME resource the egressing principal read
@@ -271,18 +276,14 @@ export class CrossPrincipalCorrelator {
 		if (triggerEvent.toolClass !== "http") return;
 		if (!["post", "put", "patch", "delete"].includes(triggerEvent.action)) return;
 
-		if (
-			triggerEvent.taintSources &&
-			triggerEvent.taintSources.includes("derived-sensitive")
-		) {
+		if (triggerEvent.taintSources?.includes("derived-sensitive")) {
 			this.emit({
 				alertId: generateId(),
 				ruleId: "derived-sensitive-egress",
 				severity: "medium",
 				timestamp: now(),
 				principals: [triggerEvent.principalId],
-				reason:
-					`Principal '${triggerEvent.principalId}' attempted HTTP egress with derived-sensitive taint.`,
+				reason: `Principal '${triggerEvent.principalId}' attempted HTTP egress with derived-sensitive taint.`,
 				events: [
 					{
 						principalId: triggerEvent.principalId,
@@ -334,9 +335,7 @@ export class CrossPrincipalCorrelator {
 
 		// Prune expired entries
 		const cutoff = Date.now() - this.windowMs;
-		const active = hostEntries.filter(
-			(e) => new Date(e.timestamp).getTime() >= cutoff,
-		);
+		const active = hostEntries.filter((e) => new Date(e.timestamp).getTime() >= cutoff);
 		this.egressHosts.set(hostname, active);
 
 		// Prune expired CP-3 dedup entries using configurable dedup window
@@ -364,7 +363,7 @@ export class CrossPrincipalCorrelator {
 					e.toolClass === "file" &&
 					e.action === "read" &&
 					e.params?.path &&
-					SENSITIVE_PATH_PATTERNS.some((p) => p.test(String(e.params!.path))),
+					SENSITIVE_PATH_PATTERNS.some((p) => p.test(String(e.params?.path))),
 			);
 			if (hasSensitiveRead) {
 				principalsWithSensitiveRead.push(pid);
@@ -392,10 +391,7 @@ export class CrossPrincipalCorrelator {
 			severity: "high",
 			timestamp: now(),
 			principals: Array.from(distinctPrincipals),
-			reason:
-				`Multiple principals (${Array.from(distinctPrincipals).join(", ")}) egressed to the same host '${hostname}' ` +
-				`within ${this.windowMs / 1000}s. Principals with sensitive reads: ${principalsWithSensitiveRead.join(", ")}. ` +
-				`Possible out-of-band relay attack.`,
+			reason: `Multiple principals (${Array.from(distinctPrincipals).join(", ")}) egressed to the same host '${hostname}' within ${this.windowMs / 1000}s. Principals with sensitive reads: ${principalsWithSensitiveRead.join(", ")}. Possible out-of-band relay attack.`,
 			events: alertEvents,
 			metadata: {
 				hostname,

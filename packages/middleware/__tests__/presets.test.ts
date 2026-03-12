@@ -26,7 +26,7 @@ describe("preset loading", () => {
 	});
 
 	it("throws for unknown preset", () => {
-		expect(() => getPreset("nonexistent" as any)).toThrow("Unknown preset");
+		expect(() => getPreset("nonexistent" as string)).toThrow("Unknown preset");
 	});
 
 	it("all 8 presets are available", () => {
@@ -97,7 +97,10 @@ describe("middleware preset integration", () => {
 
 	it("custom allow overrides preset", () => {
 		const tools: LangChainTool[] = [
-			{ name: "web_search", func: async (args: any) => `Results for: ${args.url}` },
+			{
+				name: "web_search",
+				func: async (args: unknown) => `Results for: ${(args as Record<string, string>).url}`,
+			},
 		];
 		const result = protectLangChainTools(tools, {
 			allow: {

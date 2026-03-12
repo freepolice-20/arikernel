@@ -28,9 +28,7 @@ describe("validateCommand", () => {
 	});
 
 	it("blocks /bin/bash (full path)", () => {
-		expect(() => validateCommand("/bin/bash", ["-c", "id"])).toThrow(
-			"Blocked shell interpreter",
-		);
+		expect(() => validateCommand("/bin/bash", ["-c", "id"])).toThrow("Blocked shell interpreter");
 	});
 
 	it("blocks cmd.exe", () => {

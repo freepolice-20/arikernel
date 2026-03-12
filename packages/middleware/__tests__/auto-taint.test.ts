@@ -33,7 +33,9 @@ describe("autoTaint option", () => {
 
 		expect(results).toHaveLength(1);
 		// Pipeline always adds model-generated taint + auto-taint adds web taint
-		expect(results[0].taintLabels.some((l) => l.source === "web" && l.origin === "example.com")).toBe(true);
+		expect(
+			results[0].taintLabels.some((l) => l.source === "web" && l.origin === "example.com"),
+		).toBe(true);
 		expect(results[0].taintLabels.some((l) => l.source === "model-generated")).toBe(true);
 	});
 
@@ -91,7 +93,9 @@ describe("autoTaint option", () => {
 
 		expect(results).toHaveLength(1);
 		// Pipeline adds model-generated taint + auto-taint adds tool-output taint
-		expect(results[0].taintLabels.some((l) => l.source === "tool-output" && l.origin === "database")).toBe(true);
+		expect(
+			results[0].taintLabels.some((l) => l.source === "tool-output" && l.origin === "database"),
+		).toBe(true);
 		expect(results[0].taintLabels.some((l) => l.source === "model-generated")).toBe(true);
 	});
 });

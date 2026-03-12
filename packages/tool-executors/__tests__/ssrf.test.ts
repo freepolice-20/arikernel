@@ -125,7 +125,7 @@ describe("ssrfSafeRequest", () => {
 		() =>
 			new Promise<void>((resolve) => {
 				server = http.createServer((req, res) => {
-					const url = new URL(req.url!, `http://localhost`);
+					const url = new URL(req.url ?? "/", "http://localhost");
 
 					if (url.pathname === "/ok") {
 						res.writeHead(200, { "content-type": "application/json" });

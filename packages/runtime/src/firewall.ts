@@ -118,9 +118,9 @@ export class Firewall {
 		// never executes tools directly.
 		if (this._mode === "sidecar") {
 			const proxyConfig = {
-				baseUrl: options.sidecar!.baseUrl,
-				principalId: options.sidecar!.principalId ?? options.principal.name,
-				authToken: options.sidecar!.authToken,
+				baseUrl: options.sidecar?.baseUrl,
+				principalId: options.sidecar?.principalId ?? options.principal.name,
+				authToken: options.sidecar?.authToken,
 			};
 			for (const proxy of createSidecarProxies(proxyConfig)) {
 				this.executorRegistry.register(proxy);
@@ -380,7 +380,9 @@ export class Firewall {
 			if (typeof data === "object" && data !== null && "url" in data) {
 				try {
 					origin = new URL(String((data as Record<string, unknown>).url)).hostname;
-				} catch { /* keep unknown */ }
+				} catch {
+					/* keep unknown */
+				}
 			}
 			return [{ source: "web", origin, confidence: 1.0, addedAt: ts }];
 		}
@@ -443,17 +445,11 @@ export class Firewall {
 	quarantineExternal(ruleId: string, reason: string): QuarantineInfo | null {
 		const result = this._runState.quarantineByRule(ruleId, reason, []);
 		if (result) {
-			this.auditStore.appendSystemEvent(
-				this.runId,
-				this.principal.id,
-				"quarantine",
-				reason,
-				{
-					triggerType: "cross_principal_alert",
-					ruleId,
-					counters: result.countersSnapshot,
-				},
-			);
+			this.auditStore.appendSystemEvent(this.runId, this.principal.id, "quarantine", reason, {
+				triggerType: "cross_principal_alert",
+				ruleId,
+				counters: result.countersSnapshot,
+			});
 		}
 		return result;
 	}
@@ -532,6 +528,7 @@ export class Firewall {
 		});
 
 		// Override the generated principal to preserve parentId and delegation metadata
+		// biome-ignore lint/suspicious/noExplicitAny: accessing private field for delegation
 		(childFirewall as any).principal = childPrincipal;
 
 		return { firewall: childFirewall, denied };

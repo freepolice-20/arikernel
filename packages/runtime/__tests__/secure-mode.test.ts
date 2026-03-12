@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { Firewall } from "../src/index.js";
 import type { HmacSigningKey } from "@arikernel/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { Firewall } from "../src/index.js";
 
 function makeHmacKey(): HmacSigningKey {
 	return { algorithm: "hmac-sha256", secret: randomBytes(32) };
@@ -70,7 +70,7 @@ describe("Secure mode capability token enforcement", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "./test.txt" },
-			grantId: decision.grant!.id,
+			grantId: decision.grant?.id,
 		});
 
 		expect(result.success).toBe(true);
@@ -82,7 +82,7 @@ describe("Secure mode capability token enforcement", () => {
 
 		expect(d1.grant?.nonce).toBeTruthy();
 		expect(d2.grant?.nonce).toBeTruthy();
-		expect(d1.grant!.nonce).not.toBe(d2.grant!.nonce);
+		expect(d1.grant?.nonce).not.toBe(d2.grant?.nonce);
 	});
 
 	it("nonce is 64 hex characters", () => {
@@ -130,7 +130,7 @@ describe("Dev mode backward compatibility", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "./test.txt" },
-			grantId: decision.grant!.id,
+			grantId: decision.grant?.id,
 		});
 
 		expect(result.success).toBe(true);
@@ -156,9 +156,9 @@ describe("Security mode defaults", () => {
 			execute: async (tc) => ({ callId: tc.id, success: true, data: "", taintLabels: [] }),
 		});
 
-		await expect(
-			fw.execute({ toolClass: "file", action: "read", parameters: {} }),
-		).rejects.toThrow(/Capability token required/);
+		await expect(fw.execute({ toolClass: "file", action: "read", parameters: {} })).rejects.toThrow(
+			/Capability token required/,
+		);
 
 		try {
 			fw.close();
@@ -187,7 +187,7 @@ describe("Security mode defaults", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: {},
-			grantId: decision.grant!.id,
+			grantId: decision.grant?.id,
 		});
 		expect(result.success).toBe(true);
 

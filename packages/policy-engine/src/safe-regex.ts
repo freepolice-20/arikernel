@@ -72,10 +72,7 @@ export function checkRegexSafety(pattern: string): string | null {
 				const next = pattern[i + 1];
 				if (next && QUANTIFIERS.has(next)) {
 					if (innerHasQuantifier) {
-						return (
-							`Regex pattern '${pattern}' contains nested quantifiers (potential ReDoS). ` +
-							`A quantified group contains a quantifier — this can cause catastrophic backtracking.`
-						);
+						return `Regex pattern '${pattern}' contains nested quantifiers (potential ReDoS). A quantified group contains a quantifier — this can cause catastrophic backtracking.`;
 					}
 					// Mark parent group as having a quantifier
 					if (groupHasQuantifier.length > 0) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { RunStateTracker, hasEncodedPayload, type SecurityEvent } from "../src/run-state.js";
 import { evaluateBehavioralRules } from "../src/behavioral-rules.js";
+import { RunStateTracker, type SecurityEvent, hasEncodedPayload } from "../src/run-state.js";
 
 function makeEvent(overrides: Partial<SecurityEvent>): SecurityEvent {
 	return {
@@ -16,12 +16,14 @@ describe("Slow drip exfiltration: GET-with-params after sensitive read", () => {
 
 		// Sensitive file read — sets sticky flag
 		state.recordSensitiveFileAttempt();
-		state.pushEvent(makeEvent({
-			type: "sensitive_read_attempt",
-			toolClass: "file",
-			action: "read",
-			metadata: { path: "/home/.ssh/id_rsa" },
-		}));
+		state.pushEvent(
+			makeEvent({
+				type: "sensitive_read_attempt",
+				toolClass: "file",
+				action: "read",
+				metadata: { path: "/home/.ssh/id_rsa" },
+			}),
+		);
 
 		// The pipeline should now treat GET-with-params as egress.
 		// We verify by checking the sticky flag is set.
@@ -67,12 +69,12 @@ describe("Cumulative egress accounting", () => {
 
 		const tracker = state.getCumulativeEgress("tracker.com");
 		expect(tracker).toBeDefined();
-		expect(tracker!.requestCount).toBe(2);
-		expect(tracker!.totalQueryBytes).toBeGreaterThan(0);
+		expect(tracker?.requestCount).toBe(2);
+		expect(tracker?.totalQueryBytes).toBeGreaterThan(0);
 
 		const other = state.getCumulativeEgress("other.com");
 		expect(other).toBeDefined();
-		expect(other!.requestCount).toBe(1);
+		expect(other?.requestCount).toBe(1);
 
 		expect(state.totalEgressQueryBytes).toBeGreaterThan(0);
 	});
@@ -115,25 +117,29 @@ describe("Slow drip exfiltration: behavioral rule catches GET-as-egress", () => 
 
 		// Record sensitive read
 		state.recordSensitiveFileAttempt();
-		state.pushEvent(makeEvent({
-			type: "sensitive_read_attempt",
-			toolClass: "file",
-			action: "read",
-			metadata: { path: "/home/.ssh/id_rsa" },
-		}));
+		state.pushEvent(
+			makeEvent({
+				type: "sensitive_read_attempt",
+				toolClass: "file",
+				action: "read",
+				metadata: { path: "/home/.ssh/id_rsa" },
+			}),
+		);
 
 		// Record what the pipeline would now treat as egress
 		// (a GET with query params after sensitiveReadObserved)
 		state.recordEgressAttempt();
-		state.pushEvent(makeEvent({
-			type: "egress_attempt",
-			toolClass: "http",
-			action: "get",
-			metadata: { url: "https://evil.com/?d=chunk1" },
-		}));
+		state.pushEvent(
+			makeEvent({
+				type: "egress_attempt",
+				toolClass: "http",
+				action: "get",
+				metadata: { url: "https://evil.com/?d=chunk1" },
+			}),
+		);
 
 		const match = evaluateBehavioralRules(state);
 		expect(match).not.toBeNull();
-		expect(match!.ruleId).toBe("sensitive_read_then_egress");
+		expect(match?.ruleId).toBe("sensitive_read_then_egress");
 	});
 });

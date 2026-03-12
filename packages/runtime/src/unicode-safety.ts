@@ -36,9 +36,7 @@ const DANGEROUS_UNICODE_STRIP = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\
  * - Soft hyphens (U+00AD)
  */
 export function normalizeInput(input: string): string {
-	return input
-		.normalize("NFKC")
-		.replace(DANGEROUS_UNICODE_STRIP, "");
+	return input.normalize("NFKC").replace(DANGEROUS_UNICODE_STRIP, "");
 }
 
 /**

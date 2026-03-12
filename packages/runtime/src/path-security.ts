@@ -14,7 +14,9 @@ import { containsDangerousUnicode, normalizeInput } from "./unicode-safety.js";
 export function canonicalizePath(inputPath: string, cwd?: string): string {
 	// SECURITY: Reject invisible Unicode characters that can disguise paths
 	if (containsDangerousUnicode(inputPath)) {
-		throw new Error(`Path contains dangerous invisible Unicode characters: '${inputPath}'. Access denied.`);
+		throw new Error(
+			`Path contains dangerous invisible Unicode characters: '${inputPath}'. Access denied.`,
+		);
 	}
 	// SECURITY: Normalize to NFKC to collapse fullwidth chars (／ → /) before path resolution
 	let p = normalizeInput(inputPath);

@@ -101,7 +101,9 @@ describe("Auto-taint: HTTP executor", () => {
 			expect(httpEvent).toBeDefined();
 			// The result taint labels are on the result, which is stored in the audit event
 			expect(httpEvent?.result).toBeDefined();
+			// biome-ignore lint/suspicious/noExplicitAny: ToolResult.taintLabels has dynamic shape
 			const resultTaints = (httpEvent?.result as any)?.taintLabels ?? [];
+			// biome-ignore lint/suspicious/noExplicitAny: taint label has dynamic shape
 			const webTaint = resultTaints.find((t: any) => t.source === "web");
 			expect(webTaint).toBeDefined();
 			expect(webTaint.origin).toBe("news.example.com");

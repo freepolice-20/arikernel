@@ -89,7 +89,11 @@ export function runTrace(
 			}
 		}
 
-		const result = replayRun(store, resolvedRunId!);
+		if (!resolvedRunId) {
+			console.error("No run ID resolved.");
+			process.exit(1);
+		}
+		const result = replayRun(store, resolvedRunId);
 		if (!result) {
 			console.error(`Run not found: ${resolvedRunId}`);
 			process.exit(1);

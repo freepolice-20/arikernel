@@ -69,7 +69,7 @@ function intersectConstraints(
 		maxCallsPerMinute:
 			r.maxCallsPerMinute !== undefined && b.maxCallsPerMinute !== undefined
 				? Math.min(r.maxCallsPerMinute, b.maxCallsPerMinute)
-				: r.maxCallsPerMinute ?? b.maxCallsPerMinute,
+				: (r.maxCallsPerMinute ?? b.maxCallsPerMinute),
 	};
 
 	// Strip undefined fields
@@ -174,7 +174,10 @@ export function createDelegatedPrincipal(
 	childName: string,
 	requestedCapabilities: Capability[],
 	timestamp?: string,
-): { principal: Principal & { parentId: string; capabilities: DelegatedCapability[] }; denied: DelegationResult[] } {
+): {
+	principal: Principal & { parentId: string; capabilities: DelegatedCapability[] };
+	denied: DelegationResult[];
+} {
 	const ts = timestamp ?? new Date().toISOString();
 	const granted: DelegatedCapability[] = [];
 	const denied: DelegationResult[] = [];

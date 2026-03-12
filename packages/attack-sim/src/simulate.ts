@@ -273,8 +273,7 @@ export async function simulateAttack(
 		const auditEvents = fw.getEvents();
 
 		const passed =
-			blocked === scenario.expectedBlocked &&
-			quarantined === scenario.expectedQuarantined;
+			blocked === scenario.expectedBlocked && quarantined === scenario.expectedQuarantined;
 
 		return {
 			scenario,

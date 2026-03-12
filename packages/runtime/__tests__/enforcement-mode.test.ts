@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Firewall, createKernel } from "../src/index.js";
 
 const ALLOW_ALL = {
@@ -43,10 +43,9 @@ describe("Enforcement mode production guard", () => {
 		const prev = process.env.NODE_ENV;
 		process.env.NODE_ENV = "production";
 		try {
-			expect(
-				() =>
-					(fw = new Firewall({ ...BASE, mode: "embedded" })),
-			).not.toThrow();
+			expect(() => {
+				fw = new Firewall({ ...BASE, mode: "embedded" });
+			}).not.toThrow();
 		} finally {
 			process.env.NODE_ENV = prev;
 		}
@@ -59,21 +58,22 @@ describe("Enforcement mode production guard", () => {
 	});
 
 	it("allows sidecar mode when sidecar options are provided", () => {
-		expect(
-			() =>
-				(fw = new Firewall({
-					...BASE,
-					mode: "sidecar",
-					sidecar: { baseUrl: "http://localhost:8787" },
-				})),
-		).not.toThrow();
+		expect(() => {
+			fw = new Firewall({
+				...BASE,
+				mode: "sidecar",
+				sidecar: { baseUrl: "http://localhost:8787" },
+			});
+		}).not.toThrow();
 	});
 
 	it("allows omitted mode in non-production (defaults to embedded with warning)", () => {
 		const prev = process.env.NODE_ENV;
 		process.env.NODE_ENV = "development";
 		try {
-			expect(() => (fw = new Firewall(BASE))).not.toThrow();
+			expect(() => {
+				fw = new Firewall(BASE);
+			}).not.toThrow();
 		} finally {
 			process.env.NODE_ENV = prev;
 		}

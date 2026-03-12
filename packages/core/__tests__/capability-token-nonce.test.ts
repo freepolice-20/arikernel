@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
 	createCapabilityToken,
+	deserializeCapabilityToken,
 	generateNonce,
 	serializeCapabilityToken,
-	deserializeCapabilityToken,
 	verifyCapabilityToken,
 } from "../src/capability-token.js";
-import type { CapabilityGrant } from "../src/types/capability.js";
 import type { HmacSigningKey } from "../src/capability-token.js";
+import type { CapabilityGrant } from "../src/types/capability.js";
 
 function makeHmacKey(): HmacSigningKey {
 	return { algorithm: "hmac-sha256", secret: randomBytes(32) };

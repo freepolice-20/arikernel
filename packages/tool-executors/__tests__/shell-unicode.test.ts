@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateCommand, parseCommandString } from "../src/shell.js";
+import { parseCommandString, validateCommand } from "../src/shell.js";
 
 describe("shell executor: unicode bypass prevention", () => {
 	it("blocks fullwidth semicolon in arguments", () => {

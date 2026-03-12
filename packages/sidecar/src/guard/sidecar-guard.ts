@@ -248,7 +248,9 @@ function mapHttpMethod(method: string): string {
 	}
 }
 
-function normalizeHeaders(headers: Record<string, string> | Headers | [string, string][]): Record<string, string> {
+function normalizeHeaders(
+	headers: Record<string, string> | Headers | [string, string][],
+): Record<string, string> {
 	const result: Record<string, string> = {};
 	if (headers instanceof Headers) {
 		headers.forEach((value, key) => {

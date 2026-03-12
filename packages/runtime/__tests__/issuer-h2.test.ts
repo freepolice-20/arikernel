@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
 import type { CapabilityRequest, Principal, TaintLabel } from "@arikernel/core";
 import { generateId, now } from "@arikernel/core";
 import { PolicyEngine } from "@arikernel/policy-engine";
 import { TaintTracker } from "@arikernel/taint-tracker";
+import { describe, expect, it } from "vitest";
 import { CapabilityIssuer } from "../src/issuer.js";
 import { TokenStore } from "../src/token-store.js";
 
@@ -22,7 +22,7 @@ function makeRequest(capClass: string, taint: TaintLabel[] = []): CapabilityRequ
 	return {
 		id: generateId(),
 		principalId: "test",
-		capabilityClass: capClass as any,
+		capabilityClass: capClass as string,
 		constraints: {},
 		taintLabels: taint,
 		justification: "test",

@@ -1,5 +1,5 @@
-import Database from "better-sqlite3";
 import type { DecisionVerdict, ToolClass } from "@arikernel/core";
+import Database from "better-sqlite3";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS decision_audit (
@@ -58,9 +58,7 @@ export class ControlPlaneAuditStore {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 
-		this.queryRecentStmt = this.db.prepare(
-			"SELECT * FROM decision_audit ORDER BY id DESC LIMIT ?",
-		);
+		this.queryRecentStmt = this.db.prepare("SELECT * FROM decision_audit ORDER BY id DESC LIMIT ?");
 
 		this.queryByPrincipalStmt = this.db.prepare(
 			"SELECT * FROM decision_audit WHERE principal_id = ? ORDER BY id DESC LIMIT ?",

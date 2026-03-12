@@ -165,10 +165,7 @@ export class DecisionVerifier {
 			reason: response.reason,
 			timestamp: response.timestamp,
 		};
-		const canonical = JSON.stringify(
-			fields,
-			Object.keys(fields).sort(),
-		);
+		const canonical = JSON.stringify(fields, Object.keys(fields).sort());
 
 		try {
 			const sig = Buffer.from(response.signature, "hex");
