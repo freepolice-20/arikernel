@@ -6,7 +6,7 @@
  * are not re-executed — the engine stubs all executors.
  */
 
-import type { PolicyRule, ToolCall, ToolResult } from "@arikernel/core";
+import type { PolicyRule, ToolCall, ToolClass, ToolResult } from "@arikernel/core";
 import { DEFAULT_POLICIES, ToolCallDeniedError, getPreset, now } from "@arikernel/core";
 import { Firewall } from "./firewall.js";
 import type {
@@ -288,7 +288,7 @@ function buildReplayCapabilities(trace: ReplayTrace) {
 	}
 
 	return Array.from(capMap.entries()).map(([toolClass, actions]) => ({
-		toolClass: toolClass as string,
+		toolClass: toolClass as ToolClass,
 		actions: Array.from(actions),
 		constraints:
 			toolClass === "http"

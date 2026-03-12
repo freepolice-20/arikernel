@@ -4,6 +4,7 @@ import type {
 	Decision,
 	Principal,
 	SigningKey,
+	TaintLabel,
 	ToolCall,
 	ToolCallRequest,
 	ToolResult,
@@ -76,7 +77,7 @@ export class Pipeline {
 		// through database writes, HTTP requests, and other tool executions.
 		const inputLabels = request.taintLabels ?? [];
 		const hasModelTaint = inputLabels.some((l) => l.source === "model-generated");
-		const taintLabels: import("@arikernel/core").TaintLabel[] = hasModelTaint
+		const taintLabels: TaintLabel[] = hasModelTaint
 			? inputLabels
 			: [
 					...inputLabels,
@@ -271,9 +272,7 @@ export class Pipeline {
 		// This ensures taint propagates even when a tool or agent omits taintLabels.
 		let inputTaints = this.taintTracker.collectInputTaints(toolCall);
 		if (this.runState?.tainted) {
-			const runLabels = this.runState.accumulatedTaintLabels as import(
-				"@arikernel/core",
-			).TaintLabel[];
+			const runLabels = this.runState.accumulatedTaintLabels as TaintLabel[];
 			if (runLabels.length > 0) {
 				inputTaints = this.taintTracker.merge(inputTaints, [...runLabels]);
 			}
@@ -352,9 +351,7 @@ export class Pipeline {
 		// If the run is tainted, accumulated labels MUST appear in the output.
 		// Only an explicit policy rule with tag "allow-taint-clear" can bypass this.
 		if (this.runState?.tainted) {
-			const runLabels = this.runState.accumulatedTaintLabels as import(
-				"@arikernel/core",
-			).TaintLabel[];
+			const runLabels = this.runState.accumulatedTaintLabels as TaintLabel[];
 			result.taintLabels = this.taintTracker.merge(result.taintLabels, [...runLabels]);
 		}
 
