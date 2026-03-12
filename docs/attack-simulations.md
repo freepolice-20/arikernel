@@ -2,6 +2,17 @@
 
 Test your AI agent's security posture by running deterministic attack scenarios against the Ari Kernel.
 
+## Known Simulation Gaps
+
+The following gaps exist in the current simulation coverage:
+
+- **`path_ambiguity_bypass` uses a stub executor** — this scenario tests file path canonicalization (traversal via `../`, absolute paths, mixed separators), but the simulation stub executor grants all `file.read` requests without enforcing path constraints. It does not fully exercise `FileExecutor` path canonicalization. The scenario documents the expected threat model; it will pass end-to-end once path-level enforcement is wired into the sim runner.
+- **Cross-principal scenarios test policy blocking but not the full multi-instance flow** — scenarios like `cross_principal_relay` run against a single `yaml-sim-agent` principal. They do not exercise the full `SharedTaintRegistry` or `CrossPrincipalCorrelator` multi-instance path. Use the programmatic `AttackScenario` API with multiple `Firewall` instances for full cross-principal testing.
+- **DNS covert channel scenario is not yet implemented** — the HTTP firewall does not intercept DNS lookups. An attacker could exfiltrate data via DNS TXT queries or subdomain encoding. No simulation scenario exists for this attack vector.
+- **Multi-hop taint chain (A->B->C) scenario is not yet implemented** — current simulations test direct taint propagation (A contaminates resource, B reads it) but do not test transitive taint chains where Agent A taints a resource, Agent B reads and writes to a second resource, and Agent C exfiltrates from the second resource.
+
+---
+
 ## Quick Start
 
 ```bash

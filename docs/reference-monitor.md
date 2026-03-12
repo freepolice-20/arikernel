@@ -2,6 +2,8 @@
 
 A formal description of Ari Kernel's enforcement architecture for security researchers and auditors.
 
+> **Qualification:** Ari Kernel is a userspace reference monitor. It does not operate at the OS kernel or hypervisor level. Complete mediation holds only when all tool execution is routed through the kernel — either by application-level integration (embedded mode) or by process-boundary enforcement (sidecar mode). Code that bypasses the kernel by invoking OS APIs directly is not mediated. See [Known Limitations](known-limitations.md) for the full list of enforcement gaps.
+
 > See also: [Agent Reference Monitor](agent-reference-monitor.md) (design rationale) | [Security Model](security-model.md) (enforcement details) | [Threat Model](threat-model.md) (attack scenarios) | [Architecture](../ARCHITECTURE.md) (implementation)
 
 ---

