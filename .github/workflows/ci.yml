@@ -39,7 +39,7 @@ jobs:
           cd $GITHUB_WORKSPACE/packages/core && npm pack --pack-destination /tmp/smoke
           cd /tmp/smoke && npm install ./arikernel-core-*.tgz
           # Verify core: presets load, generateId works, schema validation available
-          node -e "
+          node --input-type=module -e "
             import { PRESETS, getPreset, generateId } from '@arikernel/core';
             const presetCount = Object.keys(PRESETS).length;
             console.log('Presets:', presetCount);
@@ -65,4 +65,6 @@ jobs:
         run: pip install -e "python/[dev,server]"
 
       - name: Run Python tests
-        run: cd python && python -m pytest tests/ -v
+        # test_integration.py requires a pre-built TypeScript server (apps/server/dist/main.js)
+        # which is only available after pnpm build. Exclude it from the Python-only CI job.
+        run: cd python && python -m pytest tests/ -v --ignore=tests/test_integration.py
