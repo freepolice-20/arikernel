@@ -1,39 +1,50 @@
 """AriKernel — runtime security layer for AI agents.
 
-Native Python runtime (no server required):
+Sidecar-authoritative enforcement (default — production):
 
     from arikernel import create_kernel, protect_tool
 
     kernel = create_kernel(preset="safe-research")
+    # → connects to TypeScript sidecar at localhost:9099
+    # → ALL security decisions delegated to the sidecar
 
-    @protect_tool("file.read")
+    @protect_tool("file.read", kernel=kernel)
     def read_file(path: str) -> str: ...
 
-HTTP decision server client (legacy):
+Local enforcement (dev/testing only):
 
-    from arikernel import FirewallClient
+    kernel = create_kernel(preset="safe-research", mode="local")
 """
 
-# Native runtime API
-from .runtime.kernel import create_kernel, Kernel, ToolCallDenied
+# Primary API — works with both sidecar and local kernels
+from .runtime.kernel import create_kernel, Kernel, ToolCallDenied, ApprovalRequiredError
 from .protect import protect_tool, set_default_kernel
 
-# Legacy HTTP client API
+# Sidecar kernel (the default enforcement path)
+from .sidecar import SidecarKernel
+
+# Types
 from .types import TaintLabel, Grant, ExecuteResult
+
+# Low-level HTTP client (use SidecarKernel via create_kernel() instead)
 from .client import FirewallClient
 from .protect import protect_tool_remote
 
 __all__ = [
-    # Native runtime
+    # Primary API
     "create_kernel",
-    "Kernel",
     "protect_tool",
     "set_default_kernel",
     "ToolCallDenied",
-    # Legacy HTTP client
-    "FirewallClient",
+    "ApprovalRequiredError",
+    # Kernel classes
+    "SidecarKernel",
+    "Kernel",
+    # Types
     "TaintLabel",
     "Grant",
     "ExecuteResult",
+    # Low-level
+    "FirewallClient",
     "protect_tool_remote",
 ]

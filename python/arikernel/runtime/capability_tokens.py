@@ -71,13 +71,25 @@ class CapabilityGrant:
 
 
 class TokenStore:
-    """In-memory store for capability grants."""
+    """In-memory store for capability grants with automatic eviction of expired tokens."""
+
+    # Evict expired grants when the store exceeds this many entries.
+    _EVICTION_THRESHOLD = 100
 
     def __init__(self):
         self._grants: dict[str, CapabilityGrant] = {}
 
     def store(self, grant: CapabilityGrant) -> None:
         self._grants[grant.grant_id] = grant
+        if len(self._grants) > self._EVICTION_THRESHOLD:
+            self._evict_expired()
+
+    def _evict_expired(self) -> int:
+        """Remove all expired or revoked grants. Returns count removed."""
+        expired = [gid for gid, g in self._grants.items() if not g.is_valid()]
+        for gid in expired:
+            del self._grants[gid]
+        return len(expired)
 
     def validate(self, grant_id: str) -> bool:
         grant = self._grants.get(grant_id)

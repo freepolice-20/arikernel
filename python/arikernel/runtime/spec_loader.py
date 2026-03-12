@@ -1,8 +1,13 @@
-"""Load the shared arikernel-policy.json spec file."""
+"""Load the shared arikernel-policy.json spec file.
+
+The spec file is bundled inside the arikernel.runtime package so it is
+available after ``pip install`` — no repo-relative path walking required.
+"""
 
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -10,24 +15,23 @@ from typing import Any
 _spec_cache: dict[str, Any] | None = None
 
 
-def _find_spec_file() -> Path:
-    """Walk up from this file to find arikernel-policy.json."""
-    current = Path(__file__).resolve().parent
-    for _ in range(10):
-        candidate = current / "arikernel-policy.json"
-        if candidate.exists():
-            return candidate
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
-    raise FileNotFoundError("Could not find arikernel-policy.json in any parent directory")
+def _load_bundled_spec() -> str:
+    """Load arikernel-policy.json from the package bundle.
+
+    Uses importlib.resources (Python 3.9+) to read the file from whichever
+    location the installer placed the package — works for wheels, editable
+    installs, and frozen apps.
+    """
+    # importlib.resources.files() is the modern API (3.9+)
+    pkg = resources.files("arikernel.runtime")
+    spec_file = pkg.joinpath("arikernel-policy.json")
+    return spec_file.read_text(encoding="utf-8")
 
 
 def load_spec() -> dict[str, Any]:
     global _spec_cache
     if _spec_cache is None:
-        _spec_cache = json.loads(_find_spec_file().read_text(encoding="utf-8"))
+        _spec_cache = json.loads(_load_bundled_spec())
     return _spec_cache
 
 

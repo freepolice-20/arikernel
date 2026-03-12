@@ -115,7 +115,7 @@ The kernel tracks taint, not the agent. An agent that omits `taintLabels` on sub
 **Unguarded agent runtime:** The first three attempts fail (file doesn't exist, or OS permissions block). But the agent learns from the failures and pivots to a working exfiltration method. The fourth attempt succeeds.
 
 **Ari Kernel:**
-- Steps 1-3: Each denied file read increments `deniedActions` counter and pushes `sensitive_read_attempt` events. With threshold set to 3, the run enters **restricted mode** after step 3.
+- Steps 1-3: Each denied file read increments `deniedActions` counter and pushes `sensitive_read_attempt` events. This benchmark uses a threshold of 3 (the default is 5, configurable via `maxDeniedSensitiveActions`). The run enters **restricted mode** after step 3.
 - Step 4: HTTP POST denied — run is in restricted mode. Capability issuance for `http.write` is blocked. The pivot is contained.
 
 **What replay proves:** The audit trail shows 3 DENY events with escalating sensitive file paths, followed by the quarantine (trigger: `threshold`, reason: "Denied actions (3) exceeded threshold (3)"), followed by the denied POST. The counters snapshot proves the threshold was met exactly.
@@ -130,7 +130,7 @@ The kernel tracks taint, not the agent. An agent that omits `taintLabels` on sub
 
 **Quarantine is immediate and session-scoped.** Once triggered, the agent cannot recover write/execute capabilities for the remainder of the run. This is by design: a compromised agent session should be contained, not rehabilitated.
 
-**Audit evidence is cryptographic.** Every quarantine event participates in the SHA-256 hash chain. The replay command verifies chain integrity and renders the full trigger context: rule ID, matched events, counters snapshot, and reason. This is forensic-grade evidence, not just logging.
+**Audit evidence is hash-chained.** Every quarantine event participates in the SHA-256 hash chain. The replay command verifies chain integrity and renders the full trigger context: rule ID, matched events, counters snapshot, and reason. The hash chain provides local tamper evidence — it detects post-hoc modification of audit records but is not equivalent to cryptographic non-repudiation (events are not individually signed). For production integrity, forward audit events to an external append-only store.
 
 ---
 

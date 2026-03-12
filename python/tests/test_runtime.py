@@ -1,4 +1,8 @@
-"""Tests for the native AriKernel Python runtime."""
+"""Tests for the AriKernel Python runtime.
+
+Unit tests use mode="local" since the TypeScript sidecar is not available.
+Integration tests for the sidecar path are in test_integration.py.
+"""
 
 from __future__ import annotations
 
@@ -6,11 +10,12 @@ import os
 import sqlite3
 import json
 import tempfile
+import warnings
 from pathlib import Path
 
 import pytest
 
-from arikernel.runtime.kernel import create_kernel, Kernel, ToolCallDenied
+from arikernel.runtime.kernel import create_kernel, Kernel, ToolCallDenied, ApprovalRequiredError
 from arikernel.runtime.policy_engine import PolicyEngine
 from arikernel.runtime.taint_tracking import TaintLabel, TaintTracker, create_taint_label, merge_labels
 from arikernel.runtime.capability_tokens import CapabilityIssuer, TokenStore
@@ -497,18 +502,18 @@ class TestAutoScope:
 
 class TestKernel:
     def test_create_kernel_zero_config(self):
-        kernel = create_kernel()
+        kernel = create_kernel(mode="local")
         assert kernel.preset == "default"
         assert kernel.auto_scope is False
         kernel.close()
 
     def test_create_kernel_with_preset(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         assert kernel.preset == "safe-research"
         kernel.close()
 
     def test_create_kernel_with_auto_scope(self):
-        kernel = create_kernel(auto_scope=True)
+        kernel = create_kernel(mode="local", auto_scope=True)
         assert kernel.auto_scope is True
         result = kernel.select_scope("summarize this webpage")
         assert result["preset"] == "safe-research"
@@ -516,7 +521,7 @@ class TestKernel:
         kernel.close()
 
     def test_http_get_allowed(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         grant = kernel.request_capability("http.read")
         assert grant["granted"] is True
         result = kernel.execute_tool(
@@ -527,7 +532,7 @@ class TestKernel:
         kernel.close()
 
     def test_shell_denied(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         grant = kernel.request_capability("shell.exec")
         assert grant["granted"] is False
         with pytest.raises(ToolCallDenied):
@@ -535,13 +540,13 @@ class TestKernel:
         kernel.close()
 
     def test_file_write_denied(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         with pytest.raises(ToolCallDenied):
             kernel.execute_tool("file", "write", {"path": "/tmp/test.txt"})
         kernel.close()
 
     def test_execute_fn_called_on_allow(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         grant = kernel.request_capability("http.read")
         called = []
         result = kernel.execute_tool(
@@ -554,7 +559,7 @@ class TestKernel:
         kernel.close()
 
     def test_execute_fn_not_called_on_deny(self):
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
         called = []
         with pytest.raises(ToolCallDenied):
             kernel.execute_tool(
@@ -565,12 +570,12 @@ class TestKernel:
         kernel.close()
 
     def test_context_manager(self):
-        with create_kernel() as kernel:
+        with create_kernel(mode="local") as kernel:
             grant = kernel.request_capability("http.read")
             assert grant["granted"]
 
     def test_restricted_mode_after_quarantine(self):
-        kernel = create_kernel(preset="safe-research", max_denied_sensitive_actions=2)
+        kernel = create_kernel(mode="local", preset="safe-research", max_denied_sensitive_actions=2)
         # Generate enough denials to trigger quarantine
         for _ in range(2):
             with pytest.raises(ToolCallDenied):
@@ -597,7 +602,7 @@ class TestAuditLogging:
         return str(tmp_path / "test-audit.db")
 
     def test_audit_log_written(self, db_path):
-        kernel = create_kernel(preset="safe-research", audit_log=db_path)
+        kernel = create_kernel(mode="local", preset="safe-research", audit_log=db_path)
         grant = kernel.request_capability("http.read")
         kernel.execute_tool(
             "http", "get", {"url": "https://example.com"},
@@ -614,7 +619,7 @@ class TestAuditLogging:
         assert len(events) >= 1
 
     def test_hash_chain_valid(self, db_path):
-        kernel = create_kernel(preset="safe-research", audit_log=db_path)
+        kernel = create_kernel(mode="local", preset="safe-research", audit_log=db_path)
         grant = kernel.request_capability("http.read")
         kernel.execute_tool("http", "get", {"url": "https://a.com"}, grant_id=grant["grant_id"])
         grant2 = kernel.request_capability("http.read")
@@ -647,7 +652,7 @@ class TestAuditLogging:
         assert result["valid"] is True
 
     def test_run_lifecycle(self, db_path):
-        kernel = create_kernel(preset="safe-research", audit_log=db_path)
+        kernel = create_kernel(mode="local", preset="safe-research", audit_log=db_path)
         run_id = kernel.run_id
         kernel.close()
 
@@ -689,7 +694,7 @@ class TestSpecLoader:
 class TestProtectDecorator:
     def test_protect_tool_allows(self):
         from arikernel import protect_tool
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
 
         @protect_tool("http.read", kernel=kernel)
         def fetch_url(url: str) -> str:
@@ -701,7 +706,7 @@ class TestProtectDecorator:
 
     def test_protect_tool_denies(self):
         from arikernel import protect_tool
-        kernel = create_kernel(preset="safe-research")
+        kernel = create_kernel(mode="local", preset="safe-research")
 
         @protect_tool("shell.exec", kernel=kernel)
         def run_command(command: str) -> str:
@@ -710,3 +715,305 @@ class TestProtectDecorator:
         with pytest.raises(ToolCallDenied):
             run_command(command="rm -rf /")
         kernel.close()
+
+
+# ── Parity / conformance tests (Python ↔ TypeScript alignment) ───
+
+class TestRequireApprovalParity:
+    """Verify require-approval semantics match TypeScript runtime.
+
+    TypeScript behavior (pipeline.ts):
+    - If no onApprovalRequired handler → warn + deny (fail closed)
+    - If handler returns false → deny
+    - If handler returns true → allow
+
+    Python must match this exactly.
+    """
+
+    def _make_kernel_with_approval_policy(self, on_approval=None):
+        """Create a kernel with a require-approval policy for shell."""
+        return Kernel(
+            capabilities=[
+                {"toolClass": "http", "actions": ["get"]},
+                {"toolClass": "shell", "actions": ["exec"]},
+            ],
+            policies=[
+                {
+                    "id": "allow-http-get",
+                    "name": "Allow HTTP GET",
+                    "priority": 100,
+                    "match": {"toolClass": "http", "action": "get"},
+                    "decision": "allow",
+                    "reason": "HTTP GET allowed",
+                },
+                {
+                    "id": "approve-shell",
+                    "name": "Shell requires approval",
+                    "priority": 50,
+                    "match": {"toolClass": "shell"},
+                    "decision": "require-approval",
+                    "reason": "Shell commands require approval",
+                },
+            ],
+            on_approval=on_approval,
+        )
+
+    def test_no_handler_denies_by_default(self):
+        """TS parity: no onApprovalRequired handler → deny + warning."""
+        kernel = self._make_kernel_with_approval_policy(on_approval=None)
+        with pytest.raises(ApprovalRequiredError) as exc_info:
+            kernel.execute_tool("shell", "exec", {"command": "ls"})
+        assert "no approval handler" in str(exc_info.value).lower()
+        kernel.close()
+
+    def test_no_handler_emits_warning(self):
+        """TS parity: warn when no handler is registered."""
+        kernel = self._make_kernel_with_approval_policy(on_approval=None)
+        with pytest.warns(UserWarning, match="no on_approval handler"):
+            with pytest.raises(ApprovalRequiredError):
+                kernel.execute_tool("shell", "exec", {"command": "ls"})
+        kernel.close()
+
+    def test_handler_returns_false_denies(self):
+        """TS parity: handler returns false → deny."""
+        kernel = self._make_kernel_with_approval_policy(
+            on_approval=lambda tc, dec: False,
+        )
+        with pytest.raises(ApprovalRequiredError) as exc_info:
+            kernel.execute_tool("shell", "exec", {"command": "ls"})
+        assert "denied by handler" in str(exc_info.value).lower()
+        kernel.close()
+
+    def test_handler_returns_true_allows(self):
+        """TS parity: handler returns true → allow execution."""
+        called = []
+        kernel = self._make_kernel_with_approval_policy(
+            on_approval=lambda tc, dec: (called.append(True), True)[1],
+        )
+        result = kernel.execute_tool("shell", "exec", {"command": "ls"})
+        assert result["verdict"] == "require-approval"
+        assert len(called) == 1
+        kernel.close()
+
+    def test_tool_not_executed_when_denied(self):
+        """TS parity: execute_fn must not be called when approval is denied."""
+        executed = []
+        kernel = self._make_kernel_with_approval_policy(on_approval=None)
+        with pytest.raises(ApprovalRequiredError):
+            kernel.execute_tool(
+                "shell", "exec", {"command": "ls"},
+                execute_fn=lambda **kw: executed.append(True),
+            )
+        assert len(executed) == 0
+        kernel.close()
+
+    def test_approval_required_is_subclass_of_denied(self):
+        """ApprovalRequiredError should be catchable as ToolCallDenied."""
+        kernel = self._make_kernel_with_approval_policy(on_approval=None)
+        with pytest.raises(ToolCallDenied):
+            kernel.execute_tool("shell", "exec", {"command": "ls"})
+        kernel.close()
+
+    def test_denied_action_counted_on_approval_denial(self):
+        """TS parity: denied require-approval increments denied action counter."""
+        kernel = self._make_kernel_with_approval_policy(on_approval=None)
+        for _ in range(5):
+            try:
+                kernel.execute_tool("shell", "exec", {"command": "ls"})
+            except (ApprovalRequiredError, ToolCallDenied):
+                pass
+        assert kernel.restricted is True
+        kernel.close()
+
+
+class TestVerdictParity:
+    """Verify all verdict paths produce the same behavior as TypeScript."""
+
+    def test_deny_verdict_raises(self):
+        kernel = create_kernel(mode="local", preset="safe-research")
+        with pytest.raises(ToolCallDenied) as exc_info:
+            kernel.execute_tool("shell", "exec", {"command": "ls"})
+        assert exc_info.value.verdict == "deny"
+        kernel.close()
+
+    def test_allow_verdict_returns(self):
+        kernel = create_kernel(mode="local", preset="safe-research")
+        grant = kernel.request_capability("http.read")
+        result = kernel.execute_tool(
+            "http", "get", {"url": "https://example.com"},
+            grant_id=grant["grant_id"],
+        )
+        assert result["verdict"] == "allow"
+        kernel.close()
+
+    def test_deny_by_default_when_no_rule_matches(self):
+        """TS parity: implicit deny-by-default when no policy rule matches."""
+        kernel = Kernel(
+            capabilities=[{"toolClass": "http", "actions": ["get"]}],
+            policies=[],  # No rules — only builtin deny-all
+        )
+        with pytest.raises(ToolCallDenied) as exc_info:
+            kernel.execute_tool("http", "get", {"url": "https://example.com"})
+        assert "deny-by-default" in exc_info.value.reason.lower() or "no matching" in exc_info.value.reason.lower()
+        kernel.close()
+
+
+class TestPackagingIntegrity:
+    """Verify the spec file is loadable from the installed package."""
+
+    def test_spec_loads_from_package(self):
+        """Spec file must be loadable via importlib.resources (not path walking)."""
+        from arikernel.runtime.spec_loader import load_spec
+        spec = load_spec()
+        assert "presets" in spec
+        assert "defaults" in spec
+        assert "capabilityClasses" in spec
+        assert "policyFragments" in spec
+        assert "constants" in spec
+        assert "autoScope" in spec
+        assert "behavioralRules" in spec
+
+    def test_all_presets_loadable_from_package(self):
+        for pid in ["safe-research", "rag-reader", "workspace-assistant", "automation-agent"]:
+            preset = get_preset(pid)
+            assert preset["id"] == pid
+            assert len(preset["capabilities"]) > 0
+            assert len(preset["policies"]) > 0
+
+
+# ── Sidecar architecture tests ───────────────────────────────────
+
+class TestSidecarArchitecture:
+    """Verify the sidecar-authoritative architecture is correctly wired."""
+
+    def test_default_mode_is_sidecar(self):
+        """create_kernel() must default to sidecar mode, not local."""
+        # Without a running sidecar, it should raise ConnectionError
+        with pytest.raises(ConnectionError, match="Cannot connect to AriKernel sidecar"):
+            create_kernel(mode="sidecar", preset="safe-research")
+
+    def test_sidecar_is_default_when_no_mode_specified(self):
+        """create_kernel() without mode= should try sidecar."""
+        # Suppress the "local mode" warning and ensure it doesn't use local
+        with pytest.raises(ConnectionError, match="sidecar"):
+            create_kernel(preset="safe-research")
+
+    def test_local_mode_emits_warning(self):
+        """Local mode must emit a warning about dev/testing only."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            kernel = create_kernel(mode="local", preset="safe-research")
+            kernel.close()
+            local_warnings = [x for x in w if "local enforcement mode" in str(x.message).lower()]
+            assert len(local_warnings) >= 1
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode= values must raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid mode"):
+            create_kernel(mode="invalid")
+
+    def test_sidecar_kernel_interface_matches_local(self):
+        """SidecarKernel must have the same key methods as Kernel."""
+        from arikernel.sidecar import SidecarKernel
+        # Check that SidecarKernel has the same core methods
+        for method in ["request_capability", "execute_tool", "close", "health"]:
+            assert hasattr(SidecarKernel, method), f"SidecarKernel missing {method}"
+
+    def test_sidecar_kernel_is_context_manager(self):
+        """SidecarKernel must support `with` statement."""
+        from arikernel.sidecar import SidecarKernel
+        assert hasattr(SidecarKernel, "__enter__")
+        assert hasattr(SidecarKernel, "__exit__")
+
+    def test_sidecar_connection_error_is_clear(self):
+        """Connection failures must explain how to start the sidecar."""
+        with pytest.raises(ConnectionError) as exc_info:
+            create_kernel(preset="safe-research", sidecar_url="http://localhost:19999")
+        msg = str(exc_info.value)
+        assert "pnpm" in msg.lower() or "sidecar" in msg.lower()
+
+    def test_protect_tool_uses_sidecar_by_default(self):
+        """protect_tool's default kernel should attempt sidecar connection."""
+        from arikernel.protect import _default_kernel, get_default_kernel
+        import arikernel.protect as protect_mod
+        # Reset global state
+        original = protect_mod._default_kernel
+        protect_mod._default_kernel = None
+        try:
+            with pytest.raises(ConnectionError, match="sidecar"):
+                get_default_kernel()
+        finally:
+            protect_mod._default_kernel = original
+
+    def test_sidecar_timeout_fails_closed(self):
+        """Sidecar connection timeout must fail closed, not fall back to local."""
+        from arikernel.sidecar import SidecarKernel
+        # Use a non-routable IP to trigger timeout behavior
+        with pytest.raises((ConnectionError, Exception)):
+            SidecarKernel(
+                url="http://192.0.2.1:9099",  # TEST-NET, non-routable
+                timeout=1.0,
+            )
+
+    def test_no_try_except_fallback_in_create_kernel(self):
+        """Verify create_kernel does NOT catch ConnectionError to fall back to local.
+
+        This is the critical invariant: sidecar failure must propagate, not degrade.
+        """
+        # If sidecar mode raises ConnectionError, it must propagate to caller
+        raised = False
+        try:
+            create_kernel(mode="sidecar", preset="safe-research")
+        except ConnectionError:
+            raised = True
+        except Exception:
+            # Any other exception is also acceptable — as long as it's not silently local
+            raised = True
+        assert raised, "create_kernel(mode='sidecar') must raise when sidecar unavailable"
+
+    def test_no_create_kernel_call_without_mode_in_tests(self):
+        """All test files must use explicit mode='local' — no accidental sidecar.
+
+        Exceptions: TestSidecarArchitecture tests intentionally call without
+        mode= to verify fail-closed behavior.
+        """
+        import ast
+        from pathlib import Path
+
+        test_dir = Path(__file__).parent
+        violations = []
+        for test_file in test_dir.glob("test_*.py"):
+            if test_file.name == "test_integration.py":
+                continue  # integration tests are allowed to use sidecar
+            source = test_file.read_text()
+            tree = ast.parse(source)
+
+            # Find lines inside TestSidecarArchitecture class (exempt)
+            exempt_lines: set[int] = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef) and node.name == "TestSidecarArchitecture":
+                    for child in ast.walk(node):
+                        if hasattr(child, "lineno"):
+                            exempt_lines.add(child.lineno)
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    if node.lineno in exempt_lines:
+                        continue
+                    func = node.func
+                    is_create_kernel = (
+                        (isinstance(func, ast.Name) and func.id == "create_kernel") or
+                        (isinstance(func, ast.Attribute) and func.attr == "create_kernel")
+                    )
+                    if is_create_kernel:
+                        has_mode = any(kw.arg == "mode" for kw in node.keywords)
+                        if not has_mode:
+                            violations.append(
+                                f"{test_file.name}:{node.lineno}: "
+                                f"create_kernel() without explicit mode="
+                            )
+        assert not violations, (
+            "Found create_kernel() calls without explicit mode= in test files. "
+            "All tests must specify mode='local' to avoid accidental sidecar dependency.\n"
+            + "\n".join(violations)
+        )

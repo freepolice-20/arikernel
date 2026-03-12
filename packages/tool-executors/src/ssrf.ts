@@ -3,6 +3,8 @@
  *
  * Defends against:
  *  - Direct private-IP access (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, etc.)
+ *  - IPv4-mapped IPv6 bypass (::ffff:127.0.0.1, ::ffff:10.0.0.1, etc.)
+ *  - IPv6 loopback/link-local/ULA/multicast (::1, fe80::, fc/fd, ff00::)
  *  - DNS rebinding (TOCTOU) — resolved IP is returned for connection pinning
  *  - Redirect-based SSRF — each hop is re-resolved and re-validated
  */
@@ -11,27 +13,77 @@ import http from "node:http";
 import https from "node:https";
 import { isIP } from "node:net";
 
-/** Check if an IP address is in a private, loopback, or link-local range. */
-export function isPrivateIP(ip: string): boolean {
-	// IPv4
-	if (ip.startsWith("127.")) return true;
-	if (ip.startsWith("10.")) return true;
-	if (ip.startsWith("192.168.")) return true;
-	if (ip.startsWith("169.254.")) return true;
-	if (ip === "0.0.0.0") return true;
-	if (ip.startsWith("172.")) {
-		const second = Number.parseInt(ip.split(".")[1], 10);
-		if (second >= 16 && second <= 31) return true;
+/**
+ * Normalize an IP string to a canonical form and, for IPv4-mapped IPv6
+ * addresses (::ffff:x.x.x.x), extract the inner IPv4 address so that
+ * private-range checks cannot be bypassed with alternate encodings.
+ *
+ * Returns { version: 4 | 6, canonical: string }.
+ * Throws on unparseable input (fail-closed).
+ */
+function normalizeIP(ip: string): { version: 4 | 6; canonical: string } {
+	const raw = ip.trim();
+	const kind = isIP(raw); // 0 = invalid, 4 = IPv4, 6 = IPv6
+
+	if (kind === 4) return { version: 4, canonical: raw };
+
+	if (kind === 6) {
+		const lower = raw.toLowerCase();
+		// IPv4-mapped IPv6  —  ::ffff:a.b.c.d
+		const mapped = lower.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+		if (mapped) {
+			return { version: 4, canonical: mapped[1] };
+		}
+		return { version: 6, canonical: lower };
 	}
 
-	// IPv6
-	const lower = ip.toLowerCase();
-	if (lower === "::1") return true;
-	if (lower === "::") return true;
-	if (lower.startsWith("fe80:")) return true;
-	if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+	// kind === 0 — not a valid IP; fail closed
+	throw new Error(`SSRF blocked: "${raw}" is not a valid IP address`);
+}
 
+/** Check whether an IPv4 address is private/reserved. */
+function isPrivateIPv4(ip: string): boolean {
+	if (ip.startsWith("127.")) return true; // loopback
+	if (ip.startsWith("10.")) return true; // RFC 1918
+	if (ip.startsWith("192.168.")) return true; // RFC 1918
+	if (ip.startsWith("169.254.")) return true; // link-local
+	if (ip === "0.0.0.0") return true; // unspecified
+	if (ip === "255.255.255.255") return true; // broadcast
+	if (ip.startsWith("172.")) {
+		const second = Number.parseInt(ip.split(".")[1], 10);
+		if (second >= 16 && second <= 31) return true; // RFC 1918
+	}
 	return false;
+}
+
+/** Check whether an IPv6 address (already lowercased) is private/reserved. */
+function isPrivateIPv6(ip: string): boolean {
+	if (ip === "::1") return true; // loopback
+	if (ip === "::") return true; // unspecified
+	if (ip.startsWith("fe80")) return true; // link-local  (fe80::/10)
+	if (ip.startsWith("fc") || ip.startsWith("fd")) return true; // ULA (fc00::/7)
+	if (ip.startsWith("ff")) return true; // multicast (ff00::/8)
+	return false;
+}
+
+/**
+ * Check if an IP address is in a private, loopback, link-local, multicast,
+ * or otherwise reserved range.
+ *
+ * Handles IPv4-mapped IPv6 (::ffff:x.x.x.x) by extracting the inner IPv4
+ * address and checking it against IPv4 ranges.  Fail-closed: unparseable
+ * addresses are treated as private.
+ */
+export function isPrivateIP(ip: string): boolean {
+	let norm: { version: 4 | 6; canonical: string };
+	try {
+		norm = normalizeIP(ip);
+	} catch {
+		return true; // fail closed — unparseable ⇒ blocked
+	}
+
+	if (norm.version === 4) return isPrivateIPv4(norm.canonical);
+	return isPrivateIPv6(norm.canonical);
 }
 
 /**

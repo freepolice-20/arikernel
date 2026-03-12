@@ -65,7 +65,7 @@ AriKernel is a **userspace enforcement layer**, not a hardware-backed sandbox. T
 ### What AriKernel Does NOT Protect Against
 
 - **Ambient authority bypass**: Any agent with access to raw `fs`, `net`, `child_process`, or equivalent APIs can bypass AriKernel entirely. Sidecar mode mitigates this by placing the kernel in a separate process, but the agent process must still be restricted from making direct system calls (via container sandboxing, seccomp, or equivalent OS-level policy).
-- **Compromised host or runtime**: If the Node.js/Python process itself is compromised, kernel state and enforcement can be tampered with. AriKernel assumes a trusted runtime environment.
+- **Compromised host or runtime**: If the Node.js process itself is compromised, kernel state and enforcement can be tampered with. AriKernel assumes a trusted runtime environment. (Note: the Python runtime is experimental and not part of the v0.1.0 release.)
 - **Supply chain attacks**: Malicious dependencies loaded into the agent process operate with full ambient authority. AriKernel does not inspect or restrict package-level code execution.
 - **Covert channels**: Exfiltration via DNS, timing side channels, error-based channels, or other non-tool-call communication paths is not mediated.
 - **Multi-agent collusion (full prevention)**: The cross-principal correlator and shared-store taint tracking provide lightweight provenance and alerting, not full information-flow control. Agents that coordinate without shared stores (e.g., pure network choreography) are not detected.

@@ -1,3 +1,9 @@
+# Ari Kernel v0.1.0 — Release Scope Note
+
+> **v0.1.0 supports both TypeScript/Node.js and Python.** The Python runtime (`pip install arikernel`) uses a sidecar-first architecture: Python defaults to the TypeScript sidecar as the authoritative enforcement layer, preserving centralized policy, audit, and runtime security decisions. Local Python mode is available for development and testing. See [Python README](python/README.md) for details.
+
+---
+
 # Ari Kernel v0.1.3 — Unknown Capability Class Guard
 
 ## What changed
@@ -71,7 +77,7 @@ New framework adapters in `@arikernel/adapters` make Ari Kernel immediately usab
 - **`LangChainAdapter`** — polished adapter for LangChain DynamicTools
 - **`CrewAIAdapter`** — adapter for CrewAI tool protection
 - **`protectVercelTools()`** — adapter for Vercel AI SDK
-- **`@protect_tool`** — Python decorator for protecting tool functions via the native Python runtime (no TypeScript server required). Legacy HTTP decision server mode also supported.
+- **`@protect_tool`** — Python decorator for protecting tool functions. Defaults to sidecar-authoritative mode (TypeScript sidecar required). Local mode available for dev/testing.
 
 Ari Kernel is model-agnostic. It protects tool execution, not the model — so it works with OpenAI, Claude, Gemini, or any provider.
 

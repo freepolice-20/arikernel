@@ -213,7 +213,7 @@ export function createKernel(options: KernelOptions = {}): Kernel {
 	const auditLog = options.auditLog;
 	const hooks = options.hooks;
 	const runStatePolicy = options.runStatePolicy ?? {
-		maxDeniedSensitiveActions: 10,
+		maxDeniedSensitiveActions: 5,
 		behavioralRules: true,
 	};
 	const mode = options.mode;

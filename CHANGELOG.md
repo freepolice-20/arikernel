@@ -93,6 +93,10 @@ All notable changes to Ari Kernel are documented here.
 
 ## [0.1.0] — 2026-03-05
 
+### Important: Release Scope
+
+> **v0.1.0 is a TypeScript / Node.js release.** The Python runtime (`python/`) is experimental and excluded from this release. Two release-blocking issues — `require-approval` semantic divergence and broken packaging/spec discovery — are tracked for a future release.
+
 ### Security Features
 - **Capability token system** — time-limited (5 min), usage-limited (10 calls), scope-constrained grants with atomic token validation; no ambient authority
 - **Taint tracking with auto-propagation** — data provenance labels (`web`, `rag`, `email`) auto-attached by HTTP, RAG, and MCP executors; propagated through tool chains; model-generated taint injection at pipeline entry
@@ -115,4 +119,4 @@ All notable changes to Ari Kernel are documented here.
 - 7 security presets: `safe`, `strict`, `research`, `safe-research`, `rag-reader`, `workspace-assistant`, `automation-agent`
 - Framework middleware: LangChain, OpenAI Agents SDK, CrewAI, AutoGen wrappers
 - MCP tool integration via `protectMCPTools()`
-- Python runtime with `@protect_tool` decorator
+- Python runtime with `@protect_tool` decorator **(experimental — not part of v0.1.0 release scope)**

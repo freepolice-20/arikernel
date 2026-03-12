@@ -1,0 +1,423 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0",
+
+  "capabilityClasses": {
+    "http.read":      { "toolClass": "http",     "actions": ["get", "head", "options"] },
+    "http.write":     { "toolClass": "http",     "actions": ["post", "put", "patch", "delete"] },
+    "shell.exec":     { "toolClass": "shell",    "actions": ["exec"] },
+    "database.read":  { "toolClass": "database", "actions": ["query"] },
+    "database.write": { "toolClass": "database", "actions": ["exec", "mutate"] },
+    "file.read":      { "toolClass": "file",     "actions": ["read"] },
+    "file.write":     { "toolClass": "file",     "actions": ["write"] }
+  },
+
+  "policyFragments": {
+    "deny-shell": {
+      "id": "deny-shell",
+      "name": "Deny shell execution",
+      "priority": 10,
+      "match": { "toolClass": "shell" },
+      "decision": "deny",
+      "reason": "Shell execution is not allowed in this preset"
+    },
+    "deny-tainted-shell": {
+      "id": "deny-tainted-shell",
+      "name": "Deny shell with untrusted input",
+      "priority": 10,
+      "match": { "toolClass": "shell", "taintSources": ["web", "rag", "email"] },
+      "decision": "deny",
+      "reason": "Shell execution with untrusted input is forbidden"
+    },
+    "deny-http-write": {
+      "id": "deny-http-write",
+      "name": "Deny outbound HTTP writes",
+      "priority": 20,
+      "match": { "toolClass": "http", "action": ["post", "put", "patch", "delete"] },
+      "decision": "deny",
+      "reason": "Outbound HTTP writes are not allowed in this preset"
+    },
+    "deny-file-write": {
+      "id": "deny-file-write",
+      "name": "Deny file writes",
+      "priority": 20,
+      "match": { "toolClass": "file", "action": "write" },
+      "decision": "deny",
+      "reason": "File writes are not allowed in this preset"
+    },
+    "allow-http-get": {
+      "id": "allow-http-get",
+      "name": "Allow HTTP GET",
+      "priority": 100,
+      "match": { "toolClass": "http", "action": "get" },
+      "decision": "allow",
+      "reason": "HTTP GET requests are allowed (read-only)"
+    },
+    "allow-file-read": {
+      "id": "allow-file-read",
+      "name": "Allow file reads",
+      "priority": 100,
+      "match": { "toolClass": "file", "action": "read" },
+      "decision": "allow",
+      "reason": "File reads are allowed (grant constraints enforce path limits)"
+    },
+    "deny-all": {
+      "id": "__builtin_deny_all",
+      "name": "Deny All (default)",
+      "priority": 999,
+      "match": {},
+      "decision": "deny",
+      "reason": "No matching policy (deny-by-default)",
+      "tags": ["builtin"]
+    }
+  },
+
+  "presets": {
+    "safe-research": {
+      "id": "safe-research",
+      "name": "Safe Research",
+      "description": "Web research and summarization agents. HTTP reads allowed, file/shell/writes blocked.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] } }
+      ],
+      "policies": ["allow-http-get", "allow-file-read", "deny-http-write", "deny-file-write", "deny-shell"]
+    },
+    "rag-reader": {
+      "id": "rag-reader",
+      "name": "RAG Reader",
+      "description": "Document retrieval and RAG systems. File reads and DB queries allowed, writes blocked.",
+      "capabilities": [
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./docs/**", "./data/**"] } },
+        { "toolClass": "database", "actions": ["query"] }
+      ],
+      "policies": [
+        "allow-file-read",
+        {
+          "id": "allow-db-query",
+          "name": "Allow DB queries",
+          "priority": 100,
+          "match": { "toolClass": "database", "action": "query" },
+          "decision": "allow",
+          "reason": "Database reads are allowed for RAG retrieval"
+        },
+        "deny-http-write",
+        "deny-file-write",
+        "deny-shell",
+        {
+          "id": "deny-db-write",
+          "name": "Deny DB writes",
+          "priority": 20,
+          "match": { "toolClass": "database", "action": ["exec", "mutate"] },
+          "decision": "deny",
+          "reason": "Database writes are not allowed in this preset"
+        }
+      ]
+    },
+    "workspace-assistant": {
+      "id": "workspace-assistant",
+      "name": "Workspace Assistant",
+      "description": "Coding assistants working inside a project. File read/write in workspace, shell approval-gated.",
+      "capabilities": [
+        { "toolClass": "file", "actions": ["read", "write"], "constraints": { "allowedPaths": ["./**"] } },
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "shell", "actions": ["exec"] }
+      ],
+      "policies": [
+        "allow-http-get",
+        "allow-file-read",
+        {
+          "id": "allow-file-write-workspace",
+          "name": "Allow workspace file writes",
+          "priority": 100,
+          "match": { "toolClass": "file", "action": "write" },
+          "decision": "allow",
+          "reason": "File writes allowed within workspace (grant constraints enforce path limits)"
+        },
+        {
+          "id": "approve-shell",
+          "name": "Shell requires approval",
+          "priority": 50,
+          "match": { "toolClass": "shell" },
+          "decision": "require-approval",
+          "reason": "Shell commands require approval in workspace mode"
+        },
+        "deny-tainted-shell",
+        "deny-http-write"
+      ]
+    },
+    "automation-agent": {
+      "id": "automation-agent",
+      "name": "Automation Agent",
+      "description": "Business/process automation. HTTP and database allowed, filesystem and shell blocked.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get", "post"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "database", "actions": ["query", "exec"] }
+      ],
+      "policies": [
+        "allow-http-get",
+        {
+          "id": "allow-http-post",
+          "name": "Allow HTTP POST",
+          "priority": 100,
+          "match": { "toolClass": "http", "action": "post" },
+          "decision": "allow",
+          "reason": "HTTP POST allowed for API integrations"
+        },
+        {
+          "id": "allow-db-query",
+          "name": "Allow DB queries",
+          "priority": 100,
+          "match": { "toolClass": "database", "action": "query" },
+          "decision": "allow",
+          "reason": "Database queries allowed"
+        },
+        {
+          "id": "allow-db-exec",
+          "name": "Allow DB execution",
+          "priority": 90,
+          "match": { "toolClass": "database", "action": ["exec", "mutate"] },
+          "decision": "allow",
+          "reason": "Database writes allowed for automation"
+        },
+        "deny-shell",
+        "deny-file-write",
+        {
+          "id": "deny-file-read",
+          "name": "Deny file reads",
+          "priority": 20,
+          "match": { "toolClass": "file" },
+          "decision": "deny",
+          "reason": "Filesystem access is not allowed in automation preset"
+        }
+      ]
+    },
+
+    "safe": {
+      "id": "safe",
+      "name": "Safe",
+      "description": "Recommended default for production agents. Blocks tainted→secret, tainted→shell, tainted→egress. Allows safe read-only operations. Behavioral quarantine at low threshold.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] } },
+        { "toolClass": "database", "actions": ["query"] }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        {
+          "id": "deny-tainted-http-write",
+          "name": "Deny tainted HTTP writes",
+          "priority": 10,
+          "match": { "toolClass": "http", "action": ["post", "put", "patch", "delete"], "taintSources": ["web", "rag", "email"] },
+          "decision": "deny",
+          "reason": "Outbound HTTP writes with untrusted taint are forbidden"
+        },
+        "deny-http-write",
+        "deny-file-write",
+        "deny-shell",
+        "allow-http-get",
+        "allow-file-read",
+        {
+          "id": "allow-db-query-safe",
+          "name": "Allow DB queries",
+          "priority": 100,
+          "match": { "toolClass": "database", "action": "query" },
+          "decision": "allow",
+          "reason": "Read-only database queries are allowed"
+        },
+        {
+          "id": "deny-db-write-safe",
+          "name": "Deny DB mutations",
+          "priority": 20,
+          "match": { "toolClass": "database", "action": ["exec", "mutate", "write", "insert", "update", "delete"] },
+          "decision": "deny",
+          "reason": "Database mutations are blocked in safe mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 5,
+        "behavioralRules": true
+      }
+    },
+
+    "strict": {
+      "id": "strict",
+      "name": "Strict",
+      "description": "High-security environments. All tainted→external actions blocked. Shell blocked unless explicitly granted. Database denied by default. HTTP GET only with empty host allowlist.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": [] } },
+        { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**"] } }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        {
+          "id": "deny-tainted-any-write",
+          "name": "Deny all tainted write actions",
+          "priority": 5,
+          "match": { "taintSources": ["web", "rag", "email"] },
+          "decision": "deny",
+          "reason": "All actions with untrusted taint are forbidden in strict mode"
+        },
+        "deny-shell",
+        "deny-http-write",
+        "deny-file-write",
+        {
+          "id": "allow-http-get-strict",
+          "name": "Allow HTTP GET (host-constrained)",
+          "priority": 90,
+          "match": { "toolClass": "http", "action": "get" },
+          "decision": "allow",
+          "reason": "HTTP GET allowed (grant constraints enforce host allowlist)"
+        },
+        "allow-file-read",
+        {
+          "id": "deny-db-all-strict",
+          "name": "Deny all database operations",
+          "priority": 20,
+          "match": { "toolClass": "database" },
+          "decision": "deny",
+          "reason": "Database access requires explicit capability grant in strict mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 3,
+        "behavioralRules": true
+      }
+    },
+
+    "research": {
+      "id": "research",
+      "name": "Research",
+      "description": "Experimentation and debugging. Permissive — allows HTTP, file read/write, DB queries. Taint tracked, high quarantine threshold. Shell approval-gated.",
+      "capabilities": [
+        { "toolClass": "http", "actions": ["get", "post"], "constraints": { "allowedHosts": ["*"] } },
+        { "toolClass": "file", "actions": ["read", "write"], "constraints": { "allowedPaths": ["./**"] } },
+        { "toolClass": "database", "actions": ["query", "exec"] },
+        { "toolClass": "shell", "actions": ["exec"] }
+      ],
+      "policies": [
+        "deny-tainted-shell",
+        "allow-http-get",
+        {
+          "id": "allow-http-post-research",
+          "name": "Allow HTTP POST",
+          "priority": 100,
+          "match": { "toolClass": "http", "action": "post" },
+          "decision": "allow",
+          "reason": "HTTP POST allowed for research and testing"
+        },
+        "allow-file-read",
+        {
+          "id": "allow-file-write-research",
+          "name": "Allow file writes",
+          "priority": 100,
+          "match": { "toolClass": "file", "action": "write" },
+          "decision": "allow",
+          "reason": "File writes allowed for research (grant constraints enforce path limits)"
+        },
+        {
+          "id": "allow-db-all-research",
+          "name": "Allow database operations",
+          "priority": 100,
+          "match": { "toolClass": "database" },
+          "decision": "allow",
+          "reason": "Database operations allowed for research"
+        },
+        {
+          "id": "approve-shell-research",
+          "name": "Shell requires approval",
+          "priority": 50,
+          "match": { "toolClass": "shell" },
+          "decision": "require-approval",
+          "reason": "Shell commands require approval even in research mode"
+        }
+      ],
+      "runStatePolicy": {
+        "maxDeniedSensitiveActions": 20,
+        "behavioralRules": true
+      }
+    }
+  },
+
+  "defaults": {
+    "capabilities": [
+      { "toolClass": "http", "actions": ["get"], "constraints": { "allowedHosts": ["*"] } },
+      { "toolClass": "file", "actions": ["read"], "constraints": { "allowedPaths": ["./data/**", "./docs/**", "./workspace/**"] } }
+    ],
+    "policies": ["allow-http-get", "allow-file-read", "deny-http-write", "deny-file-write", "deny-shell", "deny-tainted-shell"]
+  },
+
+  "behavioralRules": {
+    "web_taint_sensitive_probe": {
+      "description": "Untrusted web taint followed by sensitive action",
+      "taintSources": ["web", "rag", "email"],
+      "dangerousFollowups": ["sensitive_read_attempt", "shell_exec", "egress_attempt"]
+    },
+    "denied_capability_then_escalation": {
+      "description": "Denied capability followed by escalation to riskier tool class",
+      "toolClassRisk": { "http": 1, "database": 2, "file": 3, "shell": 5 },
+      "dangerousClasses": ["shell", "file"]
+    },
+    "sensitive_read_then_egress": {
+      "description": "Sensitive file read followed by outbound HTTP write",
+      "sensitivePathPatterns": ["\\.ssh", "\\.env", "\\.aws", "credentials", "password", "secret", "\\.gnupg", "id_rsa", "\\.kube/config", "token"],
+      "egressActions": ["post", "put", "patch", "delete"]
+    },
+    "tainted_database_write": {
+      "description": "Untrusted taint followed by database write/mutate action",
+      "taintSources": ["web", "rag", "email"],
+      "dbWriteActions": ["exec", "write", "insert", "update", "delete", "mutate"]
+    },
+    "tainted_shell_with_data": {
+      "description": "Untrusted taint followed by shell command with long command string",
+      "taintSources": ["web", "rag", "email"],
+      "shellDataCmdLength": 100
+    },
+    "secret_access_then_any_egress": {
+      "description": "Access to secrets/vault resources followed by any egress",
+      "secretsDbPattern": "secret|credential|password|token|vault|key_store",
+      "secretsUrlPattern": "vault|secrets|credentials|\\.well-known\\/keys"
+    }
+  },
+
+  "autoScope": {
+    "rules": [
+      {
+        "preset": "safe-research",
+        "weight": 1,
+        "keywords": ["search", "browse", "summarize", "summary", "webpage", "website", "url", "article", "research", "google", "fetch", "scrape", "crawl", "news", "lookup", "find online", "web", "internet", "link"]
+      },
+      {
+        "preset": "rag-reader",
+        "weight": 2,
+        "keywords": ["document", "pdf", "csv", "json", "analyze", "analysis", "parse", "extract", "read file", "corpus", "retrieval", "rag", "vector", "embedding", "index", "knowledge base", "ingest"]
+      },
+      {
+        "preset": "workspace-assistant",
+        "weight": 3,
+        "keywords": ["code", "refactor", "implement", "fix bug", "write code", "edit file", "create file", "repo", "repository", "git", "commit", "test", "build", "compile", "debug", "lint", "format", "workspace", "project"]
+      },
+      {
+        "preset": "automation-agent",
+        "weight": 4,
+        "keywords": ["automate", "automation", "workflow", "pipeline", "sync", "crm", "api", "webhook", "schedule", "trigger", "integrate", "integration", "send email", "notify", "database", "records", "batch", "process"]
+      }
+    ],
+    "fallback": "safe-research",
+    "minConfidence": 0.3
+  },
+
+  "constants": {
+    "maxEventWindow": 20,
+    "defaultDeniedThreshold": 5,
+    "capabilityLeaseTtlMs": 300000,
+    "capabilityMaxCalls": 10,
+    "untrustedTaintSources": ["web", "rag", "email", "retrieved-doc"],
+    "safeReadonlyActions": {
+      "http": ["get", "head", "options"],
+      "file": ["read"],
+      "database": ["query"]
+    },
+    "genesisHash": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
