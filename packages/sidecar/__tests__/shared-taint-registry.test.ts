@@ -1,6 +1,6 @@
-import { resolve, normalize } from "node:path";
+import { normalize, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SharedTaintRegistry, type SharedStoreConfig } from "../src/shared-taint-registry.js";
+import { type SharedStoreConfig, SharedTaintRegistry } from "../src/shared-taint-registry.js";
 
 describe("SharedTaintRegistry", () => {
 	const config: SharedStoreConfig = {
@@ -21,8 +21,8 @@ describe("SharedTaintRegistry", () => {
 		reg.markContaminated("db:tasks", "agent-B");
 		const c = reg.getContamination("db:tasks");
 		expect(c).toBeDefined();
-		expect(c!.principalId).toBe("agent-B");
-		expect(c!.key).toBe("db:tasks");
+		expect(c?.principalId).toBe("agent-B");
+		expect(c?.key).toBe("db:tasks");
 	});
 
 	it("extractResourceKey returns db key for shared table write", () => {

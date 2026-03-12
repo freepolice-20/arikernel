@@ -481,10 +481,7 @@ export function isSuspiciousGetExfil(url: string): boolean {
 		// Path segment checks — detect encoded data in URL path
 		const segments = parsed.pathname.split("/").filter(Boolean);
 		for (const segment of segments) {
-			if (
-				segment.length >= MIN_SUSPICIOUS_SEGMENT_LENGTH &&
-				normalizedEntropy(segment) > 0.7
-			) {
+			if (segment.length >= MIN_SUSPICIOUS_SEGMENT_LENGTH && normalizedEntropy(segment) > 0.7) {
 				return true;
 			}
 		}

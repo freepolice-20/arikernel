@@ -87,6 +87,7 @@ describe("protectAgentTools", () => {
 		});
 
 		// read_file on sensitive path should be denied
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const readTool = protected_.find((t) => t.function.name === "read_file")!;
 		await expect(readTool.execute({ path: "~/.ssh/id_rsa" })).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -98,6 +99,7 @@ describe("protectAgentTools", () => {
 			web_search: { toolClass: "http", action: "get" },
 		});
 
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const unmapped = protected_.find((t) => t.function.name === "unmapped_tool")!;
 		const result = await unmapped.execute({});
 		expect(result).toBe("unmapped result");
@@ -110,6 +112,7 @@ describe("protectAgentTools", () => {
 			web_search: { toolClass: "http", action: "get" },
 		});
 
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const search = protected_.find((t) => t.function.name === "web_search")!;
 		expect(search.type).toBe("function");
 		expect(search.function.name).toBe("web_search");
@@ -143,16 +146,17 @@ describe("protectAgentTools", () => {
 		// Verify the error has a clean message, not a TypeError
 		try {
 			await emailTool.execute({ to: "test@example.com" });
-		} catch (err: any) {
+		} catch (err: unknown) {
 			expect(err).toBeInstanceOf(ToolCallDeniedError);
-			expect(err.message).toContain("Unknown capability class");
-			expect(err.message).toContain("email.write");
-			expect(err.toolCall).toBeDefined();
-			expect(err.toolCall.id).toBeTruthy();
-			expect(err.toolCall.toolClass).toBe("email");
-			expect(err.toolCall.action).toBe("send");
-			expect(err.decision).toBeDefined();
-			expect(err.decision.verdict).toBe("deny");
+			const e = err as ToolCallDeniedError;
+			expect(e.message).toContain("Unknown capability class");
+			expect(e.message).toContain("email.write");
+			expect(e.toolCall).toBeDefined();
+			expect(e.toolCall.id).toBeTruthy();
+			expect(e.toolCall.toolClass).toBe("email");
+			expect(e.toolCall.action).toBe("send");
+			expect(e.decision).toBeDefined();
+			expect(e.decision.verdict).toBe("deny");
 		}
 	});
 
@@ -204,6 +208,7 @@ describe("protectAgentTools", () => {
 			web_search: { toolClass: "http", action: "post" },
 		});
 
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const readTool = protected_.find((t) => t.function.name === "read_file")!;
 
 		// Trigger quarantine with sensitive file reads

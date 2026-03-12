@@ -14,10 +14,7 @@ const RED = "\x1b[31m";
 const CYAN = "\x1b[36m";
 const RESET = "\x1b[0m";
 
-export async function runAttackSimulate(
-	scenarioPath: string,
-	policyPath?: string,
-): Promise<void> {
+export async function runAttackSimulate(scenarioPath: string, policyPath?: string): Promise<void> {
 	const abs = resolve(scenarioPath);
 	const policies = policyPath ? loadPolicies(policyPath) : undefined;
 
@@ -59,7 +56,9 @@ export async function runAttackList(): Promise<void> {
 		const tags = (s as unknown as { tags?: string[] }).tags;
 		console.log(`  ${BOLD}${s.name}${RESET}`);
 		console.log(`  ${DIM}${s.description}${RESET}`);
-		console.log(`  ${DIM}Steps: ${s.steps.length} | Expected blocked: ${s.expectedBlocked}${RESET}`);
+		console.log(
+			`  ${DIM}Steps: ${s.steps.length} | Expected blocked: ${s.expectedBlocked}${RESET}`,
+		);
 		if (tags) {
 			console.log(`  ${DIM}Tags: ${tags.join(", ")}${RESET}`);
 		}

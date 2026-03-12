@@ -1,5 +1,10 @@
 import { type CapabilityConstraint, type TaintLabel, deriveCapabilityClass } from "@arikernel/core";
-import type { ExecuteRequest, ExecuteResponse, RequestCapabilityResponse, StatusResponse } from "./types.js";
+import type {
+	ExecuteRequest,
+	ExecuteResponse,
+	RequestCapabilityResponse,
+	StatusResponse,
+} from "./types.js";
 
 export interface SidecarClientOptions {
 	/** Base URL of the sidecar server. Default: http://localhost:8787 */
@@ -33,11 +38,11 @@ export class SidecarClient {
 		// are vulnerable to interception.
 		try {
 			const url = new URL(this.endpoint);
-			const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+			const isLocalhost =
+				url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
 			if (!isLocalhost && url.protocol !== "https:") {
 				console.warn(
-					`[AriKernel] WARNING: Sidecar endpoint '${this.endpoint}' is non-localhost and non-HTTPS. ` +
-					"Credentials and tool calls may be transmitted in plaintext. Use HTTPS for remote sidecar connections.",
+					`[AriKernel] WARNING: Sidecar endpoint '${this.endpoint}' is non-localhost and non-HTTPS. Credentials and tool calls may be transmitted in plaintext. Use HTTPS for remote sidecar connections.`,
 				);
 			}
 		} catch {
@@ -81,9 +86,7 @@ export class SidecarClient {
 		params: Record<string, unknown>,
 		taint?: TaintLabel[],
 	): Promise<ExecuteResponse> {
-		const cap = await this.requestCapability(
-			deriveCapabilityClass(toolClass, action),
-		);
+		const cap = await this.requestCapability(deriveCapabilityClass(toolClass, action));
 		if (!cap.granted) {
 			return { allowed: false, error: cap.reason ?? "Capability denied" };
 		}

@@ -51,11 +51,7 @@ export async function run(dbPath: string): Promise<ScenarioResult> {
 	const fw = createFirewall({
 		principal: {
 			name: "benchmark-agent-s3",
-			capabilities: [
-				{ toolClass: "http" },
-				{ toolClass: "database" },
-				{ toolClass: "shell" },
-			],
+			capabilities: [{ toolClass: "http" }, { toolClass: "database" }, { toolClass: "shell" }],
 		},
 		policies: [
 			{

@@ -1,9 +1,4 @@
-import type {
-	DecisionVerdict,
-	PolicyRule,
-	TaintLabel,
-	ToolClass,
-} from "@arikernel/core";
+import type { DecisionVerdict, PolicyRule, TaintLabel, ToolClass } from "@arikernel/core";
 
 /**
  * Inbound decision request from sidecar → control plane.

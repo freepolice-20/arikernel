@@ -17,12 +17,7 @@ export class GlobalTaintRegistry {
 	 * Register taint labels for a principal's run.
 	 * Also associates labels with any resource identifiers found in the parameters.
 	 */
-	register(
-		principalId: string,
-		runId: string,
-		labels: TaintLabel[],
-		resourceIds?: string[],
-	): void {
+	register(principalId: string, runId: string, labels: TaintLabel[], resourceIds?: string[]): void {
 		if (labels.length === 0) return;
 
 		const runKey = `${principalId}:${runId}`;

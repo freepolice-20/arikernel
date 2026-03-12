@@ -4,16 +4,7 @@ import type { AuditEvent, Capability, PolicyRule, SigningKey } from "@arikernel/
 import { getPreset, now } from "@arikernel/core";
 import type { PresetId } from "@arikernel/core";
 import { type Firewall, createFirewall } from "@arikernel/runtime";
-import type { RunStatePolicy, SecurityMode, FirewallHooks } from "@arikernel/runtime";
-import {
-	type AlertHandler,
-	type CorrelatorConfig,
-	CrossPrincipalCorrelator,
-} from "./correlator.js";
-import {
-	type SharedStoreConfig,
-	SharedTaintRegistry,
-} from "./shared-taint-registry.js";
+import type { FirewallHooks, RunStatePolicy, SecurityMode } from "@arikernel/runtime";
 import {
 	DatabaseExecutor,
 	FileExecutor,
@@ -21,6 +12,12 @@ import {
 	RetrievalExecutor,
 	ShellExecutor,
 } from "@arikernel/tool-executors";
+import {
+	type AlertHandler,
+	type CorrelatorConfig,
+	CrossPrincipalCorrelator,
+} from "./correlator.js";
+import { type SharedStoreConfig, SharedTaintRegistry } from "./shared-taint-registry.js";
 
 const ALL_TOOL_CLASSES = ["http", "file", "shell", "database", "retrieval"] as const;
 
@@ -163,7 +160,10 @@ export class PrincipalRegistry {
 				// On shared-store writes: if this principal has read sensitive data,
 				// mark the shared resource as contaminated
 				const writeKey = sharedTaint.extractResourceKey(tc.toolClass, tc.action, tc.parameters);
-				if (writeKey && ["write", "insert", "update", "create", "exec", "mutate"].includes(tc.action)) {
+				if (
+					writeKey &&
+					["write", "insert", "update", "create", "exec", "mutate"].includes(tc.action)
+				) {
 					const fw = this.firewalls.get(principalId);
 					if (fw?.sensitiveReadObserved) {
 						sharedTaint.markContaminated(writeKey, principalId);
@@ -178,7 +178,9 @@ export class PrincipalRegistry {
 					if (contamination && contamination.principalId !== principalId) {
 						const fw = this.firewalls.get(principalId);
 						if (fw) {
-							const taintLabel = SharedTaintRegistry.createDerivedSensitiveTaint(contamination.principalId);
+							const taintLabel = SharedTaintRegistry.createDerivedSensitiveTaint(
+								contamination.principalId,
+							);
 							fw.injectExternalTaint([taintLabel]);
 						}
 					}

@@ -80,6 +80,7 @@ describe("protectOpenAIAgent", () => {
 		});
 		firewall = result.firewall;
 
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const readTool = result.tools.find((t) => t.function.name === "read_file")!;
 		await expect(readTool.execute({ path: "~/.ssh/id_rsa" })).rejects.toThrow();
 	});
@@ -116,6 +117,7 @@ describe("protectOpenAIAgent", () => {
 		});
 		firewall = result.firewall;
 
+		// biome-ignore lint/style/noNonNullAssertion: tool is defined in makeTools() above
 		const readTool = result.tools.find((t) => t.function.name === "read_file")!;
 		for (const path of [
 			"~/.ssh/id_rsa",

@@ -8,7 +8,9 @@ describe("runSimulation (all built-in scenarios)", () => {
 
 		const failed = results.filter((r) => !r.passed);
 		if (failed.length > 0) {
-			const names = failed.map((r) => `${r.scenario.name}: expected ${r.scenario.expectedVerdict}, got ${r.actualVerdict}`);
+			const names = failed.map(
+				(r) => `${r.scenario.name}: expected ${r.scenario.expectedVerdict}, got ${r.actualVerdict}`,
+			);
 			throw new Error(`Failed scenarios:\n${names.join("\n")}`);
 		}
 
@@ -22,6 +24,8 @@ describe("runSimulation (all built-in scenarios)", () => {
 		// Verify new scenario categories are included
 		expect(names.some((n) => n.includes("SSRF"))).toBe(true);
 		expect(names.some((n) => n.includes("traversal") || n.includes("Path"))).toBe(true);
-		expect(names.some((n) => n.includes("escalation") || n.includes("without capability"))).toBe(true);
+		expect(names.some((n) => n.includes("escalation") || n.includes("without capability"))).toBe(
+			true,
+		);
 	});
 });

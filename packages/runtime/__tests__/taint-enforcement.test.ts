@@ -13,8 +13,8 @@ import { resolve } from "node:path";
 import { ToolCallDeniedError } from "@arikernel/core";
 import type { TaintLabel } from "@arikernel/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type Firewall, createFirewall } from "../src/index.js";
 import { evaluateBehavioralRules } from "../src/behavioral-rules.js";
+import { type Firewall, createFirewall } from "../src/index.js";
 import { RunStateTracker } from "../src/run-state.js";
 
 const POLICY_PATH = resolve(
@@ -68,7 +68,7 @@ function makeFirewall(name: string): Firewall {
 			return {
 				callId: toolCall.id,
 				success: true,
-				data: { body: "response from " + toolCall.parameters.url },
+				data: { body: `response from ${toolCall.parameters.url}` },
 				durationMs: 10,
 				taintLabels: [], // deliberately empty — tool tries to clear taint
 			};
@@ -135,7 +135,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "get",
 			parameters: { url: "http://example.com" },
 			taintLabels: webTaint(),
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		// Even though the stub executor returned empty taintLabels,
@@ -152,7 +152,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "get",
 			parameters: { url: "http://evil.com" },
 			taintLabels: webTaint(),
-			grantId: grant1.grant!.id,
+			grantId: grant1.grant?.id,
 		});
 
 		// Call 2: no explicit taintLabels — agent "forgot" to include them
@@ -162,7 +162,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "read",
 			parameters: { path: "./readme.md" },
 			// no taintLabels — should still get run-level taint
-			grantId: grant2.grant!.id,
+			grantId: grant2.grant?.id,
 		});
 
 		// The kernel must inject accumulated run-level taint
@@ -178,7 +178,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "get",
 			parameters: { url: "http://evil.com" },
 			taintLabels: webTaint(),
-			grantId: grant1.grant!.id,
+			grantId: grant1.grant?.id,
 		});
 
 		// Verify run-level taint state is set
@@ -193,7 +193,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "get",
 			parameters: { url: "http://clean-site.com" },
 			// no taintLabels
-			grantId: grant2.grant!.id,
+			grantId: grant2.grant?.id,
 		});
 
 		// Run-level taint must still be set (sticky)
@@ -215,7 +215,7 @@ describe("tool cannot drop taint metadata", () => {
 			action: "get",
 			parameters: { url: "http://site-a.com" },
 			taintLabels: webTaint("site-a.com"),
-			grantId: grant1.grant!.id,
+			grantId: grant1.grant?.id,
 		});
 
 		const grant2 = fw.requestCapability("http.read");
@@ -231,7 +231,7 @@ describe("tool cannot drop taint metadata", () => {
 					addedAt: new Date().toISOString(),
 				},
 			],
-			grantId: grant2.grant!.id,
+			grantId: grant2.grant?.id,
 		});
 
 		expect(fw.taintState.tainted).toBe(true);
@@ -322,7 +322,7 @@ describe("tainted content triggers behavioral rules", () => {
 				action: "get",
 				parameters: { url: "http://evil.com/payload" },
 				taintLabels: webTaint(),
-				grantId: grant1.grant!.id,
+				grantId: grant1.grant?.id,
 			});
 
 			// Step 2: attempt shell.exec — should be denied by policy (tainted shell)
@@ -335,7 +335,7 @@ describe("tainted content triggers behavioral rules", () => {
 						toolClass: "shell",
 						action: "exec",
 						parameters: { command: "echo hello" },
-						grantId: grant2.grant!.id,
+						grantId: grant2.grant?.id,
 					}),
 				).rejects.toThrow(ToolCallDeniedError);
 			} else {
@@ -390,7 +390,7 @@ describe("taint_observed event emission", () => {
 						addedAt: new Date().toISOString(),
 					},
 				],
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			});
 
 			// Both rag (from input) and web (from output) should be in run-state
@@ -426,7 +426,7 @@ describe("taint_observed event emission", () => {
 				action: "get",
 				parameters: { url: "http://example.com" },
 				taintLabels: webTaint("pre-existing.com"),
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			});
 
 			// Run-state should have both the pre-existing web taint AND content-scan taint
@@ -468,7 +468,7 @@ describe("taint_observed event emission", () => {
 				toolClass: "http",
 				action: "get",
 				parameters: { url: "http://example.com" },
-				grantId: grant1.grant!.id,
+				grantId: grant1.grant?.id,
 			});
 
 			expect(fw.taintState.tainted).toBe(true);
@@ -480,7 +480,7 @@ describe("taint_observed event emission", () => {
 				toolClass: "file",
 				action: "read",
 				parameters: { path: "./readme.md" },
-				grantId: grant2.grant!.id,
+				grantId: grant2.grant?.id,
 			});
 
 			// Run-level taint should be carried forward

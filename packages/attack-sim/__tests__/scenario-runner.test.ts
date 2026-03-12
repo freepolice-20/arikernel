@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { loadBuiltinScenarios, BUILTIN_SCENARIOS_DIR } from "../src/builtin-scenarios.js";
-import { loadScenarioFile, loadScenarioDirectory } from "../src/scenario-loader.js";
-import { ACTION_MAP, yamlScenarioSchema } from "../src/scenario-schema.js";
-import { runScenarioFile, runScenarioDirectory, runPolicyTest } from "../src/scenario-runner.js";
+import { BUILTIN_SCENARIOS_DIR, loadBuiltinScenarios } from "../src/builtin-scenarios.js";
 import { DEFAULT_POLICY } from "../src/default-policy.js";
+import { loadScenarioDirectory, loadScenarioFile } from "../src/scenario-loader.js";
+import { runPolicyTest, runScenarioDirectory, runScenarioFile } from "../src/scenario-runner.js";
+import { ACTION_MAP, yamlScenarioSchema } from "../src/scenario-schema.js";
 
 // ── Schema validation ────────────────────────────────────────────────
 
@@ -106,9 +106,7 @@ describe("loadScenarioDirectory", () => {
 
 describe("runScenarioFile", () => {
 	it("executes a scenario and returns results", async () => {
-		const results = await runScenarioFile(
-			`${BUILTIN_SCENARIOS_DIR}/shell-escalation.yaml`,
-		);
+		const results = await runScenarioFile(`${BUILTIN_SCENARIOS_DIR}/shell-escalation.yaml`);
 		expect(results.length).toBe(1);
 		expect(results[0].blocked).toBe(true);
 		expect(results[0].stepVerdicts.length).toBeGreaterThan(0);
@@ -121,9 +119,7 @@ describe("runScenarioDirectory", () => {
 		expect(results.length).toBe(10);
 		// All policy-enforced scenarios should be blocked by safe-defaults.
 		// path_ambiguity_bypass requires file executor path constraints (not sim-enforced).
-		const policyEnforced = results.filter(
-			(r) => r.scenario.name !== "path_ambiguity_bypass",
-		);
+		const policyEnforced = results.filter((r) => r.scenario.name !== "path_ambiguity_bypass");
 		for (const r of policyEnforced) {
 			expect(r.blocked).toBe(true);
 		}

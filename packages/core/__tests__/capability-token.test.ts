@@ -6,8 +6,8 @@ import {
 	serializeCapabilityToken,
 	verifyCapabilityToken,
 } from "../src/capability-token.js";
-import type { CapabilityGrant } from "../src/types/capability.js";
 import type { Ed25519SigningKey, HmacSigningKey } from "../src/capability-token.js";
+import type { CapabilityGrant } from "../src/types/capability.js";
 
 function makeGrant(overrides?: Partial<CapabilityGrant>): CapabilityGrant {
 	const now = new Date();
@@ -61,7 +61,7 @@ describe("Signed Capability Tokens — HMAC-SHA256", () => {
 		const token = createCapabilityToken(grant, key);
 
 		// Tamper with the signature
-		const forged = { ...token, signature: "AAAA" + token.signature.slice(4) };
+		const forged = { ...token, signature: `AAAA${token.signature.slice(4)}` };
 		const result = verifyCapabilityToken(forged, key);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toContain("Invalid signature");
@@ -90,7 +90,10 @@ describe("Signed Capability Tokens — HMAC-SHA256", () => {
 
 		const mutated = {
 			...token,
-			grant: { ...token.grant, capabilityClass: "shell.exec" as any },
+			grant: {
+				...token.grant,
+				capabilityClass: "shell.exec" as unknown as typeof token.grant.capabilityClass,
+			},
 		};
 		const result = verifyCapabilityToken(mutated, key);
 		expect(result.valid).toBe(false);
@@ -167,7 +170,7 @@ describe("Signed Capability Tokens — Ed25519", () => {
 		const grant = makeGrant();
 		const token = createCapabilityToken(grant, key);
 
-		const forged = { ...token, signature: "AAAA" + token.signature.slice(4) };
+		const forged = { ...token, signature: `AAAA${token.signature.slice(4)}` };
 		const result = verifyCapabilityToken(forged, key);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toContain("Invalid signature");

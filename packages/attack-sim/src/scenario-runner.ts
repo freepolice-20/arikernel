@@ -54,8 +54,7 @@ export function formatTimeline(result: AttackResult): string {
 					: entry.verdict === "capability-denied"
 						? MAGENTA
 						: YELLOW;
-		const icon =
-			entry.verdict === "allow" ? "✓" : entry.verdict === "deny" ? "✗" : "⊘";
+		const icon = entry.verdict === "allow" ? "✓" : entry.verdict === "deny" ? "✗" : "⊘";
 
 		lines.push(
 			`  ${DIM}${entry.step}.${RESET} ${verdictColor}${BOLD}${icon} ${entry.verdict.toUpperCase().padEnd(18)}${RESET} ${entry.action}`,
@@ -66,14 +65,10 @@ export function formatTimeline(result: AttackResult): string {
 	lines.push(`${DIM}${"─".repeat(60)}${RESET}`);
 
 	if (result.blocked) {
-		lines.push(
-			`${RED}${BOLD}Attack blocked at step ${result.blockedAtStep}${RESET}`,
-		);
+		lines.push(`${RED}${BOLD}Attack blocked at step ${result.blockedAtStep}${RESET}`);
 		lines.push(`${DIM}Reason: ${result.blockReason}${RESET}`);
 	} else {
-		lines.push(
-			`${GREEN}${BOLD}All steps allowed${RESET} ${RED}— attack was NOT stopped${RESET}`,
-		);
+		lines.push(`${GREEN}${BOLD}All steps allowed${RESET} ${RED}— attack was NOT stopped${RESET}`);
 	}
 
 	if (result.quarantined) {
@@ -101,9 +96,7 @@ function identifyWeaknesses(results: AttackResult[]): string[] {
 
 	const unblocked = results.filter((r) => r.scenario.expectedBlocked && !r.blocked);
 	for (const r of unblocked) {
-		weaknesses.push(
-			`"${r.scenario.name}" was expected to be blocked but all steps were allowed`,
-		);
+		weaknesses.push(`"${r.scenario.name}" was expected to be blocked but all steps were allowed`);
 	}
 
 	const unexpectedQuarantine = results.filter(
@@ -113,13 +106,9 @@ function identifyWeaknesses(results: AttackResult[]): string[] {
 		weaknesses.push(`"${r.scenario.name}" triggered unexpected quarantine`);
 	}
 
-	const missedQuarantine = results.filter(
-		(r) => r.scenario.expectedQuarantined && !r.quarantined,
-	);
+	const missedQuarantine = results.filter((r) => r.scenario.expectedQuarantined && !r.quarantined);
 	for (const r of missedQuarantine) {
-		weaknesses.push(
-			`"${r.scenario.name}" should have triggered quarantine but did not`,
-		);
+		weaknesses.push(`"${r.scenario.name}" should have triggered quarantine but did not`);
 	}
 
 	return weaknesses;
@@ -151,9 +140,7 @@ export function formatPolicyTestReport(result: PolicyTestResult): string {
 		`${BOLD}Results: ${GREEN}${result.passed} passed${RESET}, ${RED}${result.failed} failed${RESET} ` +
 			`${DIM}(${result.scenarios.length} scenarios)${RESET}`,
 	);
-	lines.push(
-		`${DIM}Blocked: ${result.blocked} | Allowed through: ${result.allowed}${RESET}`,
-	);
+	lines.push(`${DIM}Blocked: ${result.blocked} | Allowed through: ${result.allowed}${RESET}`);
 
 	if (result.weaknesses.length > 0) {
 		lines.push(`\n${RED}${BOLD}Policy Weaknesses:${RESET}`);

@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { FileExecutor } from "../src/file.js";
-import { mkdtemp, writeFile, symlink, rm, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { ToolCall } from "@arikernel/core";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { FileExecutor } from "../src/file.js";
 
 function makeToolCall(action: string, params: Record<string, unknown>): ToolCall {
 	return {
@@ -29,7 +29,7 @@ describe("FileExecutor TOCTOU mitigation", () => {
 
 	afterAll(async () => {
 		if (origRoot === undefined) {
-			delete process.env.FILE_EXECUTOR_ROOT;
+			process.env.FILE_EXECUTOR_ROOT = undefined;
 		} else {
 			process.env.FILE_EXECUTOR_ROOT = origRoot;
 		}
@@ -60,9 +60,7 @@ describe("FileExecutor TOCTOU mitigation", () => {
 			// symlink creation may fail on Windows without privileges — skip
 			return;
 		}
-		const result = await executor.execute(
-			makeToolCall("read", { path: linkPath }),
-		);
+		const result = await executor.execute(makeToolCall("read", { path: linkPath }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/symlink rejected|ELOOP|path escapes/i);
 	});

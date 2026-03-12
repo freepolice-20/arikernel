@@ -35,9 +35,10 @@ export interface LangChainTool {
 	name: string;
 	description?: string;
 	/** DynamicTool.func — primary execution path. */
-	func?: (...args: any[]) => Promise<any>;
+	// biome-ignore lint/suspicious/noExplicitAny: LangChain uses dynamic args
+	func?: (...args: any[]) => Promise<unknown>;
 	/** StructuredTool.invoke / Runnable.invoke — alternative execution path. */
-	invoke?: (input: any, config?: any) => Promise<any>;
+	invoke?: (input: unknown, config?: unknown) => Promise<unknown>;
 }
 
 /**
@@ -94,6 +95,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 
 		if (tool.func) {
 			const original = tool.func;
+			// biome-ignore lint/suspicious/noExplicitAny: LangChain func args are dynamic
 			tool.func = async (...args: any[]) => {
 				const params =
 					typeof args[0] === "object" && args[0] !== null ? args[0] : { input: args[0] };
@@ -110,6 +112,7 @@ export function protectLangChainAgent<T extends LangChainAgent>(
 
 		if (tool.invoke) {
 			const original = tool.invoke;
+			// biome-ignore lint/suspicious/noExplicitAny: LangChain invoke args are dynamic
 			tool.invoke = async (input: any, config?: any) => {
 				const params = typeof input === "object" && input !== null ? input : { input };
 				await wrapped(params);

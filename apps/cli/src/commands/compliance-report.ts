@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export interface ComplianceReport {
@@ -57,9 +57,7 @@ function findPolicyFiles(basePath: string): string[] {
 		"policies/safe-defaults.yaml",
 		"policies/strict.yaml",
 	];
-	return candidates
-		.map((c) => resolve(basePath, c))
-		.filter((p) => existsSync(p));
+	return candidates.map((c) => resolve(basePath, c)).filter((p) => existsSync(p));
 }
 
 function hashFile(path: string): string {
@@ -77,7 +75,9 @@ function detectDeploymentMode(basePath: string): string {
 			try {
 				const content = readFileSync(f, "utf-8");
 				if (content.includes('"secure"') || content.includes("secure")) return "secure";
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		}
 	}
 	return "dev";
@@ -93,7 +93,9 @@ function detectSidecarAuth(basePath: string): string {
 			try {
 				const content = readFileSync(f, "utf-8");
 				if (content.includes("authToken")) return "bearer-token";
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		}
 	}
 	return "none (dev mode)";
@@ -125,7 +127,9 @@ export function generateComplianceReport(basePath: string): ComplianceReport {
 			const content = readFileSync(policyFiles[0], "utf-8");
 			const versionMatch = content.match(/version:\s*["']?([^"'\n]+)/);
 			policyVersion = versionMatch?.[1]?.trim() ?? null;
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 	}
 
 	const cpPkgExists = existsSync(resolve(basePath, "packages/control-plane/package.json"));
@@ -137,7 +141,9 @@ export function generateComplianceReport(basePath: string): ComplianceReport {
 	try {
 		const rootPkg = JSON.parse(readFileSync(resolve(basePath, "package.json"), "utf-8"));
 		kernelVersion = rootPkg.version ?? "unknown";
-	} catch { /* ignore */ }
+	} catch {
+		/* ignore */
+	}
 
 	return {
 		generatedAt: new Date().toISOString(),
@@ -264,7 +270,9 @@ export function runComplianceReport(options: {
 
 	console.log("\n--- Deployment ---");
 	console.log(`Mode:              ${report.deployment.mode}`);
-	console.log(`Control Plane:     ${report.deployment.controlPlaneEnabled ? "enabled" : "disabled"}`);
+	console.log(
+		`Control Plane:     ${report.deployment.controlPlaneEnabled ? "enabled" : "disabled"}`,
+	);
 	console.log(`Sidecar Auth:      ${report.deployment.sidecarAuthMode}`);
 
 	console.log("\n--- Policy ---");

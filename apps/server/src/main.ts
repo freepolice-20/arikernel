@@ -111,9 +111,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 			capabilityClass: string;
 			taintLabels?: Array<{ source: string; origin: string; confidence?: number }>;
 		};
-		const decision = firewall.requestCapability(body.capabilityClass as any, {
+		const decision = firewall.requestCapability(body.capabilityClass as string, {
 			taintLabels: body.taintLabels?.map((t) => ({
-				source: t.source as any,
+				source: t.source as string,
 				origin: t.origin,
 				confidence: t.confidence ?? 1.0,
 				addedAt: new Date().toISOString(),
@@ -146,12 +146,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 		};
 		try {
 			const result = await firewall.execute({
-				toolClass: body.toolClass as any,
+				toolClass: body.toolClass as string,
 				action: body.action,
 				parameters: body.parameters,
 				...(body.grantId ? { grantId: body.grantId } : {}),
 				taintLabels: body.taintLabels?.map((t) => ({
-					source: t.source as any,
+					source: t.source as string,
 					origin: t.origin,
 					confidence: t.confidence ?? 1.0,
 					addedAt: new Date().toISOString(),
@@ -165,12 +165,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 			});
 		} catch (err) {
 			// Use duck-typing to avoid instanceof issues with bundled code
-			if (err instanceof Error && "decision" in err && (err as any).decision?.verdict === "deny") {
-				const decision = (err as any).decision;
+			type DenyErr = Error & {
+				decision?: { verdict?: string; reason?: string; matchedRule?: { name?: string } | null };
+			};
+			const denyErr = err as DenyErr;
+			if (denyErr instanceof Error && denyErr.decision?.verdict === "deny") {
 				json(res, 403, {
 					verdict: "deny",
-					reason: decision.reason,
-					rule: decision.matchedRule?.name ?? null,
+					reason: denyErr.decision.reason,
+					rule: denyErr.decision.matchedRule?.name ?? null,
 				});
 			} else {
 				json(res, 500, { error: err instanceof Error ? err.message : String(err) });

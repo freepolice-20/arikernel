@@ -4,7 +4,7 @@ import { TOOL_CLASSES, now } from "@arikernel/core";
 import type { TaintLabel, ToolClass } from "@arikernel/core";
 import type { PolicyEngine } from "@arikernel/policy-engine";
 import type { ControlPlaneAuditStore } from "./audit-store.js";
-import { type DecisionSigner, NonceStore } from "./signer.js";
+import type { DecisionSigner, NonceStore } from "./signer.js";
 import type { GlobalTaintRegistry } from "./taint-registry.js";
 import type {
 	ControlPlaneConfig,
@@ -137,9 +137,7 @@ export async function handleTaintRegister(
 	}
 
 	const registration = raw as unknown as TaintRegistrationRequest;
-	const resourceIds = Array.isArray(raw.resourceIds)
-		? (raw.resourceIds as string[])
-		: undefined;
+	const resourceIds = Array.isArray(raw.resourceIds) ? (raw.resourceIds as string[]) : undefined;
 
 	taintRegistry.register(
 		registration.principalId,
@@ -219,7 +217,11 @@ function validateDecisionRequest(body: unknown): DecisionRequest {
 	if (typeof raw.action !== "string" || !raw.action.trim()) {
 		throw new Error("action must be a non-empty string");
 	}
-	if (typeof raw.parameters !== "object" || raw.parameters === null || Array.isArray(raw.parameters)) {
+	if (
+		typeof raw.parameters !== "object" ||
+		raw.parameters === null ||
+		Array.isArray(raw.parameters)
+	) {
 		throw new Error("parameters must be a JSON object");
 	}
 	if (typeof raw.runId !== "string" || !raw.runId.trim()) {

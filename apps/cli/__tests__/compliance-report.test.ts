@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { generateComplianceReport, type ComplianceReport } from "../src/commands/compliance-report.js";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+	type ComplianceReport,
+	generateComplianceReport,
+} from "../src/commands/compliance-report.js";
 
 const ROOT = resolve(__dirname, "../../..");
 

@@ -34,7 +34,6 @@ function buildParameters(step: ScenarioStepInput): Record<string, unknown> {
 	return params;
 }
 
-
 function convertStep(step: ScenarioStepInput, index: number): AttackStep {
 	const resolved = resolveAction(step.action);
 	const taintLabels = (step.taintSources ?? []).map((source) => ({
@@ -52,8 +51,7 @@ function convertStep(step: ScenarioStepInput, index: number): AttackStep {
 	};
 
 	// Auto-derive capabilityClass using the core inverse map
-	const capabilityClass =
-		step.capabilityClass ?? coreDerive(resolved.toolClass, resolved.action);
+	const capabilityClass = step.capabilityClass ?? coreDerive(resolved.toolClass, resolved.action);
 
 	return {
 		label: step.label ?? `Step ${index + 1}: ${step.action}`,
@@ -70,9 +68,7 @@ function convertScenario(input: YamlScenarioInput): AttackScenario {
 		description: input.description ?? "",
 		attackPrompt: `Scenario: ${input.scenario}`,
 		expectedAgentBehavior: "Execute all steps",
-		expectedKernelResponse: input.expectedBlocked
-			? "Block at least one step"
-			: "Allow all steps",
+		expectedKernelResponse: input.expectedBlocked ? "Block at least one step" : "Allow all steps",
 		steps: input.steps.map(convertStep),
 		expectedBlocked: input.expectedBlocked,
 		expectedQuarantined: input.expectedQuarantined,

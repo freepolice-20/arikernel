@@ -6,6 +6,7 @@ import { Firewall } from "../src/index.js";
  * grants can only narrow the base capability, never broaden it.
  */
 
+// biome-ignore lint/suspicious/noExplicitAny: test helper accepts varied capability shapes
 function createFirewall(capabilities: any[]) {
 	return new Firewall({
 		principal: { name: "test-agent", capabilities },

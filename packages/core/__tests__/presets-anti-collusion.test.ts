@@ -22,8 +22,8 @@ describe("anti-collusion preset", () => {
 		const preset = getPreset("anti-collusion");
 		const egressPolicy = preset.policies.find((p) => p.id === "deny-derived-sensitive-egress");
 		expect(egressPolicy).toBeDefined();
-		expect(egressPolicy!.decision).toBe("deny");
-		expect(egressPolicy!.match.toolClass).toBe("http");
-		expect(egressPolicy!.match.taintSources).toContain("derived-sensitive");
+		expect(egressPolicy?.decision).toBe("deny");
+		expect(egressPolicy?.match.toolClass).toBe("http");
+		expect(egressPolicy?.match.taintSources).toContain("derived-sensitive");
 	});
 });

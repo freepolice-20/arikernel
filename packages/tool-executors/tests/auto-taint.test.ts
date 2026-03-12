@@ -2,8 +2,8 @@ import type { ToolCall } from "@arikernel/core";
 import { now } from "@arikernel/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HttpExecutor } from "../src/http.js";
-import type { PinnedResponse } from "../src/ssrf.js";
 import { RetrievalExecutor } from "../src/retrieval.js";
+import type { PinnedResponse } from "../src/ssrf.js";
 
 // Mock the ssrf module so HttpExecutor tests don't make real network requests
 vi.mock("../src/ssrf.js", async (importOriginal) => {
@@ -96,9 +96,7 @@ describe("HttpExecutor auto-taint", () => {
 	});
 
 	it("uses hostname from subdomain URLs", async () => {
-		mockSsrfSafeRequest.mockResolvedValue(
-			mockOkResponse("application/json", '{"data":"test"}'),
-		);
+		mockSsrfSafeRequest.mockResolvedValue(mockOkResponse("application/json", '{"data":"test"}'));
 
 		const executor = new HttpExecutor();
 		const result = await executor.execute(

@@ -22,7 +22,8 @@ export const DEFAULT_CP_HOST = "127.0.0.1";
  * Used for policy versioning in signed decision receipts.
  */
 function computePolicyHash(policy: string | PolicyRule[] | undefined): string {
-	const input = policy == null ? "[]" : typeof policy === "string" ? policy : JSON.stringify(policy);
+	const input =
+		policy == null ? "[]" : typeof policy === "string" ? policy : JSON.stringify(policy);
 	return createHash("sha256").update(input).digest("hex").slice(0, 16);
 }
 
@@ -45,9 +46,7 @@ export class ControlPlaneServer {
 		this.engine = new PolicyEngine(config.policy);
 		this.signer = new DecisionSigner(config.signingKey);
 		this.taintRegistry = new GlobalTaintRegistry();
-		this.auditStore = new ControlPlaneAuditStore(
-			config.auditLog ?? ":memory:",
-		);
+		this.auditStore = new ControlPlaneAuditStore(config.auditLog ?? ":memory:");
 		this.requestNonceStore = new NonceStore();
 		this._policyHash = computePolicyHash(config.policy);
 

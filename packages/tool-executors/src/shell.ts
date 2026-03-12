@@ -53,11 +53,15 @@ export function validateCommand(executable: string, args: readonly string[]): vo
 
 	// SECURITY: Reject invisible Unicode characters that could disguise commands
 	if (DANGEROUS_UNICODE.test(executable)) {
-		throw new Error(`Command executable contains dangerous invisible Unicode characters: "${executable}"`);
+		throw new Error(
+			`Command executable contains dangerous invisible Unicode characters: "${executable}"`,
+		);
 	}
 	for (let i = 0; i < args.length; i++) {
 		if (DANGEROUS_UNICODE.test(args[i])) {
-			throw new Error(`Argument ${i} contains dangerous invisible Unicode characters: "${args[i]}"`);
+			throw new Error(
+				`Argument ${i} contains dangerous invisible Unicode characters: "${args[i]}"`,
+			);
 		}
 	}
 
@@ -163,8 +167,15 @@ function spawnSafe(
 		// to prevent leaking sidecar credentials to child processes.
 		const sanitizedEnv = { ...process.env };
 		const SECRET_ENV_PATTERNS = [
-			"SECRET", "TOKEN", "KEY", "PASSWORD", "CREDENTIAL",
-			"AUTH", "API_KEY", "PRIVATE", "SIGNING",
+			"SECRET",
+			"TOKEN",
+			"KEY",
+			"PASSWORD",
+			"CREDENTIAL",
+			"AUTH",
+			"API_KEY",
+			"PRIVATE",
+			"SIGNING",
 		];
 		for (const key of Object.keys(sanitizedEnv)) {
 			const upper = key.toUpperCase();

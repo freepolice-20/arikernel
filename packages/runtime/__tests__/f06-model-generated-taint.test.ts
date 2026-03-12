@@ -5,7 +5,7 @@
 
 import { unlinkSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Firewall, createFirewall } from "../src/index.js";
 
 const POLICY_PATH = resolve(
@@ -26,7 +26,9 @@ function auditPath(name: string): string {
 
 afterEach(() => {
 	for (const f of auditFiles) {
-		try { unlinkSync(f); } catch {}
+		try {
+			unlinkSync(f);
+		} catch {}
 	}
 	auditFiles.length = 0;
 });
@@ -103,7 +105,7 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 			toolClass: "http",
 			action: "get",
 			parameters: { url: "http://example.com" },
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		expect(result.taintLabels.some((l) => l.source === "model-generated")).toBe(true);
@@ -115,7 +117,7 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "./readme.md" },
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		expect(result.taintLabels.some((l) => l.source === "model-generated")).toBe(true);
@@ -129,7 +131,7 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 			toolClass: "http",
 			action: "get",
 			parameters: { url: "http://example.com" },
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		expect(fw.taintState.tainted).toBe(true);
@@ -150,7 +152,7 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 					addedAt: new Date().toISOString(),
 				},
 			],
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		const modelTaints = result.taintLabels.filter((l) => l.source === "model-generated");
@@ -173,7 +175,7 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 					addedAt: new Date().toISOString(),
 				},
 			],
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		expect(result.taintLabels.some((l) => l.source === "model-generated")).toBe(true);
@@ -186,11 +188,11 @@ describe("F-06: model-generated taint applied to pipeline tool calls", () => {
 			toolClass: "http",
 			action: "get",
 			parameters: { url: "http://example.com" },
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 
 		const modelTaint = result.taintLabels.find((l) => l.source === "model-generated");
 		expect(modelTaint).toBeDefined();
-		expect(modelTaint!.origin).toBe("http.get");
+		expect(modelTaint?.origin).toBe("http.get");
 	});
 });

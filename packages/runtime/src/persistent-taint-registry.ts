@@ -14,11 +14,7 @@ import type { AuditStore } from "@arikernel/audit-log";
 import type { RunStateTracker } from "./run-state.js";
 
 /** Persistent taint event types recorded across runs. */
-export type PersistentEventType =
-	| "sensitive_read"
-	| "secret_access"
-	| "egress"
-	| "taint_observed";
+export type PersistentEventType = "sensitive_read" | "secret_access" | "egress" | "taint_observed";
 
 export interface PersistentTaintConfig {
 	/** Whether cross-run taint persistence is enabled. Default: false */
@@ -46,29 +42,17 @@ export class PersistentTaintRegistry {
 
 	/** Record that a sensitive file was read during this run. */
 	recordSensitiveRead(resource: string): void {
-		this.auditStore.recordPersistentTaintEvent(
-			this.principalId,
-			"sensitive_read",
-			resource,
-		);
+		this.auditStore.recordPersistentTaintEvent(this.principalId, "sensitive_read", resource);
 	}
 
 	/** Record that a secret/credential resource was accessed. */
 	recordSecretAccess(resource?: string): void {
-		this.auditStore.recordPersistentTaintEvent(
-			this.principalId,
-			"secret_access",
-			resource,
-		);
+		this.auditStore.recordPersistentTaintEvent(this.principalId, "secret_access", resource);
 	}
 
 	/** Record an egress attempt. */
 	recordEgress(resource?: string): void {
-		this.auditStore.recordPersistentTaintEvent(
-			this.principalId,
-			"egress",
-			resource,
-		);
+		this.auditStore.recordPersistentTaintEvent(this.principalId, "egress", resource);
 	}
 
 	/** Record a taint observation with the taint source label. */
@@ -85,10 +69,7 @@ export class PersistentTaintRegistry {
 
 	/** Query recent persistent events within the retention window. */
 	queryRecentEvents() {
-		return this.auditStore.queryPersistentTaintEvents(
-			this.principalId,
-			this.retentionWindowMs,
-		);
+		return this.auditStore.queryPersistentTaintEvents(this.principalId, this.retentionWindowMs);
 	}
 
 	// ── Run-state initialization ─────────────────────────────────────
@@ -110,13 +91,17 @@ export class PersistentTaintRegistry {
 				case "sensitive_read":
 					// Set the sticky flag so behavioral rules like
 					// sensitive_read_then_egress can fire in the new run
+					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
 					(runState as any)._sensitiveReadObserved = true;
 					break;
 				case "secret_access":
+					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
 					(runState as any)._secretAccessObserved = true;
+					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
 					(runState as any)._sensitiveReadObserved = true;
 					break;
 				case "egress":
+					// biome-ignore lint/suspicious/noExplicitAny: internal RunState fields
 					(runState as any)._egressObserved = true;
 					break;
 				case "taint_observed":

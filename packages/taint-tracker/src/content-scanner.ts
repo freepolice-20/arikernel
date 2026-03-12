@@ -43,14 +43,16 @@ const INJECTION_PATTERNS: Array<{
 	},
 	// Command injection via content
 	{
-		regex: /(?:read|cat|send|post|curl|wget|exfiltrate|steal)\s+.*(?:\.ssh|id_rsa|credentials|\.env|passwd|shadow|secret|token|api.?key)/i,
+		regex:
+			/(?:read|cat|send|post|curl|wget|exfiltrate|steal)\s+.*(?:\.ssh|id_rsa|credentials|\.env|passwd|shadow|secret|token|api.?key)/i,
 		source: "web",
 		confidence: 0.9,
 		label: "exfiltration-instruction",
 	},
 	// System prompt extraction
 	{
-		regex: /(?:print|output|reveal|show|display)\s+.*(?:system\s*prompt|instructions|initial\s*prompt)/i,
+		regex:
+			/(?:print|output|reveal|show|display)\s+.*(?:system\s*prompt|instructions|initial\s*prompt)/i,
 		source: "web",
 		confidence: 0.85,
 		label: "prompt-extraction",
@@ -78,7 +80,8 @@ const INJECTION_PATTERNS: Array<{
 	},
 	// Base64/encoded payload indicators
 	{
-		regex: /(?:execute|run|eval)\s+(?:the\s+)?(?:following|this)\s+(?:command|code|script|payload)/i,
+		regex:
+			/(?:execute|run|eval)\s+(?:the\s+)?(?:following|this)\s+(?:command|code|script|payload)/i,
 		source: "web",
 		confidence: 0.85,
 		label: "code-execution-instruction",

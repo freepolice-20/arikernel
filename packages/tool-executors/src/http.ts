@@ -80,8 +80,7 @@ export class HttpExecutor implements ToolExecutor {
 					false,
 					start,
 					undefined,
-					`HTTP method mismatch: action '${toolCall.action}' requires ${canonicalMethod} but params.method='${method}'. ` +
-						"The HTTP method is derived from the tool action to prevent policy bypass.",
+					`HTTP method mismatch: action '${toolCall.action}' requires ${canonicalMethod} but params.method='${method}'. The HTTP method is derived from the tool action to prevent policy bypass.`,
 				);
 				return { ...result, taintLabels: [webTaintLabel(url)] };
 			}

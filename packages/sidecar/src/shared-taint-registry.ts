@@ -1,4 +1,4 @@
-import { resolve, normalize } from "node:path";
+import { normalize, resolve } from "node:path";
 import type { TaintLabel, ToolCallRequest } from "@arikernel/core";
 import { now } from "@arikernel/core";
 
@@ -96,7 +96,12 @@ export class SharedTaintRegistry {
 			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
 				return canonicalizeResourceKey(`db:${table}`);
 			}
-			if (db && this.config.sharedDatabases?.some((d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase())) {
+			if (
+				db &&
+				this.config.sharedDatabases?.some(
+					(d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase(),
+				)
+			) {
 				return canonicalizeResourceKey(`db:${table}`);
 			}
 			return null;
@@ -110,7 +115,12 @@ export class SharedTaintRegistry {
 			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
 				return canonicalizeResourceKey(`db:${table}`);
 			}
-			if (db && this.config.sharedDatabases?.some((d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase())) {
+			if (
+				db &&
+				this.config.sharedDatabases?.some(
+					(d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase(),
+				)
+			) {
 				return canonicalizeResourceKey(`db:${table}`);
 			}
 			return null;
@@ -140,7 +150,9 @@ export class SharedTaintRegistry {
 		return this.config.sharedStorePaths.some((prefix) => {
 			const normalizedPrefix = normalize(resolve(prefix.normalize("NFKC")));
 			const sep = process.platform === "win32" ? "\\" : "/";
-			return normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + sep);
+			return (
+				normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + sep)
+			);
 		});
 	}
 

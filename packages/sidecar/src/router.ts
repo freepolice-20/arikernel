@@ -91,7 +91,9 @@ function resolveEffectivePrincipal(
 	return { principalId: bodyPrincipalId };
 }
 
-function validateExecuteRequest(body: unknown): Omit<ExecuteRequest, "principalId"> & { principalId?: string } {
+function validateExecuteRequest(
+	body: unknown,
+): Omit<ExecuteRequest, "principalId"> & { principalId?: string } {
 	if (!body || typeof body !== "object") throw new Error("Request body must be a JSON object");
 	const req = body as Record<string, unknown>;
 
@@ -148,7 +150,10 @@ export async function handleExecute(
 	// Resolve effective principalId
 	const resolved = resolveEffectivePrincipal(authCtx, execReq.principalId);
 	if (resolved.error) {
-		return jsonResponse(res, authCtx.authenticated ? 403 : 400, { allowed: false, error: resolved.error });
+		return jsonResponse(res, authCtx.authenticated ? 403 : 400, {
+			allowed: false,
+			error: resolved.error,
+		});
 	}
 	const principalId = resolved.principalId;
 
@@ -171,7 +176,10 @@ export async function handleExecute(
 	// Rate limiting: check firewall instance limits before creating
 	if (
 		!registry.has(principalId) &&
-		!rateLimiter.checkFirewallLimit(registry.principalFirewallCount(principalId), registry.totalFirewallCount)
+		!rateLimiter.checkFirewallLimit(
+			registry.principalFirewallCount(principalId),
+			registry.totalFirewallCount,
+		)
 	) {
 		return jsonResponse(res, 503, { allowed: false, error: "Firewall instance limit exceeded" });
 	}
@@ -251,12 +259,19 @@ export async function handleExecute(
 					return jsonResponse(res, 200, response);
 				} catch (e) {
 					if (e instanceof ToolCallDeniedError || e instanceof ApprovalRequiredError) {
-						return jsonResponse(res, 403, { allowed: false, error: e.message, callId: e.toolCall.id });
+						return jsonResponse(res, 403, {
+							allowed: false,
+							error: e.message,
+							callId: e.toolCall.id,
+						});
 					}
 					return jsonResponse(res, 500, { allowed: false, error: "Internal server error" });
 				}
 			} catch {
-				return jsonResponse(res, 400, { allowed: false, error: "Invalid capability token encoding" });
+				return jsonResponse(res, 400, {
+					allowed: false,
+					error: "Invalid capability token encoding",
+				});
 			}
 		}
 
@@ -393,12 +408,18 @@ export async function handleRequestCapability(
 
 	const resolved = resolveEffectivePrincipal(authCtx, bodyPrincipalId);
 	if (resolved.error) {
-		return jsonResponse(res, authCtx.authenticated ? 403 : 400, { granted: false, reason: resolved.error });
+		return jsonResponse(res, authCtx.authenticated ? 403 : 400, {
+			granted: false,
+			reason: resolved.error,
+		});
 	}
 	const principalId = resolved.principalId;
 
 	if (typeof raw.capabilityClass !== "string" || !raw.capabilityClass.trim()) {
-		return jsonResponse(res, 400, { granted: false, reason: "capabilityClass must be a non-empty string" });
+		return jsonResponse(res, 400, {
+			granted: false,
+			reason: "capabilityClass must be a non-empty string",
+		});
 	}
 
 	// Rate limiting: check request rate
@@ -415,7 +436,10 @@ export async function handleRequestCapability(
 	// Check firewall limits before creating
 	if (
 		!registry.has(principalId) &&
-		!rateLimiter.checkFirewallLimit(registry.principalFirewallCount(principalId), registry.totalFirewallCount)
+		!rateLimiter.checkFirewallLimit(
+			registry.principalFirewallCount(principalId),
+			registry.totalFirewallCount,
+		)
 	) {
 		return jsonResponse(res, 503, { granted: false, reason: "Firewall instance limit exceeded" });
 	}

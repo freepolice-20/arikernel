@@ -59,6 +59,7 @@ export async function replayTrace(
 			name: trace.metadata.principal ?? "replay-agent",
 			capabilities: buildReplayCapabilities(trace),
 		},
+		// biome-ignore lint/suspicious/noExplicitAny: policies from trace have unknown shape
 		policies: policies as any,
 		auditLog,
 		runStatePolicy: {
@@ -104,7 +105,7 @@ export async function replayTrace(
 
 			// Request capability if the original event did
 			if (event.capabilityClass) {
-				const grant = firewall.requestCapability(event.capabilityClass as any);
+				const grant = firewall.requestCapability(event.capabilityClass as string);
 				if (!grant.granted) {
 					replayedDecision = {
 						verdict: "deny",
@@ -243,7 +244,7 @@ function resolvePolicies(trace: ReplayTrace, options: ReplayEngineOptions): stri
 	if (options.preset || trace.metadata.preset) {
 		const presetId = options.preset ?? trace.metadata.preset;
 		try {
-			const preset = getPreset(presetId as any);
+			const preset = getPreset(presetId as string);
 			return preset.policies;
 		} catch {
 			// Fall through to safe defaults
@@ -287,7 +288,7 @@ function buildReplayCapabilities(trace: ReplayTrace) {
 	}
 
 	return Array.from(capMap.entries()).map(([toolClass, actions]) => ({
-		toolClass: toolClass as any,
+		toolClass: toolClass as string,
 		actions: Array.from(actions),
 		constraints:
 			toolClass === "http"

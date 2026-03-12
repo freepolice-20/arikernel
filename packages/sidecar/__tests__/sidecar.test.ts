@@ -641,7 +641,12 @@ describe("Principal identity binding (API key → principalId)", () => {
 		const res = await post(
 			18797,
 			"/execute",
-			{ principalId: "alice", toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{
+				principalId: "alice",
+				toolClass: "http",
+				action: "GET",
+				params: { url: "http://example.com" },
+			},
 			{ Authorization: "Bearer key-for-alice" },
 		);
 		expect(res.status).toBe(200);
@@ -651,7 +656,12 @@ describe("Principal identity binding (API key → principalId)", () => {
 		const res = await post(
 			18797,
 			"/execute",
-			{ principalId: "bob", toolClass: "http", action: "GET", params: { url: "http://example.com" } },
+			{
+				principalId: "bob",
+				toolClass: "http",
+				action: "GET",
+				params: { url: "http://example.com" },
+			},
 			{ Authorization: "Bearer key-for-alice" },
 		);
 		expect(res.status).toBe(403);
