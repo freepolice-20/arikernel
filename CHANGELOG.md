@@ -93,16 +93,26 @@ All notable changes to Ari Kernel are documented here.
 
 ## [0.1.0] — 2026-03-05
 
+### Security Features
+- **Capability token system** — time-limited (5 min), usage-limited (10 calls), scope-constrained grants with atomic token validation; no ambient authority
+- **Taint tracking with auto-propagation** — data provenance labels (`web`, `rag`, `email`) auto-attached by HTTP, RAG, and MCP executors; propagated through tool chains; model-generated taint injection at pipeline entry
+- **Policy engine** — priority-sorted YAML rules with deny-by-default; taint-conditioned matching; safe-regex validation at load time (ReDoS prevention)
+- **Behavioral sequence detection** — 6 built-in rules (`web_taint_sensitive_probe`, `denied_capability_then_escalation`, `sensitive_read_then_egress`, `tainted_database_write`, `tainted_shell_with_data`, `secret_access_then_any_egress`) operating on a 20-event sliding window with sticky flags that survive window eviction
+- **Run-level quarantine** — irrecoverable restricted mode; once triggered, the run is locked to read-only for its remainder
+- **Persistent cross-run taint registry** — SQLite-backed taint events survive process restarts; sticky flags propagate across run boundaries via seeder methods; prevents split-run attacks
+- **Cross-principal correlator** — CP-1 (shared resource contamination), CP-2 (taint relay chain), CP-3 (egress convergence) alerts with optional auto-quarantine
+- **Ed25519 signed decision receipts** — every control plane decision includes `decisionId`, `policyHash`, `policyVersion`, `kernelBuild`, `nonce`, and cryptographic signature; verifiable with public key only
+- **Nonce-based replay protection** — control plane rejects duplicate `requestNonce` values (HTTP 409); sidecar `DecisionDelegate` generates per-request nonces via `crypto.randomBytes`
+- **Enforcement mode production guards** — sidecar and control plane throw at startup when `NODE_ENV=production` and required configuration (principals, authToken) is missing
+- **SHA-256 hash-chained audit log** — tamper-evident event store with cross-run anchor hashes and JSONL export
+
 ### Added
-- Initial release
-- Capability token system with time/usage/scope limits
-- Taint tracking with auto-propagation
-- Policy engine with YAML-defined rules
-- Behavioral sequence detection (6 built-in rules)
-- Run-level quarantine with irrecoverable restricted mode
-- SHA-256 hash-chained audit log
 - SSRF protection with private IP blocking and redirect validation
-- Symlink protection via `realpathSync()`
-- Output filtering (DLP) with secret pattern detection
-- CLI: `simulate`, `trace`, `replay`, `sidecar`, `policy` commands
-- Sidecar HTTP proxy mode on port 8787
+- Symlink protection via `realpathSync()` with path canonicalization
+- Output filtering (DLP) with bounded-quantifier secret pattern detection and recursive nested-object scanning
+- CLI: `simulate`, `trace`, `replay`, `replay-trace`, `sidecar`, `policy`, `attack simulate`, `compliance-report`, `verify-receipt`, `control-plane export-audit` commands
+- Sidecar HTTP proxy mode with per-principal isolation, bearer token auth, rate limiting, body size limits
+- 7 security presets: `safe`, `strict`, `research`, `safe-research`, `rag-reader`, `workspace-assistant`, `automation-agent`
+- Framework middleware: LangChain, OpenAI Agents SDK, CrewAI, AutoGen wrappers
+- MCP tool integration via `protectMCPTools()`
+- Python runtime with `@protect_tool` decorator
