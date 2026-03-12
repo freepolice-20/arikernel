@@ -72,7 +72,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 
@@ -80,7 +80,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 			}),
 		).rejects.toThrow(/Capability token required/);
 	});
@@ -95,7 +95,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				grantId: httpDecision.grant?.id,
 			}),
 		).rejects.toThrow(/cannot be used for tool class/);
@@ -115,7 +115,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				grantId: grant.id,
 			}),
 		).rejects.toThrow(/expired/);
@@ -143,7 +143,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				taintLabels: webTaint,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
@@ -152,7 +152,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				taintLabels: webTaint,
 			}),
 		).rejects.toThrow(/Capability token required/);
@@ -168,7 +168,7 @@ describe("Capability Enforcement", () => {
 			await fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				grantId: decision.grant?.id,
 			});
 		} catch (err) {
@@ -190,7 +190,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				grantId: grant.id,
 			}),
 		).rejects.toThrow(/exhausted/);
@@ -206,7 +206,7 @@ describe("Capability Enforcement", () => {
 			fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 				grantId: decision.grant?.id,
 			}),
 		).rejects.toThrow(/revoked/);
@@ -217,7 +217,7 @@ describe("Capability Enforcement", () => {
 			await fw.execute({
 				toolClass: "database",
 				action: "query",
-				parameters: { query: "SELECT 1 FROM analytics.test" },
+				parameters: { database: "analytics", query: "SELECT 1 FROM analytics.test" },
 			});
 		} catch {}
 

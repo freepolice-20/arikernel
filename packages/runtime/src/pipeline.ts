@@ -547,14 +547,11 @@ export class Pipeline {
 
 		if (constraints.allowedDatabases && toolCall.toolClass === "database") {
 			const db = String(toolCall.parameters.database ?? "");
-			const query = String(toolCall.parameters.query ?? "");
-			// Check explicit database parameter first, then fall back to word-boundary match in query
-			const dbMatch = constraints.allowedDatabases.some(
-				(allowed) =>
-					db === allowed ||
-					new RegExp(`\\b${allowed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(query),
-			);
-			if (!dbMatch) {
+			// Require an exact match on the explicit `database` parameter only.
+			// The previous query-string regex fallback was dropped: matching a database
+			// name as a word inside raw SQL is bypassable (comments, string literals,
+			// identifiers), so only the structured parameter is trustworthy.
+			if (!constraints.allowedDatabases.includes(db)) {
 				return `Database not in allowed list: ${constraints.allowedDatabases.join(", ")}`;
 			}
 		}
