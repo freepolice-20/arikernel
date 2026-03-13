@@ -16,13 +16,36 @@ export interface StoredToken {
 export class TokenStore {
 	private grants = new Map<string, StoredToken>();
 
-	/** Evict expired/revoked grants when the store exceeds this size. */
-	private static readonly EVICTION_THRESHOLD = 100;
+	/**
+	 * Hard upper bound on stored grants. When exceeded after evicting
+	 * expired/revoked/exhausted entries, the oldest active grants are
+	 * evicted (LRU order). Default: 10_000.
+	 */
+	private readonly maxSize: number;
+
+	constructor(options?: { maxSize?: number }) {
+		this.maxSize = options?.maxSize ?? 10_000;
+	}
 
 	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void {
+		// Delete first so re-insert moves to end of Map order (LRU refresh)
+		this.grants.delete(grant.id);
 		this.grants.set(grant.id, { grant, signature, algorithm });
-		if (this.grants.size > TokenStore.EVICTION_THRESHOLD) {
-			this.evictExpired();
+		this.enforceMaxSize();
+	}
+
+	/** Enforce maxSize: evict expired first, then oldest active if still over. */
+	private enforceMaxSize(): void {
+		if (this.grants.size <= this.maxSize) return;
+		this.evictExpired();
+		// If still over after removing dead entries, evict oldest active (LRU)
+		while (this.grants.size > this.maxSize) {
+			const oldest = this.grants.keys().next().value;
+			if (oldest !== undefined) {
+				this.grants.delete(oldest);
+			} else {
+				break;
+			}
 		}
 	}
 
@@ -45,12 +68,22 @@ export class TokenStore {
 	}
 
 	get(grantId: string): CapabilityGrant | null {
-		return this.grants.get(grantId)?.grant ?? null;
+		const stored = this.grants.get(grantId);
+		if (!stored) return null;
+		// LRU touch: move to end of iteration order
+		this.grants.delete(grantId);
+		this.grants.set(grantId, stored);
+		return stored.grant;
 	}
 
 	/** Get the full stored token including signature metadata. */
 	getStoredToken(grantId: string): StoredToken | null {
-		return this.grants.get(grantId) ?? null;
+		const stored = this.grants.get(grantId);
+		if (!stored) return null;
+		// LRU touch: move to end of iteration order
+		this.grants.delete(grantId);
+		this.grants.set(grantId, stored);
+		return stored;
 	}
 
 	validate(grantId: string): TokenValidation {
@@ -109,6 +142,11 @@ export class TokenStore {
 
 		// Atomically increment — no window between check and mutation
 		grant.lease.callsUsed++;
+
+		// LRU touch: move to end of iteration order
+		this.grants.delete(grantId);
+		this.grants.set(grantId, stored);
+
 		return { valid: true };
 	}
 

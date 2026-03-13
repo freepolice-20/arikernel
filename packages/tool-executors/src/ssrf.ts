@@ -29,10 +29,21 @@ function normalizeIP(ip: string): { version: 4 | 6; canonical: string } {
 
 	if (kind === 6) {
 		const lower = raw.toLowerCase();
-		// IPv4-mapped IPv6  —  ::ffff:a.b.c.d
-		const mapped = lower.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
-		if (mapped) {
-			return { version: 4, canonical: mapped[1] };
+		// IPv4-mapped IPv6 dotted form  —  ::ffff:a.b.c.d
+		const mappedDotted = lower.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+		if (mappedDotted) {
+			return { version: 4, canonical: mappedDotted[1] };
+		}
+		// IPv4-mapped IPv6 hex form  —  ::ffff:HHHH:HHHH
+		// Two 16-bit hextets encode the 4 IPv4 octets:
+		//   high hextet = (octet1 << 8) | octet2
+		//   low  hextet = (octet3 << 8) | octet4
+		const mappedHex = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+		if (mappedHex) {
+			const high = Number.parseInt(mappedHex[1], 16);
+			const low = Number.parseInt(mappedHex[2], 16);
+			const ipv4 = `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
+			return { version: 4, canonical: ipv4 };
 		}
 		return { version: 6, canonical: lower };
 	}
@@ -87,6 +98,33 @@ export function isPrivateIP(ip: string): boolean {
 }
 
 /**
+ * Parse a numeric hostname (decimal or hex integer) as an IPv4 address.
+ * Returns the dotted-quad string, or null if the hostname is not numeric.
+ *
+ * Examples:
+ *   "2130706433"  → "127.0.0.1"  (decimal)
+ *   "0x7f000001"  → "127.0.0.1"  (hex)
+ *   "0x7F000001"  → "127.0.0.1"  (hex, case-insensitive)
+ */
+function parseNumericIPv4(hostname: string): string | null {
+	const trimmed = hostname.trim();
+	let value: number;
+
+	if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+		value = Number.parseInt(trimmed.slice(2), 16);
+	} else if (/^\d+$/.test(trimmed)) {
+		value = Number.parseInt(trimmed, 10);
+	} else {
+		return null;
+	}
+
+	// Must fit in 32-bit unsigned range
+	if (!Number.isFinite(value) || value < 0 || value > 0xffffffff) return null;
+
+	return `${(value >>> 24) & 0xff}.${(value >>> 16) & 0xff}.${(value >>> 8) & 0xff}.${value & 0xff}`;
+}
+
+/**
  * Resolve hostname to an IP address and validate it is not private/reserved.
  * Returns the resolved IP so callers can pin the connection to it.
  */
@@ -96,6 +134,18 @@ export async function resolveHost(hostname: string): Promise<string> {
 			throw new Error(`SSRF blocked: IP address ${hostname} is in a private/reserved range`);
 		}
 		return hostname;
+	}
+
+	// Numeric hostnames: decimal or hex integers that encode IPv4 addresses.
+	// Browsers and curl resolve these to IPs, so we must check them before DNS.
+	const numericIPv4 = parseNumericIPv4(hostname);
+	if (numericIPv4) {
+		if (isPrivateIPv4(numericIPv4)) {
+			throw new Error(
+				`SSRF blocked: numeric hostname '${hostname}' encodes private IP ${numericIPv4}`,
+			);
+		}
+		return numericIPv4;
 	}
 
 	try {

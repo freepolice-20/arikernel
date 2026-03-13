@@ -12,16 +12,32 @@ export interface ExecuteRequest {
 	/** Upstream taint labels to attach to the call */
 	taint?: TaintLabel[];
 	/**
+	 * Grant ID from a prior /request-capability call.
+	 * When provided, the sidecar uses this existing grant instead of
+	 * auto-issuing a new one. Takes precedence over server auto-issue
+	 * but is overridden by capabilityToken.
+	 */
+	grantId?: string;
+	/**
 	 * Serialized signed capability token (base64-encoded).
 	 * When the sidecar is in 'secure' mode, this token is verified
 	 * independently before execution. In 'dev' mode, the sidecar
 	 * auto-issues tokens server-side.
+	 * Takes highest precedence: capabilityToken > grantId > auto-issue.
 	 */
 	capabilityToken?: string;
 }
 
 export interface ExecuteResponse {
+	/** Whether the action was permitted by policy. false = security denial. */
 	allowed: boolean;
+	/**
+	 * Whether the tool execution succeeded. Only meaningful when allowed=true.
+	 * false means the tool ran but encountered an operational error (e.g. file
+	 * not found, HTTP 404). This is NOT a security denial — it should not
+	 * increment denied-action counters or trigger quarantine.
+	 */
+	success?: boolean;
 	/** Result data when allowed and execution succeeded */
 	result?: unknown;
 	/** Error message when denied or execution failed */

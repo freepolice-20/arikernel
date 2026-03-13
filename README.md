@@ -370,18 +370,20 @@ pnpm build && pnpm server
 ```python
 from arikernel import create_kernel, protect_tool
 
-# Connects to TypeScript sidecar — all decisions made server-side
+# Connects to TypeScript sidecar — all decisions and tool execution handled server-side
 kernel = create_kernel(preset="safe-research")
 
 @protect_tool("file.read", kernel=kernel)
 def read_file(path: str) -> str:
+    # In sidecar mode, this body is NOT called.
+    # The sidecar's FileExecutor handles the read.
     return open(path).read()
 
-read_file(path="./data/report.csv")    # ALLOWED by sidecar
-read_file(path="/etc/shadow")          # DENIED by sidecar
+read_file(path="./data/report.csv")    # ALLOWED — sidecar reads the file
+read_file(path="/etc/shadow")          # DENIED by sidecar (path constraint)
 ```
 
-Python delegates all security decisions to the TypeScript sidecar process. This provides process-boundary isolation — Python cannot bypass enforcement. See [Python README](python/README.md) for details.
+Python delegates all security decisions and tool execution to the TypeScript sidecar process. This provides process-boundary isolation for mediated calls — Python code that bypasses the kernel (direct `open()`, `subprocess.run()`, etc.) is not mediated. See [Python README](python/README.md) for details.
 
 ---
 

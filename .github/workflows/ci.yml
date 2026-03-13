@@ -65,8 +65,8 @@ jobs:
         run: pip install -e "python/[dev,server]"
 
       - name: Run Python tests
-        # test_integration.py requires a pre-built TypeScript server (apps/server/dist/main.js)
-        # which is only available after pnpm build. Exclude it from the Python-only CI job.
+        # test_integration.py requires the TypeScript sidecar (packages/sidecar) to be
+        # built and running. It is tested in the python-sidecar job below.
         run: cd python && python -m pytest tests/ -v --ignore=tests/test_integration.py
 
       - name: Verify packaging integrity
@@ -155,4 +155,4 @@ jobs:
           done
 
       - name: Run Python sidecar integration tests
-        run: cd python && python -m pytest tests/test_integration.py -v
+        run: cd python && python -m pytest tests/test_integration.py tests/test_sidecar_semantics.py -v

@@ -90,17 +90,28 @@ Authorization: Bearer <token>
 }
 ```
 
-Response (allowed):
+Response (allowed, tool succeeded):
 ```json
 {
   "allowed": true,
+  "success": true,
   "result": "...",
   "resultTaint": ["web:api.example.com"],
   "callId": "01JABCDE..."
 }
 ```
 
-Response (denied):
+Response (allowed, tool failed — e.g. file not found):
+```json
+{
+  "allowed": true,
+  "success": false,
+  "error": "ENOENT: no such file or directory",
+  "callId": "01JABCDE..."
+}
+```
+
+Response (denied by policy):
 ```json
 {
   "allowed": false,
@@ -201,12 +212,15 @@ const firewall = createFirewall({
 | `action` | string | yes | Tool-specific action (`get`, `post`, `read`, `write`, `exec`, `query`, ...). Case-insensitive — normalized to lowercase internally. |
 | `params` | object | yes | Tool-specific parameters (passed to the executor) |
 | `taint` | TaintLabel[] | no | Upstream taint labels to attach to this call (objects with `source`, `origin`, `confidence`, `addedAt`) |
-| `capabilityToken` | string | no | Serialized capability token from a prior `/request-capability` call. If provided with a signing key, the token is cryptographically verified. If omitted, the sidecar auto-issues a server-side grant. |
+| `grantId` | string | no | Grant ID from a prior `/request-capability` call. When provided, the sidecar uses this existing grant instead of auto-issuing a new one. Overridden by `capabilityToken`. |
+| `capabilityToken` | string | no | Serialized signed capability token from a prior `/request-capability` call. If provided with a signing key, the token is cryptographically verified. Takes highest precedence. |
 
-**Capability token flow**: Clients can either (a) call `/request-capability` first to obtain a `grantId`, then pass a serialized `capabilityToken` in `/execute`, or (b) omit the token and let the sidecar auto-issue a grant server-side. Option (a) provides explicit capability tracking; option (b) is simpler for trusted deployments.
+**Grant precedence**: `capabilityToken` > `grantId` > server auto-issue. Clients can (a) pass a signed `capabilityToken` for cryptographic proof, (b) pass a `grantId` for server-side grant lookup, or (c) omit both and let the sidecar auto-issue a grant. Option (a) is most secure; option (c) is simplest for trusted deployments.
+
+**`allowed` vs `success`**: The response separates policy verdict (`allowed`) from tool execution outcome (`success`). A policy-allowed tool call that fails at runtime (e.g. reading a missing file) returns HTTP 200 with `allowed: true` and `success: false`. A policy denial returns HTTP 403 with `allowed: false`. This distinction is critical — `success: false` is an operational error that should NOT increment denied-action counters or trigger quarantine.
 
 HTTP status codes:
-- `200` — call allowed and executed successfully
+- `200` — call allowed by policy (check `success` for tool execution outcome)
 - `400` — malformed request
 - `401` — missing or malformed Authorization header (when auth is enabled)
 - `403` — call denied by policy, quarantine, or invalid auth token
@@ -306,6 +320,10 @@ const client = new SidecarClient({
 const result = await client.execute('http', 'GET', { url: 'https://api.example.com/data' });
 if (!result.allowed) {
   console.error('Denied:', result.error);
+} else if (!result.success) {
+  console.error('Tool failed:', result.error);  // allowed by policy, but tool errored
+} else {
+  console.log('Result:', result.result);
 }
 
 // Request a capability grant for protected actions
@@ -313,7 +331,10 @@ const cap = await client.requestCapability('http.write', {
   constraints: { allowedHosts: ['api.example.com'] },
 });
 if (cap.granted) {
-  console.log('Grant ID:', cap.grantId);
+  // Use grantId in subsequent execute calls
+  const writeResult = await client.execute('http', 'POST', { url: '...' }, {
+    grantId: cap.grantId,
+  });
 }
 
 // Check enforcement state (quarantine, counters)

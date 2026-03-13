@@ -54,16 +54,20 @@ export class SidecarClient {
 		toolClass: ExecuteRequest["toolClass"],
 		action: string,
 		params: Record<string, unknown>,
-		taint?: TaintLabel[],
-		capabilityToken?: string,
+		options?: {
+			taint?: TaintLabel[];
+			grantId?: string;
+			capabilityToken?: string;
+		},
 	): Promise<ExecuteResponse> {
 		const body: ExecuteRequest = {
 			principalId: this.principalId,
 			toolClass,
 			action,
 			params,
-			taint,
-			capabilityToken,
+			taint: options?.taint,
+			grantId: options?.grantId,
+			capabilityToken: options?.capabilityToken,
 		};
 
 		const res = await fetch(`${this.endpoint}/execute`, {
@@ -90,7 +94,12 @@ export class SidecarClient {
 		if (!cap.granted) {
 			return { allowed: false, error: cap.reason ?? "Capability denied" };
 		}
-		return this.execute(toolClass, action, params, taint, cap.capabilityToken);
+		// Prefer capabilityToken (signed, cryptographic proof); fall back to grantId (server-side lookup)
+		return this.execute(toolClass, action, params, {
+			taint,
+			capabilityToken: cap.capabilityToken,
+			grantId: cap.capabilityToken ? undefined : cap.grantId,
+		});
 	}
 
 	/**

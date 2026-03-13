@@ -85,6 +85,21 @@ describe("PersistentTaintRegistry", () => {
 			// Run 1: Agent reads a sensitive file
 			const fw1 = createFirewall(makeOptions({ auditLog: dbPath }));
 
+			// Register a file executor that succeeds — persistent sensitive_read
+			// is only recorded on successful file.read, not on attempts or failures.
+			fw1.registerExecutor({
+				toolClass: "file",
+				async execute(toolCall) {
+					return {
+						callId: toolCall.id,
+						success: true,
+						data: "secret-key-content",
+						durationMs: 1,
+						taintLabels: [],
+					};
+				},
+			});
+
 			// Read a sensitive file — this sets sensitiveReadObserved sticky flag
 			try {
 				await secureExecute(fw1, "file", "read", { path: "~/.ssh/id_rsa" });
@@ -266,6 +281,21 @@ describe("PersistentTaintRegistry", () => {
 	describe("pipeline integration: events recorded during execution", () => {
 		it("records persistent taint event when sensitive file is accessed", async () => {
 			const fw = createFirewall(makeOptions());
+
+			// Register a file executor that succeeds — persistent sensitive_read
+			// is only recorded on successful file.read, not on attempts or failures.
+			fw.registerExecutor({
+				toolClass: "file",
+				async execute(toolCall) {
+					return {
+						callId: toolCall.id,
+						success: true,
+						data: "secret-key-content",
+						durationMs: 1,
+						taintLabels: [],
+					};
+				},
+			});
 
 			try {
 				await secureExecute(fw, "file", "read", { path: "/home/user/.ssh/id_rsa" });

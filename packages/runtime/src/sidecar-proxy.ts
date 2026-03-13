@@ -7,10 +7,11 @@
  *
  * Flow: Agent → Firewall (local policy check) → SidecarProxyExecutor → Sidecar HTTP → Real Executor
  *
- * IMPORTANT: Sidecar denials are raised as ToolCallDeniedError so the host
- * pipeline correctly classifies them as security denials (not tool failures).
- * Grant IDs and capability tokens are forwarded to the sidecar so it can
- * validate them server-side.
+ * IMPORTANT: Security denials (HTTP 403 or allowed=false) are raised as
+ * ToolCallDeniedError so the host pipeline correctly tracks them in denial
+ * counters and quarantine logic. Tool execution failures (allowed=true,
+ * success=false — e.g. file not found) are returned as ToolResult with
+ * success=false, which does NOT increment denial counters.
  */
 
 import type { Decision, ToolCall, ToolResult } from "@arikernel/core";
@@ -31,9 +32,10 @@ export interface SidecarProxyConfig {
  * The host process performs no direct tool execution — the sidecar owns
  * the real executors and is the sole execution boundary.
  *
- * Sidecar denials are raised as ToolCallDeniedError (not returned as
- * ToolResult.success=false) so the host pipeline correctly tracks denials
- * in audit logs, run-state counters, and behavioral quarantine logic.
+ * Response classification:
+ * - HTTP 403 or allowed=false → security denial → ToolCallDeniedError
+ * - HTTP 200, allowed=true, success=false → tool failure → ToolResult{success:false}
+ * - HTTP 200, allowed=true, success=true → success → ToolResult{success:true}
  */
 export class SidecarProxyExecutor implements ToolExecutor {
 	readonly toolClass: string;
@@ -66,7 +68,7 @@ export class SidecarProxyExecutor implements ToolExecutor {
 		}
 
 		// Forward serialized capability token if present (for cryptographic verification).
-		const capToken = (toolCall as Record<string, unknown>).capabilityToken;
+		const capToken = (toolCall as unknown as Record<string, unknown>).capabilityToken;
 		if (typeof capToken === "string") {
 			body.capabilityToken = capToken;
 		}
@@ -79,19 +81,20 @@ export class SidecarProxyExecutor implements ToolExecutor {
 
 		const json = (await res.json()) as {
 			allowed: boolean;
+			success?: boolean;
 			result?: unknown;
 			error?: string;
 			resultTaint?: import("@arikernel/core").TaintLabel[];
 			callId?: string;
 		};
 
-		// Sidecar denied the action — raise as a security denial, not a tool failure.
-		// This ensures the host pipeline correctly:
+		// Security denial: HTTP 403 or explicit allowed=false.
+		// Raise as ToolCallDeniedError so the host pipeline correctly:
 		// - increments denied action counters
 		// - pushes tool_call_denied events
 		// - triggers quarantine logic
 		// - produces accurate audit records
-		if (!json.allowed) {
+		if (res.status === 403 || !json.allowed) {
 			const decision: Decision = {
 				verdict: "deny",
 				matchedRule: null,
@@ -102,11 +105,15 @@ export class SidecarProxyExecutor implements ToolExecutor {
 			throw new ToolCallDeniedError(toolCall, decision);
 		}
 
+		// Action was permitted. success reflects whether the tool itself
+		// succeeded operationally (e.g. file exists vs ENOENT).
+		// Tool failures are NOT security denials.
+		const success = json.success ?? true;
 		return {
 			callId: json.callId ?? toolCall.id,
-			success: true,
-			data: json.result,
-			error: json.error,
+			success,
+			data: success ? json.result : undefined,
+			error: success ? undefined : (json.error ?? "Tool execution failed"),
 			durationMs: 0,
 			taintLabels: json.resultTaint ?? [],
 		};

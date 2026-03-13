@@ -221,7 +221,6 @@ export class Pipeline {
 				const path = String(toolCall.parameters.path ?? "");
 				if (this.runState.isSensitivePath(path)) {
 					this.runState.recordSensitiveFileAttempt();
-					this.persistentTaint?.recordSensitiveRead(path);
 					this.runState.pushEvent({
 						timestamp: toolCall.timestamp,
 						type: "sensitive_read_attempt",
@@ -405,10 +404,14 @@ export class Pipeline {
 			// The sticky sensitiveReadObserved flag is set here (not at attempt time) to prevent
 			// framing attacks where an adversary triggers denied sensitive reads to set the sticky
 			// flag and contaminate cross-principal shared stores.
-			if (toolCall.toolClass === "file") {
+			// Gate on: toolClass=file, action=read, result.success=true.
+			// file.write on a sensitive path must NOT set the read-sticky flag.
+			// Allowed-but-failed reads (e.g. ENOENT) must NOT set it either.
+			if (toolCall.toolClass === "file" && toolCall.action === "read" && result.success) {
 				const path = String(toolCall.parameters.path ?? "");
 				if (this.runState.isSensitivePath(path)) {
 					this.runState.confirmSensitiveFileRead();
+					this.persistentTaint?.recordSensitiveRead(path);
 				}
 			}
 

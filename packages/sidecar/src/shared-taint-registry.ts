@@ -13,6 +13,17 @@ export interface SharedStoreConfig {
 	sharedDatabases?: string[];
 	/** Table names considered shared. */
 	sharedTables?: string[];
+	/**
+	 * TTL for contamination entries in milliseconds. After this duration,
+	 * contamination is automatically expired and no longer returned by reads.
+	 * Default: 3_600_000 (1 hour).
+	 */
+	contaminationTtlMs?: number;
+	/**
+	 * Maximum number of contamination entries. When exceeded, the oldest
+	 * (least-recently-inserted) entry is evicted. Default: 10_000.
+	 */
+	maxContaminationEntries?: number;
 }
 
 /**
@@ -39,6 +50,8 @@ interface ContaminatedResource {
 	key: string;
 	principalId: string;
 	timestamp: string;
+	/** Epoch ms when this entry expires and should be evicted. */
+	expiresAt: number;
 }
 
 /** DB actions that constitute a write for contamination marking. */
@@ -66,29 +79,64 @@ function buildDbResourceKey(database: string | undefined, table: string): string
 export class SharedTaintRegistry {
 	private readonly contaminated = new Map<string, ContaminatedResource>();
 	private readonly config: SharedStoreConfig;
+	private readonly ttlMs: number;
+	private readonly maxEntries: number;
 
 	constructor(config?: SharedStoreConfig) {
 		this.config = config ?? {};
+		this.ttlMs = this.config.contaminationTtlMs ?? 3_600_000; // 1 hour
+		this.maxEntries = this.config.maxContaminationEntries ?? 10_000;
 	}
 
 	/** Mark a shared resource as contaminated by a principal. */
 	markContaminated(key: string, principalId: string): void {
 		const canonical = canonicalizeResourceKey(key);
+		// Delete first so re-insert moves it to end of Map iteration order (LRU refresh)
+		this.contaminated.delete(canonical);
 		this.contaminated.set(canonical, {
 			key: canonical,
 			principalId,
 			timestamp: now(),
+			expiresAt: Date.now() + this.ttlMs,
 		});
+		this.evictOverflow();
 	}
 
-	/** Check if a shared resource has been contaminated. */
+	/** Check if a shared resource has been contaminated (not expired). */
 	isContaminated(key: string): boolean {
-		return this.contaminated.has(canonicalizeResourceKey(key));
+		const canonical = canonicalizeResourceKey(key);
+		const entry = this.contaminated.get(canonical);
+		if (!entry) return false;
+		if (Date.now() >= entry.expiresAt) {
+			this.contaminated.delete(canonical);
+			return false;
+		}
+		return true;
 	}
 
-	/** Get contamination metadata for a resource. */
+	/** Get contamination metadata for a resource (not expired). */
 	getContamination(key: string): ContaminatedResource | undefined {
-		return this.contaminated.get(canonicalizeResourceKey(key));
+		const canonical = canonicalizeResourceKey(key);
+		const entry = this.contaminated.get(canonical);
+		if (!entry) return undefined;
+		if (Date.now() >= entry.expiresAt) {
+			this.contaminated.delete(canonical);
+			return undefined;
+		}
+		return entry;
+	}
+
+	/** Evict oldest entries when map exceeds maxEntries. */
+	private evictOverflow(): void {
+		while (this.contaminated.size > this.maxEntries) {
+			// Map iteration order = insertion order; first key is oldest
+			const oldest = this.contaminated.keys().next().value;
+			if (oldest !== undefined) {
+				this.contaminated.delete(oldest);
+			} else {
+				break;
+			}
+		}
 	}
 
 	/**

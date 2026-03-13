@@ -1,7 +1,9 @@
 """AriKernel Python runtime — create_kernel() and enforcement classes.
 
-Default mode is sidecar-authoritative: all security decisions are delegated
-to the TypeScript sidecar process, providing process-boundary isolation.
+Default mode is sidecar-authoritative: all security decisions and tool execution
+are delegated to the TypeScript sidecar process, providing process-boundary
+isolation for mediated calls. Python code that bypasses the kernel (direct OS API
+calls) is not mediated.
 
 Usage (sidecar — default, production):
     kernel = create_kernel(preset="safe-research")
@@ -476,9 +478,10 @@ def create_kernel(
 ) -> "Kernel | Any":
     """Create a new AriKernel instance.
 
-    By default, creates a sidecar-authoritative kernel that delegates ALL
-    security decisions to the TypeScript sidecar process. This provides
-    process-boundary isolation — Python cannot bypass enforcement.
+    By default, creates a sidecar-authoritative kernel that delegates all
+    security decisions and tool execution to the TypeScript sidecar process.
+    This provides process-boundary isolation for mediated calls — Python code
+    that bypasses the kernel (direct OS API calls) is not mediated.
 
     Args:
         preset: Named preset (safe-research, rag-reader, workspace-assistant, etc.)
@@ -530,8 +533,8 @@ def create_kernel(
     warnings.warn(
         "[arikernel] Using local enforcement mode. This is intended for "
         "development and testing only. In production, use mode='sidecar' "
-        "to delegate security decisions to the TypeScript sidecar, which "
-        "provides process-boundary isolation that cannot be bypassed.",
+        "to delegate security decisions and tool execution to the TypeScript "
+        "sidecar, which provides process-boundary isolation for mediated calls.",
         stacklevel=2,
     )
 

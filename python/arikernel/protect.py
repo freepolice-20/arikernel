@@ -1,10 +1,15 @@
 """Helper decorator for protecting Python tool functions with AriKernel.
 
-The default mode is sidecar-authoritative: all enforcement decisions are
-delegated to the TypeScript sidecar process over HTTP. This provides
-process-boundary isolation that cannot be bypassed by the Python runtime.
+The default mode is sidecar-authoritative: all enforcement decisions and tool
+execution are delegated to the TypeScript sidecar process over HTTP. In sidecar
+mode, the decorated function body is NOT executed — the sidecar's own executors
+handle tool execution. The function body serves only as documentation of what
+the tool does; it is a client-side stub.
 
-Usage:
+In local mode (``mode="local"``), the decorated function IS executed locally
+after the in-process policy engine allows it.
+
+Usage (sidecar — default):
 
     from arikernel import create_kernel, protect_tool
 
@@ -12,6 +17,17 @@ Usage:
 
     @protect_tool("file.read", kernel=kernel)
     def read_file(path: str) -> str:
+        # This body is NOT called in sidecar mode.
+        # The sidecar's FileExecutor handles the read.
+        return open(path).read()
+
+Usage (local — dev/testing):
+
+    kernel = create_kernel(preset="safe-research", mode="local")
+
+    @protect_tool("file.read", kernel=kernel)
+    def read_file(path: str) -> str:
+        # This body IS called in local mode.
         return open(path).read()
 """
 
@@ -41,6 +57,15 @@ def get_default_kernel():
     return _default_kernel
 
 
+def _is_sidecar_kernel(k: Any) -> bool:
+    """Check if kernel is a SidecarKernel (avoid circular import)."""
+    # Check class name anywhere in the MRO and the health() method
+    # to avoid importing SidecarKernel directly (circular import).
+    return hasattr(k, "health") and any(
+        cls.__name__ == "SidecarKernel" for cls in type(k).__mro__
+    )
+
+
 def protect_tool(
     capability_class: str,
     *,
@@ -49,9 +74,13 @@ def protect_tool(
 ) -> Callable[[F], F]:
     """Decorator that routes a tool function through AriKernel enforcement.
 
-    By default, uses the sidecar-authoritative kernel (TypeScript sidecar).
-    All security decisions are made by the sidecar — Python only executes
-    the tool function after receiving an "allow" verdict.
+    Behavior depends on the kernel mode:
+
+    - **Sidecar mode** (default): The decorated function body is NOT executed.
+      The sidecar's own executors handle tool execution. The function body
+      serves as a client-side stub only.
+    - **Local mode**: The decorated function body IS executed locally after
+      the in-process policy engine allows the call.
 
     Args:
         capability_class: Capability class string (e.g. "file.read", "http.get").
@@ -62,6 +91,7 @@ def protect_tool(
 
         @protect_tool("file.read")
         def read_file(path: str) -> str:
+            # Not called in sidecar mode; sidecar's FileExecutor runs instead.
             return open(path).read()
     """
     # Resolve tool_class and action from capability class using the spec
@@ -103,16 +133,25 @@ def protect_tool(
             if args:
                 params["_args"] = list(args)
 
-            # Execute through kernel enforcement pipeline
-            # Both SidecarKernel and Kernel support execute_tool()
-            result = k.execute_tool(
-                tool_class=tool_class,
-                action=action,
-                parameters=params,
-                grant_id=grant.get("grant_id"),
-                taint_labels=native_labels,
-                execute_fn=lambda **_kw: fn(*args, **kwargs),
-            )
+            # In sidecar mode, the sidecar executes the tool — do NOT call fn.
+            # In local mode, pass fn as execute_fn for local execution.
+            if _is_sidecar_kernel(k):
+                result = k.execute_tool(
+                    tool_class=tool_class,
+                    action=action,
+                    parameters=params,
+                    grant_id=grant.get("grant_id"),
+                    taint_labels=native_labels,
+                )
+            else:
+                result = k.execute_tool(
+                    tool_class=tool_class,
+                    action=action,
+                    parameters=params,
+                    grant_id=grant.get("grant_id"),
+                    taint_labels=native_labels,
+                    execute_fn=lambda **_kw: fn(*args, **kwargs),
+                )
 
             return result.get("result")
 

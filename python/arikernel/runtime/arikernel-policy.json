@@ -412,7 +412,7 @@
     "defaultDeniedThreshold": 5,
     "capabilityLeaseTtlMs": 300000,
     "capabilityMaxCalls": 10,
-    "untrustedTaintSources": ["web", "rag", "email", "retrieved-doc"],
+    "untrustedTaintSources": ["web", "rag", "email", "retrieved-doc", "user-provided", "content-scan"],
     "safeReadonlyActions": {
       "http": ["get", "head", "options"],
       "file": ["read"],
