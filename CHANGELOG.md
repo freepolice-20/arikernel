@@ -2,6 +2,27 @@
 
 All notable changes to Ari Kernel are documented here.
 
+## [0.1.8] — 2026-03-12
+
+### Security Hardening
+- **Sidecar `/execute` protocol**: Decoupled `allowed` (policy verdict) from `success` (executor outcome); added `grantId` support with precedence (`capabilityToken` > `grantId` > auto-issue)
+- **Sensitive-read confirmation**: Sticky flag now requires `file.read` action AND `result.success` — failed reads and writes no longer set `sensitiveReadObserved`
+- **SSRF: IPv4-mapped IPv6 hex form**: `normalizeIP()` now detects `::ffff:HHHH:HHHH` hex-encoded mapped addresses (e.g. `::ffff:7f00:1` → 127.0.0.1)
+- **SSRF: numeric IPv4 hostnames**: `resolveHost()` blocks decimal (`2130706433`) and hex (`0x7f000001`) integer encodings of private IPs before DNS lookup
+- **`content-scan` untrusted source**: Added to `UNTRUSTED_SOURCES` in capability issuer; DLP-detected content now blocks sensitive capability issuance
+- **`user-provided` naming fix**: Corrected `user-input` → `user-provided` to match `TaintSource` enum
+
+### Fixed
+- **SharedTaintRegistry bounded growth**: TTL expiry (default 1 hour) and max-entries cap (default 10,000) with LRU eviction prevent unbounded memory growth
+- **TokenStore bounded growth**: Configurable `maxSize` (default 10,000) with LRU eviction replacing fixed 100-entry threshold; evicts expired first, then oldest active
+- **FirewallClient deprecated**: Runtime `DeprecationWarning` emitted on instantiation; directs users to `SidecarKernel`/`create_kernel()`
+
+### Added
+- Python integration test for allowed-but-failed semantics (`verdict=allow`, `success=false`)
+- Python sidecar semantics unit tests (mock-based, no sidecar required)
+- 23 SSRF regression tests for hex-form mapped IPv6 and numeric IPv4 hostname bypass vectors
+- `setUntrustedSources()` / `getUntrustedSources()` for runtime-configurable untrusted taint source list
+
 ## [0.1.7] — 2026-03-11
 
 ### Security Hardening
