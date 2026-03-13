@@ -6,9 +6,15 @@
  * directly — the sidecar is the authoritative enforcement boundary.
  *
  * Flow: Agent → Firewall (local policy check) → SidecarProxyExecutor → Sidecar HTTP → Real Executor
+ *
+ * IMPORTANT: Sidecar denials are raised as ToolCallDeniedError so the host
+ * pipeline correctly classifies them as security denials (not tool failures).
+ * Grant IDs and capability tokens are forwarded to the sidecar so it can
+ * validate them server-side.
  */
 
-import type { ToolCall, ToolResult } from "@arikernel/core";
+import type { Decision, ToolCall, ToolResult } from "@arikernel/core";
+import { ToolCallDeniedError, now } from "@arikernel/core";
 import type { ToolExecutor } from "@arikernel/tool-executors";
 
 export interface SidecarProxyConfig {
@@ -24,6 +30,10 @@ export interface SidecarProxyConfig {
  * A ToolExecutor that proxies all execution through the sidecar HTTP API.
  * The host process performs no direct tool execution — the sidecar owns
  * the real executors and is the sole execution boundary.
+ *
+ * Sidecar denials are raised as ToolCallDeniedError (not returned as
+ * ToolResult.success=false) so the host pipeline correctly tracks denials
+ * in audit logs, run-state counters, and behavioral quarantine logic.
  */
 export class SidecarProxyExecutor implements ToolExecutor {
 	readonly toolClass: string;
@@ -42,13 +52,24 @@ export class SidecarProxyExecutor implements ToolExecutor {
 	}
 
 	async execute(toolCall: ToolCall): Promise<ToolResult> {
-		const body = {
+		const body: Record<string, unknown> = {
 			principalId: this.principalId,
 			toolClass: this.toolClass,
 			action: toolCall.action,
 			params: toolCall.parameters,
 			taint: toolCall.taintLabels.length > 0 ? toolCall.taintLabels : undefined,
 		};
+
+		// Forward grant ID so the sidecar can validate capability tokens server-side.
+		if (toolCall.grantId) {
+			body.grantId = toolCall.grantId;
+		}
+
+		// Forward serialized capability token if present (for cryptographic verification).
+		const capToken = (toolCall as Record<string, unknown>).capabilityToken;
+		if (typeof capToken === "string") {
+			body.capabilityToken = capToken;
+		}
 
 		const res = await fetch(`${this.endpoint}/execute`, {
 			method: "POST",
@@ -64,9 +85,26 @@ export class SidecarProxyExecutor implements ToolExecutor {
 			callId?: string;
 		};
 
+		// Sidecar denied the action — raise as a security denial, not a tool failure.
+		// This ensures the host pipeline correctly:
+		// - increments denied action counters
+		// - pushes tool_call_denied events
+		// - triggers quarantine logic
+		// - produces accurate audit records
+		if (!json.allowed) {
+			const decision: Decision = {
+				verdict: "deny",
+				matchedRule: null,
+				reason: json.error ?? "Sidecar denied the action",
+				taintLabels: toolCall.taintLabels,
+				timestamp: now(),
+			};
+			throw new ToolCallDeniedError(toolCall, decision);
+		}
+
 		return {
 			callId: json.callId ?? toolCall.id,
-			success: json.allowed,
+			success: true,
 			data: json.result,
 			error: json.error,
 			durationMs: 0,

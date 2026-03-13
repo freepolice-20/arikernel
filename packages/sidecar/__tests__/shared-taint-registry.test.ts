@@ -31,13 +31,13 @@ describe("SharedTaintRegistry", () => {
 		expect(key).toBe("db:messages");
 	});
 
-	it("extractResourceKey returns db key for shared database write", () => {
+	it("extractResourceKey returns db key with database prefix for shared database write", () => {
 		const reg = new SharedTaintRegistry(config);
 		const key = reg.extractResourceKey("database", "update", {
 			table: "logs",
 			database: "shared_db",
 		});
-		expect(key).toBe("db:logs");
+		expect(key).toBe("db:shared_db.logs");
 	});
 
 	it("extractResourceKey returns null for non-shared table", () => {

@@ -30,8 +30,9 @@ pip install arikernel
 **Step 1: Start the TypeScript sidecar**
 
 ```bash
-pnpm build && pnpm server
-# → listening on http://localhost:9099
+pnpm build
+node -e "import('@arikernel/sidecar').then(m => m.createSidecarServer({}).listen().then(() => console.log('Sidecar listening on http://localhost:8787')))"
+# → listening on http://localhost:8787
 ```
 
 **Step 2: Use from Python**

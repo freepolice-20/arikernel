@@ -11,11 +11,12 @@ function makeEvent(overrides: Partial<SecurityEvent>): SecurityEvent {
 }
 
 describe("Slow drip exfiltration: GET-with-params after sensitive read", () => {
-	it("treats GET with query params as egress after sensitive read (pre-quarantine)", () => {
+	it("treats GET with query params as egress after confirmed sensitive read (pre-quarantine)", () => {
 		const state = new RunStateTracker({ behavioralRules: true });
 
-		// Sensitive file read — sets sticky flag
+		// Sensitive file read — confirmed as allowed, sets sticky flag
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead();
 		state.pushEvent(
 			makeEvent({
 				type: "sensitive_read_attempt",
@@ -43,11 +44,12 @@ describe("Slow drip exfiltration: GET-with-params after sensitive read", () => {
 		expect(state.quarantineGetCount).toBe(4);
 	});
 
-	it("quarantine GET budget is 0 after sensitive read", () => {
+	it("quarantine GET budget is 0 after confirmed sensitive read", () => {
 		const state = new RunStateTracker({ behavioralRules: true });
 
-		// Trigger sensitive read
+		// Trigger confirmed sensitive read
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead();
 
 		// Very first GET is blocked — budget is 0 after sensitive read
 		expect(state.recordQuarantineGet()).toBe(true);
@@ -115,8 +117,9 @@ describe("Slow drip exfiltration: behavioral rule catches GET-as-egress", () => 
 	it("sensitive_read_then_egress fires when GET-with-params is recorded as egress", () => {
 		const state = new RunStateTracker({ behavioralRules: true });
 
-		// Record sensitive read
+		// Record confirmed sensitive read
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead();
 		state.pushEvent(
 			makeEvent({
 				type: "sensitive_read_attempt",

@@ -5,7 +5,7 @@ to the TypeScript sidecar process, providing process-boundary isolation.
 
 Usage (sidecar — default, production):
     kernel = create_kernel(preset="safe-research")
-    # Requires: TypeScript sidecar running at localhost:9099
+    # Requires: TypeScript sidecar running at localhost:8787
 
 Usage (local — dev/testing only):
     kernel = create_kernel(preset="safe-research", mode="local")
@@ -472,7 +472,7 @@ def create_kernel(
     on_approval: Callable[[dict[str, Any], dict[str, Any]], bool] | None = None,
     *,
     mode: str = "sidecar",
-    sidecar_url: str = "http://localhost:9099",
+    sidecar_url: str = "http://localhost:8787",
 ) -> "Kernel | Any":
     """Create a new AriKernel instance.
 
@@ -491,7 +491,7 @@ def create_kernel(
         on_approval: Callback for require-approval verdicts
         mode: "sidecar" (default, recommended) or "local" (dev/testing only).
               Sidecar mode requires the TypeScript server to be running.
-        sidecar_url: URL of the TypeScript sidecar (default: http://localhost:9099)
+        sidecar_url: URL of the TypeScript sidecar (default: http://localhost:8787)
 
     Returns:
         Kernel instance (SidecarKernel or local Kernel) ready for tool protection.

@@ -45,6 +45,18 @@ interface ContaminatedResource {
 const DB_WRITE_ACTIONS = ["write", "insert", "update", "create", "exec", "mutate"];
 
 /**
+ * Build a database resource key that includes both database and table identity.
+ * This prevents cross-database collisions where table names overlap.
+ * Format: "db:<database>.<table>" or "db:<table>" if no database specified.
+ */
+function buildDbResourceKey(database: string | undefined, table: string): string {
+	if (database) {
+		return `db:${database}.${table}`;
+	}
+	return `db:${table}`;
+}
+
+/**
  * Tracks which shared resources have been written to by principals that
  * had previously read sensitive data. When another principal reads from
  * a contaminated resource, it receives a `derived-sensitive` taint label.
@@ -92,9 +104,10 @@ export class SharedTaintRegistry {
 			const table = params.table as string | undefined;
 			if (!table) return null;
 			const db = params.database as string | undefined;
+			const dbKey = buildDbResourceKey(db, table);
 			const normalizedTable = table.normalize("NFKC").toLowerCase();
 			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
-				return canonicalizeResourceKey(`db:${table}`);
+				return canonicalizeResourceKey(dbKey);
 			}
 			if (
 				db &&
@@ -102,7 +115,7 @@ export class SharedTaintRegistry {
 					(d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase(),
 				)
 			) {
-				return canonicalizeResourceKey(`db:${table}`);
+				return canonicalizeResourceKey(dbKey);
 			}
 			return null;
 		}
@@ -111,9 +124,10 @@ export class SharedTaintRegistry {
 			const table = params.table as string | undefined;
 			if (!table) return null;
 			const db = params.database as string | undefined;
+			const dbKey = buildDbResourceKey(db, table);
 			const normalizedTable = table.normalize("NFKC").toLowerCase();
 			if (this.config.sharedTables?.some((t) => t.toLowerCase() === normalizedTable)) {
-				return canonicalizeResourceKey(`db:${table}`);
+				return canonicalizeResourceKey(dbKey);
 			}
 			if (
 				db &&
@@ -121,7 +135,7 @@ export class SharedTaintRegistry {
 					(d) => d.toLowerCase() === db.normalize("NFKC").toLowerCase(),
 				)
 			) {
-				return canonicalizeResourceKey(`db:${table}`);
+				return canonicalizeResourceKey(dbKey);
 			}
 			return null;
 		}

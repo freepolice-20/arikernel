@@ -405,9 +405,27 @@ export class RunStateTracker {
 		this._egressObserved = true;
 	}
 
-	/** Record a sensitive file read attempt. */
+	/**
+	 * Record a sensitive file read attempt (pre-policy).
+	 * Increments the counter for quarantine threshold checks, but does NOT set
+	 * the sticky sensitiveReadObserved flag. That flag is only set when the read
+	 * is actually allowed (via confirmSensitiveFileRead()), preventing an attacker
+	 * from "framing" a principal by attempting denied sensitive reads to trigger
+	 * cross-principal contamination marking.
+	 */
 	recordSensitiveFileAttempt(): void {
 		this.counters.sensitiveFileReadAttempts++;
+	}
+
+	/**
+	 * Confirm that a sensitive file read was actually executed (post-policy allow).
+	 * Sets the sticky sensitiveReadObserved flag which is used for:
+	 * - Cross-principal contamination marking (shared taint registry)
+	 * - Post-sensitive-read egress restrictions
+	 *
+	 * Only call this AFTER policy evaluation allows the read AND execution succeeds.
+	 */
+	confirmSensitiveFileRead(): void {
 		this._sensitiveReadObserved = true;
 	}
 

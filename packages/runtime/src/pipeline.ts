@@ -400,6 +400,18 @@ export class Pipeline {
 				action: toolCall.action,
 				verdict: "allow",
 			});
+
+			// Step 6.5a: Confirm sensitive file read only AFTER policy allowed and execution succeeded.
+			// The sticky sensitiveReadObserved flag is set here (not at attempt time) to prevent
+			// framing attacks where an adversary triggers denied sensitive reads to set the sticky
+			// flag and contaminate cross-principal shared stores.
+			if (toolCall.toolClass === "file") {
+				const path = String(toolCall.parameters.path ?? "");
+				if (this.runState.isSensitivePath(path)) {
+					this.runState.confirmSensitiveFileRead();
+				}
+			}
+
 			// Post-execution quarantine check — result is already produced but
 			// future actions will be blocked. We don't deny the current result
 			// since it already executed, but quarantine is now active.

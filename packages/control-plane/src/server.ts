@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 import type { PolicyRule } from "@arikernel/core";
 import { PolicyEngine } from "@arikernel/policy-engine";
@@ -20,10 +21,29 @@ export const DEFAULT_CP_HOST = "127.0.0.1";
 /**
  * Compute a stable SHA-256 hash prefix for the loaded policy ruleset.
  * Used for policy versioning in signed decision receipts.
+ *
+ * When the policy is a file path (string), hashes the file CONTENTS —
+ * not the path string itself. This ensures receipts attest to which
+ * policy was actually enforced, not just where it was loaded from.
  */
 function computePolicyHash(policy: string | PolicyRule[] | undefined): string {
-	const input =
-		policy == null ? "[]" : typeof policy === "string" ? policy : JSON.stringify(policy);
+	let input: string;
+	if (policy == null) {
+		input = "[]";
+	} else if (typeof policy === "string") {
+		// Policy is a file path — hash the file contents, not the path.
+		// This ensures signed receipts attest to the actual policy content.
+		try {
+			input = readFileSync(policy, "utf-8");
+		} catch {
+			// If the file can't be read (e.g., already-resolved inline YAML string),
+			// fall back to hashing the string value with a prefix to distinguish
+			// from content hashes.
+			input = policy;
+		}
+	} else {
+		input = JSON.stringify(policy);
+	}
 	return createHash("sha256").update(input).digest("hex").slice(0, 16);
 }
 

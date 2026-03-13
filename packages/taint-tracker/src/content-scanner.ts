@@ -31,13 +31,13 @@ const INJECTION_PATTERNS: Array<{
 	// Direct instruction injection
 	{
 		regex: /ignore\s+(previous|all|prior|above)\s+(instructions?|prompts?|rules?)/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.95,
 		label: "instruction-override",
 	},
 	{
 		regex: /disregard\s+(previous|all|prior|your)\s+(instructions?|prompts?|guidelines?)/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.95,
 		label: "instruction-override",
 	},
@@ -45,7 +45,7 @@ const INJECTION_PATTERNS: Array<{
 	{
 		regex:
 			/(?:read|cat|send|post|curl|wget|exfiltrate|steal)\s+.*(?:\.ssh|id_rsa|credentials|\.env|passwd|shadow|secret|token|api.?key)/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.9,
 		label: "exfiltration-instruction",
 	},
@@ -53,28 +53,28 @@ const INJECTION_PATTERNS: Array<{
 	{
 		regex:
 			/(?:print|output|reveal|show|display)\s+.*(?:system\s*prompt|instructions|initial\s*prompt)/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.85,
 		label: "prompt-extraction",
 	},
 	// Role hijacking
 	{
 		regex: /you\s+are\s+(?:now|actually)\s+(?:a|an)\s+/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.8,
 		label: "role-hijack",
 	},
 	// Data exfiltration setup
 	{
 		regex: /send\s+(?:it|the|this|all|data|contents?|results?)\s+to\s+https?:\/\//i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.9,
 		label: "exfiltration-instruction",
 	},
 	// Hidden instruction markers
 	{
 		regex: /\[SYSTEM\]|\[ADMIN\]|\[OVERRIDE\]|<\s*system\s*>|<\s*instruction\s*>/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.85,
 		label: "fake-system-marker",
 	},
@@ -82,7 +82,7 @@ const INJECTION_PATTERNS: Array<{
 	{
 		regex:
 			/(?:execute|run|eval)\s+(?:the\s+)?(?:following|this)\s+(?:command|code|script|payload)/i,
-		source: "web",
+		source: "content-scan",
 		confidence: 0.85,
 		label: "code-execution-instruction",
 	},

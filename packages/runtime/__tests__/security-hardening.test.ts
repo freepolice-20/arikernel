@@ -194,7 +194,7 @@ describe("symlink traversal protection (CWE-59)", () => {
 		expect(allowed).toBe(false);
 	});
 
-	it("isPathAllowed allows paths within a glob pattern", () => {
+	it("isPathAllowed allows paths within a directory prefix pattern (dir/**)", () => {
 		const { allowed } = isPathAllowed("./data/report.csv", ["./data/**"], "/project");
 		expect(allowed).toBe(true);
 	});

@@ -98,7 +98,7 @@ interface Capability {
   toolClass: ToolClass;
   actions?: string[];                    // e.g. ['read'] for file. Empty = all actions.
   constraints?: {
-    allowedPaths?: string[];             // file: glob patterns
+    allowedPaths?: string[];             // file: exact paths or dir/** prefixes (not general globs)
     allowedHosts?: string[];             // http: hostname allowlist
     allowedCommands?: string[];          // shell: command allowlist
     allowedDatabases?: string[];         // database: db name allowlist
