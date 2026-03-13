@@ -915,3 +915,117 @@ describe("SidecarServer dev mode production guard", () => {
 		}
 	});
 });
+
+// ── /execute protocol semantics: allowed vs success ──────────────────────────
+
+describe("POST /execute — allowed vs success decoupling", () => {
+	let server: SidecarServer;
+	let client: SidecarClient;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18823,
+			policy: REALISTIC_POLICY,
+			auditLog: join(dir, "audit.db"),
+		});
+		await server.listen();
+		client = new SidecarClient({
+			baseUrl: "http://localhost:18823",
+			principalId: "proto-agent",
+		});
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("allowed but tool fails returns 200 with allowed=true, success=false", async () => {
+		// File read is allowed by policy, but file does not exist → tool failure
+		const result = await client.execute("file", "read", {
+			path: "/nonexistent/path/that/does/not/exist.txt",
+		});
+		expect(result.allowed).toBe(true);
+		expect(result.success).toBe(false);
+		expect(result.error).toBeTruthy();
+	});
+
+	it("policy denial returns 403 with allowed=false", async () => {
+		// Shell is denied by policy
+		const result = await client.execute("shell", "exec", { command: "whoami" });
+		expect(result.allowed).toBe(false);
+	});
+
+	it("allowed and tool succeeds returns 200 with allowed=true, success=true", async () => {
+		const result = await client.execute("file", "read", { path: "./package.json" });
+		expect(result.allowed).toBe(true);
+		expect(result.success).toBe(true);
+		expect(result.result).toBeTruthy();
+	});
+});
+
+// ── grantId support in /execute ──────────────────────────────────────────────
+
+describe("POST /execute — grantId support", () => {
+	let server: SidecarServer;
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = tempDir();
+		server = new SidecarServer({
+			port: 18824,
+			policy: REALISTIC_POLICY,
+			auditLog: join(dir, "audit.db"),
+		});
+		await server.listen();
+	});
+
+	afterEach(async () => {
+		await server.close();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("accepts grantId from prior /request-capability call", async () => {
+		const client = new SidecarClient({
+			baseUrl: "http://localhost:18824",
+			principalId: "grant-agent",
+		});
+
+		// Step 1: Request capability
+		const cap = await client.requestCapability("file.read");
+		expect(cap.granted).toBe(true);
+		expect(cap.grantId).toBeTruthy();
+
+		// Step 2: Execute with grantId
+		const result = await client.execute("file", "read", { path: "./package.json" }, {
+			grantId: cap.grantId,
+		});
+		expect(result.allowed).toBe(true);
+		expect(result.success).toBe(true);
+	});
+
+	it("grantId field is accepted in raw HTTP request", async () => {
+		// First request a capability
+		const capRes = await post(18824, "/request-capability", {
+			principalId: "raw-grant-agent",
+			capabilityClass: "file.read",
+		});
+		const cap = (await capRes.json()) as { granted: boolean; grantId?: string };
+		expect(cap.granted).toBe(true);
+
+		// Execute with grantId in body
+		const execRes = await post(18824, "/execute", {
+			principalId: "raw-grant-agent",
+			toolClass: "file",
+			action: "read",
+			params: { path: "./package.json" },
+			grantId: cap.grantId,
+		});
+		expect(execRes.status).toBe(200);
+		const body = (await execRes.json()) as { allowed: boolean; success?: boolean };
+		expect(body.allowed).toBe(true);
+		expect(body.success).toBe(true);
+	});
+});

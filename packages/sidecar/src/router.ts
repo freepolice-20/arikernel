@@ -119,6 +119,7 @@ function validateExecuteRequest(
 		action: req.action as string,
 		params: req.params as Record<string, unknown>,
 		taint: req.taint as import("@arikernel/core").TaintLabel[] | undefined,
+		grantId: typeof req.grantId === "string" ? req.grantId : undefined,
 		capabilityToken: typeof req.capabilityToken === "string" ? req.capabilityToken : undefined,
 	};
 }
@@ -249,8 +250,11 @@ export async function handleExecute(
 						grantId: token.grant.id,
 					});
 
+					// Action was permitted (allowed=true). success reflects
+					// whether the tool itself succeeded operationally.
 					const response: ExecuteResponse = {
-						allowed: result.success,
+						allowed: true,
+						success: result.success,
 						result: result.success ? result.data : undefined,
 						error: result.success ? undefined : result.error,
 						resultTaint: result.taintLabels.length > 0 ? result.taintLabels : undefined,
@@ -280,10 +284,19 @@ export async function handleExecute(
 			// The sidecar itself is trusted, so server-side issuance is acceptable.
 		}
 
-		// Default path: server-side capability issuance (backward compatible).
+		// Precedence: capabilityToken (handled above) > grantId > server auto-issue
 		const normalizedAction = execReq.action.toLowerCase();
-		const capClass = deriveCapabilityClass(execReq.toolClass, normalizedAction);
-		const grant = firewall.requestCapability(capClass);
+		let effectiveGrantId: string | undefined;
+
+		if (execReq.grantId) {
+			// Client supplied a grantId from a prior /request-capability call
+			effectiveGrantId = execReq.grantId;
+		} else {
+			// Auto-issue: server-side capability issuance (backward compatible)
+			const capClass = deriveCapabilityClass(execReq.toolClass, normalizedAction);
+			const grant = firewall.requestCapability(capClass);
+			effectiveGrantId = grant.granted ? grant.grant?.id : undefined;
+		}
 
 		try {
 			const result = await firewall.execute({
@@ -291,11 +304,14 @@ export async function handleExecute(
 				action: normalizedAction,
 				parameters: execReq.params,
 				taintLabels: execReq.taint,
-				grantId: grant.granted ? grant.grant?.id : undefined,
+				grantId: effectiveGrantId,
 			});
 
+			// Action was permitted (allowed=true). success reflects
+			// whether the tool itself succeeded operationally.
 			const response: ExecuteResponse = {
-				allowed: result.success,
+				allowed: true,
+				success: result.success,
 				result: result.success ? result.data : undefined,
 				error: result.success ? undefined : result.error,
 				resultTaint: result.taintLabels.length > 0 ? result.taintLabels : undefined,

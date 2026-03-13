@@ -1,12 +1,18 @@
 """
-Integration test for the AriKernel Python client.
+Integration test for the AriKernel Python sidecar client.
 
-Starts the TypeScript server, creates a session, and verifies
-that allowed and denied tool calls produce the correct decisions.
+Starts the TypeScript sidecar (packages/sidecar), creates a SidecarKernel,
+and verifies that allowed and denied tool calls produce the correct decisions.
 
-Run:
+Requires:
     cd <repo-root>
     pnpm build
+
+Run:
+    # Start sidecar first (in another terminal or via CI):
+    node -e "import('@arikernel/sidecar').then(m => m.createSidecarServer({devMode:true}).listen())"
+
+    # Then run tests:
     pip install -e python/
     python -m pytest python/tests/test_integration.py -v
 """
@@ -21,44 +27,64 @@ import pytest
 # Allow importing from the python package in the repo
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from arikernel import FirewallClient, ToolCallDenied
+from arikernel.sidecar import SidecarKernel
+from arikernel.runtime.kernel import ToolCallDenied, create_kernel
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SERVER_PORT = 9198  # Use a non-default port to avoid conflicts
-POLICY = os.path.join(REPO_ROOT, "policies", "safe-defaults.yaml")
-AUDIT_DB = os.path.join(REPO_ROOT, "test-integration-audit.db")
+SIDECAR_PORT = int(os.environ.get("SIDECAR_PORT", "8787"))
+SIDECAR_URL = f"http://localhost:{SIDECAR_PORT}"
+
+
+def _sidecar_is_running() -> bool:
+    """Check if the sidecar is already running."""
+    try:
+        import httpx
+        resp = httpx.get(f"{SIDECAR_URL}/health", timeout=2)
+        return resp.status_code == 200 and resp.json().get("service") == "arikernel-sidecar"
+    except Exception:
+        return False
 
 
 @pytest.fixture(scope="module")
-def server():
-    """Start the AriKernel server for the test session."""
-    # Clean up stale audit DB
-    if os.path.exists(AUDIT_DB):
-        os.remove(AUDIT_DB)
+def sidecar():
+    """Ensure the TypeScript sidecar is running for the test session.
 
-    env = {**os.environ, "PORT": str(SERVER_PORT), "POLICY": POLICY, "AUDIT_DB": AUDIT_DB}
+    If a sidecar is already running on the expected port (e.g., started by CI),
+    use it directly. Otherwise, start one as a subprocess.
+    """
+    if _sidecar_is_running():
+        yield None  # external sidecar, don't manage it
+        return
+
+    # Start sidecar subprocess
     proc = subprocess.Popen(
-        ["node", os.path.join(REPO_ROOT, "apps", "server", "dist", "main.js")],
-        env=env,
+        [
+            "node", "-e",
+            "import('@arikernel/sidecar').then(m => "
+            "m.createSidecarServer({devMode:true}).listen().then(() => "
+            "console.log('Sidecar listening')))"
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         cwd=REPO_ROOT,
     )
 
-    # Wait for server to be ready
+    # Wait for sidecar to be ready
     import httpx
-
     for _ in range(30):
         try:
-            resp = httpx.get(f"http://localhost:{SERVER_PORT}/health", timeout=1)
+            resp = httpx.get(f"{SIDECAR_URL}/health", timeout=1)
             if resp.status_code == 200:
                 break
         except Exception:
             pass
-        time.sleep(0.2)
+        time.sleep(0.5)
     else:
         proc.kill()
-        raise RuntimeError("Server did not start in time")
+        raise RuntimeError(
+            f"Sidecar did not start on {SIDECAR_URL}. "
+            "Run `pnpm build` first, then start the sidecar or set SIDECAR_PORT."
+        )
 
     yield proc
 
@@ -68,111 +94,135 @@ def server():
     except subprocess.TimeoutExpired:
         proc.kill()
 
-    # Clean up audit DB
-    if os.path.exists(AUDIT_DB):
-        os.remove(AUDIT_DB)
-
 
 @pytest.fixture
-def client(server):
-    """Create a FirewallClient connected to the test server."""
-    fw = FirewallClient(
-        url=f"http://localhost:{SERVER_PORT}",
+def kernel(sidecar):
+    """Create a SidecarKernel connected to the test sidecar."""
+    k = SidecarKernel(
+        url=SIDECAR_URL,
         principal="test-agent",
-        capabilities=[
-            {
-                "toolClass": "http",
-                "actions": ["get"],
-                "constraints": {"allowedHosts": ["api.github.com"]},
-            },
-        ],
     )
-    yield fw
-    fw.close()
+    yield k
+    k.close()
 
 
-def test_health(server):
-    """Server responds to health check."""
+def test_health(sidecar):
+    """Sidecar responds to health check."""
     import httpx
-
-    resp = httpx.get(f"http://localhost:{SERVER_PORT}/health")
+    resp = httpx.get(f"{SIDECAR_URL}/health")
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
+    assert data["service"] == "arikernel-sidecar"
 
 
-def test_session_creation(client):
-    """Client creates a session and receives IDs."""
-    assert client.session_id is not None
-    assert client.run_id is not None
+def test_create_kernel_sidecar_mode(sidecar):
+    """create_kernel() in sidecar mode connects to the sidecar."""
+    k = create_kernel(
+        preset="safe-research",
+        mode="sidecar",
+        sidecar_url=SIDECAR_URL,
+        principal="test-create",
+    )
+    assert k.preset == "safe-research"
+    k.close()
 
 
-def test_capability_granted(client):
+def test_capability_granted(kernel):
     """Requesting a matching capability is granted."""
-    grant = client.request_capability("http.read")
-    assert grant.granted is True
-    assert grant.grant_id is not None
-    assert grant.expires_at is not None
+    grant = kernel.request_capability("http.read")
+    assert grant["granted"] is True
+    assert grant.get("grant_id") is not None
 
 
-def test_capability_denied(client):
+def test_capability_denied(kernel):
     """Requesting a capability the principal lacks is denied."""
-    grant = client.request_capability("shell.exec")
-    assert grant.granted is False
-    assert grant.grant_id is None
+    grant = kernel.request_capability("shell.exec")
+    assert grant["granted"] is False
 
 
-def test_execute_allowed(client):
+def test_execute_allowed(kernel):
     """Tool call within granted scope is allowed."""
-    grant = client.request_capability("http.read")
-    assert grant.granted
-
-    result = client.execute(
+    result = kernel.execute_tool(
         tool_class="http",
         action="get",
-        parameters={"url": "https://api.github.com/repos/example"},
-        grant_id=grant.grant_id,
+        parameters={"url": "https://httpbin.org/get"},
     )
-    assert result.verdict == "allow"
+    assert result["verdict"] == "allow"
+    assert result.get("call_id") is not None
 
 
-def test_execute_denied_no_token(client):
-    """Tool call without a capability token is denied."""
-    with pytest.raises(ToolCallDenied) as exc_info:
-        client.execute(
+def test_execute_denied(kernel):
+    """Tool call outside granted scope is denied."""
+    with pytest.raises(ToolCallDenied):
+        kernel.execute_tool(
             tool_class="shell",
             action="exec",
             parameters={"command": "echo hello"},
         )
-    assert "token required" in exc_info.value.reason.lower() or "denied" in exc_info.value.reason.lower()
 
 
-def test_execute_denied_constraint_violation(client):
-    """Tool call violating grant constraints is denied."""
-    grant = client.request_capability("http.read")
-    assert grant.granted
+def test_execute_fn_ignored_in_sidecar(kernel):
+    """execute_fn is ignored in sidecar mode — sidecar executes tools."""
+    sentinel = {"called": False}
 
-    with pytest.raises(ToolCallDenied):
-        client.execute(
+    def should_not_run(**kwargs):
+        sentinel["called"] = True
+        return "local result"
+
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = kernel.execute_tool(
             tool_class="http",
             action="get",
-            parameters={"url": "https://evil.com/steal"},
-            grant_id=grant.grant_id,
+            parameters={"url": "https://httpbin.org/get"},
+            execute_fn=should_not_run,
         )
 
+    # execute_fn must NOT have been called
+    assert sentinel["called"] is False, "execute_fn should not be called in sidecar mode"
+    assert result["verdict"] == "allow"
+    # Should have emitted a warning about execute_fn being ignored
+    exec_fn_warns = [x for x in w if "execute_fn is ignored" in str(x.message)]
+    assert len(exec_fn_warns) >= 1
 
-def test_revoke_grant(client):
-    """Revoking a grant prevents further use."""
-    grant = client.request_capability("http.read")
-    assert grant.granted
 
-    revoked = client.revoke_grant(grant.grant_id)
-    assert revoked is True
+def test_status(kernel):
+    """Status endpoint returns principal state."""
+    # Make at least one call so the principal exists
+    kernel.execute_tool(
+        tool_class="http",
+        action="get",
+        parameters={"url": "https://example.com"},
+    )
+    status = kernel.status()
+    assert "restricted" in status
 
-    with pytest.raises(ToolCallDenied):
-        client.execute(
-            tool_class="http",
-            action="get",
-            parameters={"url": "https://api.github.com/repos/example"},
-            grant_id=grant.grant_id,
+
+def test_denial_returns_403(kernel):
+    """Denied calls raise ToolCallDenied with a reason."""
+    with pytest.raises(ToolCallDenied) as exc_info:
+        kernel.execute_tool(
+            tool_class="shell",
+            action="exec",
+            parameters={"command": "rm -rf /"},
         )
+    assert exc_info.value.reason  # has a reason string
+    assert exc_info.value.verdict == "deny"
+
+
+def test_execute_allowed_but_failed(kernel):
+    """Allowed tool call that fails operationally returns success=False (not 403).
+
+    This validates the allowed/success decoupling: policy allows the call (HTTP 200,
+    verdict=allow) but the executor fails (success=False with error message).
+    """
+    result = kernel.execute_tool(
+        tool_class="file",
+        action="read",
+        parameters={"path": "/nonexistent/path/that/does/not/exist.txt"},
+    )
+    assert result["verdict"] == "allow"
+    assert result["success"] is False
+    assert result.get("error")  # executor should provide an error message

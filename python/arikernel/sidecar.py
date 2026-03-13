@@ -1,10 +1,18 @@
-"""Sidecar-authoritative kernel — delegates ALL security decisions to the TypeScript sidecar.
+"""Sidecar-authoritative kernel — delegates all security decisions and tool
+execution to the TypeScript sidecar.
 
 This is the primary enforcement mode for Python. The TypeScript sidecar runs as a
-separate process on port 8787, providing process-boundary isolation that cannot be
-bypassed by the Python runtime. This eliminates the "weaker runtime" problem
-identified in security reviews: Python code physically cannot skip or alter
-enforcement logic because it lives in a different process.
+separate process on port 8787 and owns the full enforcement pipeline including
+tool executors. Python acts as a thin client: it sends tool call requests to the
+sidecar and receives results (or denials). The decorated function body is NOT
+executed in sidecar mode — the sidecar's own executors handle tool execution.
+
+Enforcement is stronger than embedded/local mode because the policy engine,
+taint state, behavioral rules, and audit log all live in a separate process.
+However, Python code that calls OS APIs directly (e.g., ``open()``,
+``subprocess.run()``, ``httpx.get()``) without going through the kernel is
+not mediated. Sidecar mode provides process-boundary isolation for mediated
+calls only.
 
 The sidecar manages per-principal firewalls automatically. No session management
 is needed — the Python client sends principalId with each request and the sidecar
@@ -36,20 +44,28 @@ from .runtime.kernel import ToolCallDenied, ApprovalRequiredError
 
 
 class SidecarKernel:
-    """Kernel that delegates all security decisions to the TypeScript sidecar.
+    """Kernel that delegates all security decisions and tool execution to the
+    TypeScript sidecar.
 
     Connects to the sidecar server on port 8787 (packages/sidecar), NOT the
     legacy decision server on port 9099 (apps/server). The sidecar owns the
     executors, audit state, and behavioral quarantine — it is the single
-    authoritative enforcement boundary.
+    authoritative enforcement boundary for mediated calls.
 
     Exposes the same interface as the native Kernel class, but every call
-    goes through the sidecar over HTTP. This guarantees:
+    goes through the sidecar over HTTP. This provides:
 
-    - Complete mediation: every tool call is checked by the TS runtime
-    - Tamper resistance: Python cannot modify enforcement logic
-    - Audit integrity: the TS sidecar owns the audit log
-    - Full parity: same policy engine, same behavioral rules, same taint tracking
+    - Mediation of routed calls: every tool call sent through this client
+      is evaluated by the TypeScript runtime
+    - Process isolation: Python cannot modify enforcement logic in the
+      sidecar process
+    - Audit integrity: the sidecar owns the hash-chained audit log
+    - Full parity: same policy engine, same behavioral rules, same taint
+      tracking as TypeScript
+
+    Important: calls that bypass this client (e.g., direct ``open()`` or
+    ``subprocess.run()``) are not mediated. Sidecar mode isolates the
+    enforcement state, not the Python process itself.
     """
 
     def __init__(
@@ -152,14 +168,28 @@ class SidecarKernel:
         """Execute a tool call through the sidecar enforcement pipeline.
 
         The sidecar evaluates policy, checks capabilities, tracks taint,
-        evaluates behavioral rules, and logs the audit event. Only if the
-        sidecar returns "allow" does execute_fn run locally.
+        evaluates behavioral rules, executes the tool via its own executors,
+        and logs the audit event. The ``execute_fn`` parameter is ignored in
+        sidecar mode — the sidecar owns tool execution. If you need local
+        execution, use ``mode="local"`` instead.
 
         Returns:
-            {"verdict": "allow", "result": <tool output>} on success.
-            Raises ToolCallDenied on denial.
+            {"verdict": "allow", "result": <sidecar result>, "success": bool}
+            on allow. Raises ToolCallDenied on denial (HTTP 403).
+
+        Tool execution failures (e.g. file not found) are returned as
+        ``{"verdict": "allow", "success": False, "error": "..."}`` — the
+        policy allowed the call but the executor encountered an error.
         """
         self._check_open()
+
+        if execute_fn is not None:
+            warnings.warn(
+                "[arikernel] execute_fn is ignored in sidecar mode. "
+                "The sidecar executes tools via its own executors. "
+                "Use mode='local' if you need local tool execution.",
+                stacklevel=2,
+            )
 
         parameters = parameters or {}
         taint_labels = taint_labels or []
@@ -181,10 +211,9 @@ class SidecarKernel:
         resp = self._http.post("/execute", json=body)
         data = resp.json()
 
-        # Handle denial — sidecar returns 403 for denials
-        if resp.status_code == 403 or not data.get("allowed", False):
+        # Handle denial — sidecar returns 403 for policy denials
+        if resp.status_code == 403:
             error = data.get("error", "Denied by sidecar")
-            call_id = data.get("callId")
 
             # Check for approval-required pattern
             if isinstance(error, str) and error.startswith("Approval required:"):
@@ -197,8 +226,7 @@ class SidecarKernel:
                     approved = self._on_approval(tool_call, data)
                     if not approved:
                         raise ApprovalRequiredError(reason=error)
-                    # If approved, fall through — but sidecar doesn't support
-                    # re-submission with approval yet, so we raise for now
+                    # Sidecar doesn't support re-submission with approval yet
                     raise ApprovalRequiredError(reason=error)
                 else:
                     warnings.warn(
@@ -211,22 +239,21 @@ class SidecarKernel:
 
             raise ToolCallDenied(reason=error, verdict="deny")
 
-        # Sidecar said allow — execute locally if execute_fn provided
-        result_data = None
-        duration_ms = 0
+        # Non-403 but allowed=false is unexpected; treat as denial
+        if not data.get("allowed", False):
+            error = data.get("error", "Denied by sidecar")
+            raise ToolCallDenied(reason=error, verdict="deny")
 
-        if execute_fn:
-            import time
-            start = time.monotonic()
-            result_data = execute_fn(**parameters)
-            duration_ms = int((time.monotonic() - start) * 1000)
-
+        # Sidecar allowed and executed the tool — return sidecar's result.
+        # The sidecar's executors handle the actual tool execution; we do
+        # NOT run execute_fn locally.
         return {
             "verdict": "allow",
-            "result": result_data,
+            "success": data.get("success", True),
+            "result": data.get("result"),
+            "error": data.get("error"),
             "call_id": data.get("callId"),
             "result_taint": data.get("resultTaint"),
-            "duration_ms": duration_ms,
         }
 
     def status(self) -> dict[str, Any]:

@@ -7,6 +7,7 @@ HTTP transport layer used by SidecarKernel.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import httpx
@@ -24,28 +25,13 @@ def _taint_to_dict(label: TaintLabel) -> dict[str, Any]:
 
 
 class FirewallClient:
-    """Client for the AriKernel HTTP decision server.
+    """**Deprecated.** Legacy client for the old AriKernel decision server (port 9099).
 
-    This is a v1 integration layer. It asks the server for allow/deny
-    decisions and audits every call, but does NOT execute tools server-side.
-    Your Python code executes the actual tool after receiving an allow verdict.
+    Use ``SidecarKernel`` (via ``create_kernel()``) instead. The sidecar on
+    port 8787 is the authoritative enforcement boundary and owns tool execution.
 
-    Usage::
-
-        with FirewallClient(
-            url="http://localhost:9099",
-            principal="my-agent",
-            capabilities=[
-                {"toolClass": "http", "actions": ["get"],
-                 "constraints": {"allowedHosts": ["api.github.com"]}},
-            ],
-        ) as fw:
-            grant = fw.request_capability("http.read")
-            if grant.granted:
-                result = fw.execute("http", "get",
-                    {"url": "https://api.github.com/repos/example"},
-                    grant_id=grant.grant_id)
-                # result.verdict == "allow" -> execute the actual HTTP call
+    This client asks the legacy server for allow/deny decisions but does NOT
+    execute tools server-side. It will be removed in a future release.
     """
 
     def __init__(
@@ -54,6 +40,14 @@ class FirewallClient:
         principal: str = "python-agent",
         capabilities: list[dict[str, Any]] | None = None,
     ):
+        warnings.warn(
+            "FirewallClient is deprecated and targets the legacy decision server "
+            "(port 9099). Use create_kernel() or SidecarKernel instead, which "
+            "connects to the sidecar (port 8787) — the authoritative enforcement "
+            "boundary.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.base_url = url.rstrip("/")
         self._http = httpx.Client(base_url=self.base_url, timeout=30)
         self.session_id: str | None = None

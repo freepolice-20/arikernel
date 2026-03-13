@@ -528,6 +528,104 @@ describe("token replay: same grantId used twice with maxCalls > 1", () => {
 	});
 });
 
+// ── 9b. TokenStore bounded growth (DoS hardening) ───────────────────────────
+
+describe("TokenStore bounded growth: maxSize enforcement", () => {
+	function makeGrant(id: string): import("@arikernel/core").CapabilityGrant {
+		return {
+			id,
+			requestId: `req-${id}`,
+			principalId: "agent",
+			capabilityClass: "http.read",
+			constraints: {},
+			lease: {
+				issuedAt: new Date().toISOString(),
+				expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				maxCalls: 10,
+				callsUsed: 0,
+			},
+			taintContext: [],
+			revoked: false,
+			nonce: `nonce-${id}`,
+		};
+	}
+
+	it("evicts oldest active grants when maxSize exceeded", () => {
+		const store = new TokenStore({ maxSize: 5 });
+		for (let i = 0; i < 8; i++) {
+			store.store(makeGrant(`grant-${i}`));
+		}
+		// Oldest 3 should be evicted
+		expect(store.get("grant-0")).toBeNull();
+		expect(store.get("grant-1")).toBeNull();
+		expect(store.get("grant-2")).toBeNull();
+		// Newest 5 remain
+		expect(store.get("grant-3")).not.toBeNull();
+		expect(store.get("grant-7")).not.toBeNull();
+	});
+
+	it("prefers evicting expired grants before active ones", () => {
+		const store = new TokenStore({ maxSize: 3 });
+		// Store 3 grants: first two expired, third active
+		const expiredGrant1 = makeGrant("expired-1");
+		expiredGrant1.lease.expiresAt = new Date(Date.now() - 1000).toISOString();
+		const expiredGrant2 = makeGrant("expired-2");
+		expiredGrant2.lease.expiresAt = new Date(Date.now() - 1000).toISOString();
+		store.store(expiredGrant1);
+		store.store(expiredGrant2);
+		store.store(makeGrant("active-1"));
+
+		// Now store a 4th — should evict expired ones first, keeping active-1
+		store.store(makeGrant("active-2"));
+		expect(store.get("expired-1")).toBeNull();
+		expect(store.get("expired-2")).toBeNull();
+		expect(store.get("active-1")).not.toBeNull();
+		expect(store.get("active-2")).not.toBeNull();
+	});
+
+	it("LRU: consuming a grant refreshes its position", () => {
+		const store = new TokenStore({ maxSize: 3 });
+		store.store(makeGrant("a"));
+		store.store(makeGrant("b"));
+		store.store(makeGrant("c"));
+
+		// Touch "a" via consume — moves it to end
+		store.consume("a");
+
+		// Insert "d" — should evict "b" (now oldest), not "a"
+		store.store(makeGrant("d"));
+		expect(store.get("a")).not.toBeNull();
+		expect(store.get("b")).toBeNull();
+		expect(store.get("c")).not.toBeNull();
+		expect(store.get("d")).not.toBeNull();
+	});
+
+	it("LRU: get() refreshes position", () => {
+		const store = new TokenStore({ maxSize: 3 });
+		store.store(makeGrant("a"));
+		store.store(makeGrant("b"));
+		store.store(makeGrant("c"));
+
+		// Touch "a" via get — moves it to end
+		store.get("a");
+
+		// Insert "d" — should evict "b" (now oldest)
+		store.store(makeGrant("d"));
+		expect(store.get("a")).not.toBeNull();
+		expect(store.get("b")).toBeNull();
+	});
+
+	it("default maxSize is 10000", () => {
+		const store = new TokenStore();
+		// Insert 100 grants — should all remain
+		for (let i = 0; i < 100; i++) {
+			store.store(makeGrant(`grant-${i}`));
+		}
+		expect(store.get("grant-0")).not.toBeNull();
+		expect(store.get("grant-99")).not.toBeNull();
+	});
+});
+
 // ── 10. GET path-segment exfiltration detection ─────────────────────────────
 
 describe("GET exfil: path segment entropy detection", () => {
@@ -556,6 +654,107 @@ describe("GET exfil: path segment entropy detection", () => {
 		// Mixed alphanumeric resembling an API key or encoded payload
 		const payload = "aK9xQ2mF7bR4wL1nT6zJ3pY8vC5hG0dE9sU2iO4qW7eX1rA6tM3nB8jV5kZ0yH";
 		expect(isSuspiciousGetExfil(`https://evil.com/exfil/${payload}`)).toBe(true);
+	});
+});
+
+// ── 10b. Sensitive read sticky flag: only on successful file.read ────────────
+
+describe("sensitive read sticky flag: gated on file.read + success", () => {
+	function makeFirewall() {
+		return createFirewall({
+			principal: {
+				name: "test",
+				capabilities: [
+					{ toolClass: "file", actions: ["read", "write"], constraints: {} },
+				],
+			},
+			policies: [
+				{ id: "allow-all", name: "Allow", priority: 100, match: {}, decision: "allow" as const },
+			],
+			auditLog: ":memory:",
+		});
+	}
+
+	it("allowed-but-failed file.read (ENOENT) does NOT set sticky flag", async () => {
+		const fw = makeFirewall();
+		fw.registerExecutor({
+			toolClass: "file",
+			async execute(toolCall) {
+				return {
+					callId: toolCall.id,
+					success: false,
+					data: null,
+					error: "ENOENT: no such file or directory",
+					durationMs: 1,
+					taintLabels: [],
+				};
+			},
+		});
+
+		const grant = fw.requestCapability("file.read");
+		await fw.execute({
+			toolClass: "file",
+			action: "read",
+			parameters: { path: "/home/user/.ssh/id_rsa" },
+			grantId: grant.grant?.id,
+		});
+
+		expect(fw.sensitiveReadObserved).toBe(false);
+		fw.close();
+	});
+
+	it("successful file.read on sensitive path DOES set sticky flag", async () => {
+		const fw = makeFirewall();
+		fw.registerExecutor({
+			toolClass: "file",
+			async execute(toolCall) {
+				return {
+					callId: toolCall.id,
+					success: true,
+					data: "secret-key-content",
+					durationMs: 1,
+					taintLabels: [],
+				};
+			},
+		});
+
+		const grant = fw.requestCapability("file.read");
+		await fw.execute({
+			toolClass: "file",
+			action: "read",
+			parameters: { path: "/home/user/.ssh/id_rsa" },
+			grantId: grant.grant?.id,
+		});
+
+		expect(fw.sensitiveReadObserved).toBe(true);
+		fw.close();
+	});
+
+	it("file.write on sensitive path does NOT set read-sticky flag", async () => {
+		const fw = makeFirewall();
+		fw.registerExecutor({
+			toolClass: "file",
+			async execute(toolCall) {
+				return {
+					callId: toolCall.id,
+					success: true,
+					data: "written",
+					durationMs: 1,
+					taintLabels: [],
+				};
+			},
+		});
+
+		const grant = fw.requestCapability("file.write");
+		await fw.execute({
+			toolClass: "file",
+			action: "write",
+			parameters: { path: "/home/user/.env", content: "SECRET=abc" },
+			grantId: grant.grant?.id,
+		});
+
+		expect(fw.sensitiveReadObserved).toBe(false);
+		fw.close();
 	});
 });
 

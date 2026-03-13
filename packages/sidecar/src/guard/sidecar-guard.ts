@@ -147,14 +147,16 @@ function installFetchGuard(s: GuardState): void {
 			params.body = typeof init.body === "string" ? init.body : String(init.body);
 		}
 
-		const result = await s.client.execute("http", action, params, [
-			{
-				source: "web" as const,
-				origin: safeHostname(url),
-				confidence: 1.0,
-				addedAt: new Date().toISOString(),
-			},
-		]);
+		const result = await s.client.execute("http", action, params, {
+			taint: [
+				{
+					source: "web" as const,
+					origin: safeHostname(url),
+					confidence: 1.0,
+					addedAt: new Date().toISOString(),
+				},
+			],
+		});
 
 		if (!result.allowed) {
 			throw new SidecarGuardError(

@@ -28,7 +28,14 @@ const DEFAULT_MAX_CALLS = 10;
  * Configurable via setUntrustedSources() to accommodate new sources
  * without requiring code changes.
  */
-let UNTRUSTED_SOURCES: readonly string[] = ["web", "rag", "email", "retrieved-doc", "user-input"];
+let UNTRUSTED_SOURCES: readonly string[] = [
+	"web",
+	"rag",
+	"email",
+	"retrieved-doc",
+	"user-provided",
+	"content-scan",
+];
 
 /** Override the default untrusted taint sources list. */
 export function setUntrustedSources(sources: string[]): void {
