@@ -26,8 +26,9 @@ describe("H1: sticky state flags survive window eviction", () => {
 	it("sensitive_read_then_egress triggers even after read is evicted from window", () => {
 		const state = new RunStateTracker({ behavioralRules: true });
 
-		// Record a sensitive file read
+		// Record a confirmed sensitive file read
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead();
 		state.pushEvent(
 			makeEvent({
 				type: "sensitive_read_attempt",

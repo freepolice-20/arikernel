@@ -21,7 +21,7 @@ describe("canonicalizePath", () => {
 });
 
 describe("isPathAllowed", () => {
-	it("allows paths within a glob pattern", () => {
+	it("allows paths within a directory prefix pattern (dir/**)", () => {
 		const { allowed } = isPathAllowed("./data/report.csv", ["./data/**"], "/project");
 		expect(allowed).toBe(true);
 	});

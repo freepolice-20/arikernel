@@ -703,7 +703,7 @@ The Python runtime (`pip install arikernel`) uses a **sidecar-authoritative** en
 ```python
 from arikernel import create_kernel, protect_tool
 
-# Connects to TypeScript sidecar at localhost:9099 (default)
+# Connects to TypeScript sidecar at localhost:8787 (default)
 kernel = create_kernel(preset="safe-research")
 
 @protect_tool("file.read", kernel=kernel)

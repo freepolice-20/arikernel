@@ -951,7 +951,7 @@ class TestSidecarArchitecture:
         # Use a non-routable IP to trigger timeout behavior
         with pytest.raises((ConnectionError, Exception)):
             SidecarKernel(
-                url="http://192.0.2.1:9099",  # TEST-NET, non-routable
+                url="http://192.0.2.1:8787",  # TEST-NET, non-routable
                 timeout=1.0,
             )
 

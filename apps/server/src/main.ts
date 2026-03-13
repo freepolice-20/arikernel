@@ -1,3 +1,23 @@
+/**
+ * DEPRECATED — Legacy decision server (port 9099).
+ *
+ * This server is superseded by the sidecar server in packages/sidecar (port 8787).
+ * The sidecar provides:
+ * - Server-side tool execution (not just decisions)
+ * - Principal-bound API key authentication
+ * - Capability token issuance and verification
+ * - Cross-principal correlation and shared taint tracking
+ * - Rate limiting per principal
+ *
+ * This legacy server creates firewalls without registering executors, which means
+ * firewall.execute() will deny all tool calls with "No executor registered."
+ * It is retained only for backward compatibility and will be removed in v0.2.0.
+ *
+ * For new integrations, use the sidecar server:
+ *   import { createSidecarServer } from "@arikernel/sidecar";
+ *   const server = createSidecarServer({ ... });
+ *   await server.listen();
+ */
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import { resolve } from "node:path";
 import type { CapabilityClass, TaintSource, ToolClass } from "@arikernel/core";
@@ -255,7 +275,16 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-	console.log(`AriKernel server listening on http://${HOST}:${PORT}`);
+	console.warn(
+		"\n" +
+			"╔══════════════════════════════════════════════════════════════╗\n" +
+			"║  DEPRECATED: This is the legacy decision server.            ║\n" +
+			"║  Use the sidecar server (packages/sidecar, port 8787)       ║\n" +
+			"║  for production deployments. This server will be removed     ║\n" +
+			"║  in v0.2.0.                                                  ║\n" +
+			"╚══════════════════════════════════════════════════════════════╝\n",
+	);
+	console.log(`AriKernel legacy server listening on http://${HOST}:${PORT}`);
 	console.log(`  Policy:    ${POLICY}`);
 	console.log(`  Audit:     ${AUDIT_DB}`);
 	console.log(`  Auth:      ${AUTH_TOKEN ? "enabled" : "disabled (set AUTH_TOKEN to enable)"}`);

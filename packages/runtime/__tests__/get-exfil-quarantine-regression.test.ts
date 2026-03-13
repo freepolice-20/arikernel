@@ -118,9 +118,10 @@ describe("encoded payload detection in quarantine GET (regression)", () => {
 // ---------------------------------------------------------------------------
 
 describe("quarantine GET budget: sensitive-read-then-GET (regression)", () => {
-	it("budget=0 after sensitive read: first parameterized GET is blocked", () => {
+	it("budget=0 after confirmed sensitive read: first parameterized GET is blocked", () => {
 		const state = new RunStateTracker({ behavioralRules: true });
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead(); // Post-execution confirmation
 		expect(state.sensitiveReadObserved).toBe(true);
 
 		// Very first GET after sensitive read exhausts budget
@@ -158,6 +159,7 @@ describe("behavioral rule: GET treated as egress post-sensitive-read (regression
 		const state = new RunStateTracker({ behavioralRules: true });
 
 		state.recordSensitiveFileAttempt();
+		state.confirmSensitiveFileRead(); // Simulate post-execution confirmation
 		state.pushEvent(
 			makeEvent({
 				type: "sensitive_read_attempt",

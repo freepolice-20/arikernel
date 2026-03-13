@@ -5,7 +5,7 @@ Sidecar-authoritative enforcement (default — production):
     from arikernel import create_kernel, protect_tool
 
     kernel = create_kernel(preset="safe-research")
-    # → connects to TypeScript sidecar at localhost:9099
+    # → connects to TypeScript sidecar at localhost:8787
     # → ALL security decisions delegated to the sidecar
 
     @protect_tool("file.read", kernel=kernel)

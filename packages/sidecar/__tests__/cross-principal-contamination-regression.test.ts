@@ -1,13 +1,13 @@
 /**
  * Regression tests: cross-principal contamination behavior and false-positive risk.
  *
- * The review identified that:
- *   - Attempted sensitive reads (even if denied) set sensitiveReadObserved,
- *     which can mark shared resources as contaminated when written.
- *   - This is NOISY BY DESIGN: a denied read of ~/.ssh/id_rsa still triggers
- *     the contamination chain if the principal later writes to a shared store.
- *   - False positives from this design are preferable to false negatives in the
- *     security model, but operators should be aware of the noise.
+ * Post-fix behavior:
+ *   - sensitiveReadObserved is only set when a sensitive file read is ALLOWED
+ *     AND executed (not on denied attempts). This prevents framing attacks
+ *     where an adversary triggers denied sensitive reads to contaminate
+ *     cross-principal shared stores.
+ *   - The contamination chain only fires for principals that ACTUALLY read
+ *     sensitive data, not those that merely attempted to.
  *
  * These tests document the current behavior and lock it in as intentional.
  */

@@ -137,12 +137,17 @@ jobs:
       - name: Install Python runtime
         run: pip install -e "python/[dev,server]"
 
-      - name: Start TypeScript sidecar
+      - name: Start TypeScript sidecar (port 8787)
         run: |
-          cd apps/server && node dist/main.js &
+          node -e "
+            import('@arikernel/sidecar').then(m => {
+              const server = m.createSidecarServer({ devMode: true });
+              server.listen().then(() => console.log('Sidecar listening on port 8787'));
+            });
+          " &
           # Wait for sidecar to be ready
           for i in $(seq 1 30); do
-            if curl -s http://localhost:9099/health > /dev/null 2>&1; then
+            if curl -s http://localhost:8787/health > /dev/null 2>&1; then
               echo "Sidecar is ready"
               break
             fi
