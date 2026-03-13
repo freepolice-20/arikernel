@@ -311,18 +311,6 @@ Most tools validate or monitor. Ari Kernel **enforces** — it sits in the execu
 
 ---
 
-## Deployment Modes
-
-| Mode | Description |
-|------|-------------|
-| **Middleware** | `protectLangChainAgent()` / `protectCrewAITools()` — drop-in wrappers for popular frameworks. Zero architecture changes. |
-| **Embedded (library)** | `createKernel()` integrated into the agent process. Full pipeline control, zero network overhead. |
-| **Sidecar (HTTP proxy)** | Standalone process on localhost:8787. Language-agnostic — any HTTP client works. Process-level trust boundary. |
-
-Middleware is the fastest adoption path. Embedded mode gives full pipeline control. Sidecar mode provides process-level isolation for untrusted agents.
-
----
-
 ## Quick Start (from source)
 
 ```bash
