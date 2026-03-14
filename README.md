@@ -437,6 +437,7 @@ Built-in profiles for common agent types:
 | `rag-reader` | Document retrieval, RAG | GET only | Read `./docs/**`, `./data/**` | Blocked | Query only |
 | `workspace-assistant` | Coding assistants | GET only | Read + Write `./**` | Blocked | Query only |
 | `automation-agent` | Workflow automation | Full access | Full access | Full access | Full access |
+| `anti-collusion` | Multi-agent deployments | Blocked with derived-sensitive taint | Blocked with derived-sensitive taint | Blocked | Blocked with derived-sensitive taint |
 
 Zero-config mode (no preset) applies safe defaults: HTTP GET allowed, file reads restricted, everything else blocked.
 
@@ -584,7 +585,7 @@ pnpm demo:python              # basic agent with protect_tool decorator
 pnpm demo:python:quarantine   # behavioral quarantine in Python
 
 # Tests
-pnpm test                     # all TypeScript tests (28 packages)
+pnpm test                     # all TypeScript tests (14 packages)
 pnpm test:proof               # high-signal proof tests: attacks, middleware, sidecar, runtime (284 tests)
 pnpm test:live                # live integration tests (requires OPENAI_API_KEY)
 pnpm benchmark:agentdojo      # 9 attack scenarios — 100% exfiltration prevented
@@ -644,7 +645,6 @@ See [Deterministic Replay](docs/replay.md) for the full API reference.
 ## Current Limitations
 
 - **Early-stage project** — core enforcement model is stable, but the API surface may evolve
-- **In-memory token store** — capability tokens are not persisted across process restarts
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
