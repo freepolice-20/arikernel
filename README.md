@@ -688,7 +688,7 @@ For security researchers, red-teamers, and auditors — start here:
 
 ## Python Runtime
 
-The Python runtime (`pip install arikernel`) uses a **sidecar-authoritative** enforcement model: all security decisions are delegated to the TypeScript sidecar over HTTP. Python code physically cannot bypass or alter enforcement logic because it lives in a separate process.
+The Python runtime (`pip install arikernel`) uses a **sidecar-authoritative** enforcement model: all security decisions and tool execution for mediated calls are delegated to the TypeScript sidecar over HTTP. Python code cannot bypass or alter the sidecar's enforcement logic because it lives in a separate process. However, Python code that calls OS APIs directly (e.g., `open()`, `subprocess.run()`) without going through `protect_tool` or `execute_tool` is **not mediated**.
 
 ```python
 from arikernel import create_kernel, protect_tool
@@ -701,9 +701,9 @@ def read_file(path: str) -> str:
     return open(path).read()
 ```
 
-This guarantees:
-- **Complete mediation** — every tool call is checked by the TypeScript runtime
-- **Tamper resistance** — Python cannot modify enforcement logic
+For tool calls routed through the kernel, this provides:
+- **Mediation** — every routed tool call is checked and executed by the TypeScript sidecar
+- **Tamper resistance** — Python cannot modify the sidecar's enforcement logic
 - **Audit integrity** — the sidecar owns the hash-chained audit log
 - **Full parity** — same policy engine, behavioral rules, and taint tracking
 
