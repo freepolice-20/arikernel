@@ -134,6 +134,8 @@ const sidecar = defineCommand({
 		},
 		auditLog: { type: "string", description: "Audit log path", default: "./sidecar-audit.db" },
 		authToken: { type: "string", description: "Bearer token for authenticating requests" },
+		tlsCert: { type: "string", description: "Path to TLS certificate file (PEM). Enables HTTPS." },
+		tlsKey: { type: "string", description: "Path to TLS private key file (PEM). Required with --tls-cert." },
 	},
 	run: ({ args }) =>
 		runSidecar({
@@ -142,6 +144,8 @@ const sidecar = defineCommand({
 			host: args.host,
 			auditLog: args.auditLog,
 			authToken: args.authToken,
+			tlsCert: args.tlsCert,
+			tlsKey: args.tlsKey,
 		}),
 });
 

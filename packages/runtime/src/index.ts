@@ -23,7 +23,8 @@ export { evaluateBehavioralRules, applyBehavioralRule } from "./behavioral-rules
 export { createSecretPatternFilter } from "./output-filter.js";
 export type { OutputFilterOptions } from "./output-filter.js";
 export type { BehavioralRuleMatch } from "./behavioral-rules.js";
-export { TokenStore, type StoredToken } from "./token-store.js";
+export { TokenStore, type ITokenStore, type StoredToken } from "./token-store.js";
+export { SqliteTokenStore } from "./sqlite-token-store.js";
 export { PersistentTaintRegistry } from "./persistent-taint-registry.js";
 export type { PersistentTaintConfig, PersistentEventType } from "./persistent-taint-registry.js";
 export { createKernel, getDefaultKernel, resetDefaultKernel } from "./kernel.js";

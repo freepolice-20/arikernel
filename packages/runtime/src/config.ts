@@ -88,6 +88,12 @@ export interface FirewallOptions {
 	 * across multiple runs.
 	 */
 	persistentTaint?: PersistentTaintConfig;
+	/**
+	 * Optional external token store. When provided, the firewall uses this
+	 * store instead of the default in-memory TokenStore. Use SqliteTokenStore
+	 * for persistence across sidecar restarts.
+	 */
+	tokenStore?: import("./token-store.js").ITokenStore;
 }
 
 export function validateOptions(options: FirewallOptions): FirewallOptions {

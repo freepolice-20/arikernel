@@ -212,4 +212,14 @@ export interface SidecarConfig {
 	 * fails closed (denies the request).
 	 */
 	controlPlaneTimeoutMs?: number;
+	/**
+	 * Path to TLS certificate file (PEM format). When both tlsCert and
+	 * tlsKey are provided, the sidecar serves HTTPS instead of HTTP.
+	 */
+	tlsCert?: string;
+	/**
+	 * Path to TLS private key file (PEM format). Required when tlsCert
+	 * is provided.
+	 */
+	tlsKey?: string;
 }

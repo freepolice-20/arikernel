@@ -1,4 +1,6 @@
-import { type Server, createServer } from "node:http";
+import { readFileSync } from "node:fs";
+import { type Server as HttpServer, createServer } from "node:http";
+import { type Server as HttpsServer, createServer as createTlsServer } from "node:https";
 import { dirname, resolve } from "node:path";
 import { DecisionDelegate } from "./decision-delegate.js";
 import { RateLimiter } from "./rate-limiter.js";
@@ -28,11 +30,12 @@ export interface AuthContext {
 }
 
 export class SidecarServer {
-	private readonly server: Server;
+	private readonly server: HttpServer | HttpsServer;
 	private readonly registry: PrincipalRegistry;
 	private readonly rateLimiter: RateLimiter;
 	private readonly port: number;
 	private readonly host: string;
+	private readonly tls: boolean;
 
 	constructor(config: SidecarConfig) {
 		this.port = config.port ?? DEFAULT_PORT;
@@ -84,7 +87,9 @@ export class SidecarServer {
 			});
 		}
 
-		this.server = createServer((req, res) => {
+		// TLS: when cert + key are provided, serve HTTPS instead of HTTP.
+		this.tls = !!(config.tlsCert && config.tlsKey);
+		const requestHandler = (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => {
 			const url = req.url ?? "/";
 			const method = req.method ?? "GET";
 
@@ -136,7 +141,19 @@ export class SidecarServer {
 
 			res.writeHead(404, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ error: "Not found" }));
-		});
+		};
+
+		if (this.tls) {
+			this.server = createTlsServer(
+				{
+					cert: readFileSync(config.tlsCert!),
+					key: readFileSync(config.tlsKey!),
+				},
+				requestHandler,
+			);
+		} else {
+			this.server = createServer(requestHandler);
+		}
 	}
 
 	listen(): Promise<void> {
@@ -158,7 +175,8 @@ export class SidecarServer {
 	}
 
 	get address(): string {
-		return `http://${this.host}:${this.port}`;
+		const proto = this.tls ? "https" : "http";
+		return `${proto}://${this.host}:${this.port}`;
 	}
 }
 
