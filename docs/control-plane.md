@@ -189,7 +189,7 @@ const valid = verifier.verify(response, nonces);
 │                                                  │
 │  Agents (untrusted)                              │
 │    - Tool calls intercepted by sidecar           │
-│    - Cannot bypass enforcement                   │
+│    - Cannot bypass enforcement for mediated calls │
 │    - Cannot forge decision receipts              │
 │                                                  │
 └──────────────────────────────────────────────────┘

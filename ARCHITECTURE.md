@@ -649,7 +649,7 @@ In embedded mode, the kernel runs as a library inside the agent process. The age
 
 **Guarantees:**
 - Every tool call routed through the kernel is subject to full enforcement (capability, taint, behavioral, audit)
-- The LLM cannot bypass the kernel — it can only call functions the framework exposes
+- The LLM cannot bypass the kernel for mediated tool calls — it can only call functions the framework exposes (direct OS API calls from agent code are not mediated)
 - Audit log integrity is protected by the SHA-256 hash chain (tamper-evident, not tamper-proof within the same process)
 
 ### Sidecar / Proxy Mode

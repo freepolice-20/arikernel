@@ -17,9 +17,11 @@ Run:
     python -m pytest python/tests/test_integration.py -v
 """
 
+import http.server
 import os
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -95,6 +97,28 @@ def sidecar():
         proc.kill()
 
 
+@pytest.fixture(scope="module")
+def local_http_server():
+    """Start a local HTTP server for integration tests (no external network needed)."""
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+
+        def log_message(self, *args):
+            pass  # silence request logs
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{port}"
+    server.shutdown()
+
+
 @pytest.fixture
 def kernel(sidecar):
     """Create a SidecarKernel connected to the test sidecar."""
@@ -141,12 +165,12 @@ def test_capability_denied(kernel):
     assert grant["granted"] is False
 
 
-def test_execute_allowed(kernel):
+def test_execute_allowed(kernel, local_http_server):
     """Tool call within granted scope is allowed."""
     result = kernel.execute_tool(
         tool_class="http",
         action="get",
-        parameters={"url": "https://httpbin.org/get"},
+        parameters={"url": local_http_server},
     )
     assert result["verdict"] == "allow"
     assert result.get("call_id") is not None
@@ -162,7 +186,7 @@ def test_execute_denied(kernel):
         )
 
 
-def test_execute_fn_ignored_in_sidecar(kernel):
+def test_execute_fn_ignored_in_sidecar(kernel, local_http_server):
     """execute_fn is ignored in sidecar mode — sidecar executes tools."""
     sentinel = {"called": False}
 
@@ -176,7 +200,7 @@ def test_execute_fn_ignored_in_sidecar(kernel):
         result = kernel.execute_tool(
             tool_class="http",
             action="get",
-            parameters={"url": "https://httpbin.org/get"},
+            parameters={"url": local_http_server},
             execute_fn=should_not_run,
         )
 
@@ -188,13 +212,13 @@ def test_execute_fn_ignored_in_sidecar(kernel):
     assert len(exec_fn_warns) >= 1
 
 
-def test_status(kernel):
+def test_status(kernel, local_http_server):
     """Status endpoint returns principal state."""
     # Make at least one call so the principal exists
     kernel.execute_tool(
         tool_class="http",
         action="get",
-        parameters={"url": "https://example.com"},
+        parameters={"url": local_http_server},
     )
     status = kernel.status()
     assert "restricted" in status
