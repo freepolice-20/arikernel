@@ -352,7 +352,7 @@ await tools.web_search({ url: "https://example.com" })  // ALLOWED
 ```bash
 pip install arikernel
 # Start the TypeScript sidecar first:
-pnpm build && pnpm server
+pnpm build && pnpm sidecar
 ```
 
 ```python

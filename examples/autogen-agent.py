@@ -1,9 +1,13 @@
 """
-Microsoft AutoGen — AriKernel Integration Example
+Microsoft AutoGen — AriKernel Integration Example (local mode)
 
 Demonstrates how AriKernel protects AutoGen-style tool functions.
 Every tool call routes through capability checks, policy evaluation,
 taint tracking, behavioral detection, and audit logging.
+
+Uses local mode so the decorated function bodies execute in-process.
+For production, prefer sidecar mode (the default) where the TypeScript
+sidecar handles enforcement and tool execution.
 
 Run:  python examples/autogen-agent.py
 """
@@ -36,6 +40,7 @@ def main():
         preset="safe-research",
         audit_log=":memory:",
         max_denied_sensitive_actions=3,
+        mode="local",
     )
 
     print(f"\n{CYAN}{BOLD}{'═' * 60}{RESET}")

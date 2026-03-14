@@ -28,6 +28,9 @@ jobs:
 
       - run: pnpm lint
 
+      - name: Check for legacy server references in docs
+        run: bash scripts/check-legacy-refs.sh
+
       # Smoke test: verify packages work when installed from pack
       - name: Package smoke test
         run: |
@@ -110,6 +113,14 @@ jobs:
           print('OK: SidecarKernel interface complete')
           print('Sidecar architecture verification passed')
           "
+
+      - name: Smoke-check Python examples (py_compile)
+        run: |
+          for f in examples/*.py; do
+            echo "Compiling $f..."
+            python -m py_compile "$f"
+          done
+          echo "All Python examples compile OK"
 
   # Integration test: Python + TypeScript sidecar
   python-sidecar:

@@ -66,7 +66,7 @@ def protect_autogen_tool(
     def decorator(fn: F) -> F:
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            from arikernel.protect import get_default_kernel
+            from arikernel.protect import get_default_kernel, _is_sidecar_kernel
             from arikernel.runtime.kernel import ToolCallDenied
 
             k = kernel or get_default_kernel()
@@ -91,15 +91,25 @@ def protect_autogen_tool(
             if args:
                 params["_args"] = list(args)
 
-            # Execute through kernel enforcement pipeline
-            result = k.execute_tool(
-                tool_class=_tool_class,
-                action=_action,
-                parameters=params,
-                grant_id=grant.get("grant_id"),
-                taint_labels=native_labels,
-                execute_fn=lambda **_kw: fn(*args, **kwargs),
-            )
+            # In sidecar mode, the sidecar executes the tool — do NOT call fn.
+            # In local mode, pass fn as execute_fn for local execution.
+            if _is_sidecar_kernel(k):
+                result = k.execute_tool(
+                    tool_class=_tool_class,
+                    action=_action,
+                    parameters=params,
+                    grant_id=grant.get("grant_id"),
+                    taint_labels=native_labels,
+                )
+            else:
+                result = k.execute_tool(
+                    tool_class=_tool_class,
+                    action=_action,
+                    parameters=params,
+                    grant_id=grant.get("grant_id"),
+                    taint_labels=native_labels,
+                    execute_fn=lambda **_kw: fn(*args, **kwargs),
+                )
 
             return result.get("result")
 

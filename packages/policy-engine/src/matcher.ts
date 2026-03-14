@@ -55,8 +55,9 @@ function matchesToolClass(expected: PolicyMatch["toolClass"], actual: string): b
 
 function matchesAction(expected: PolicyMatch["action"], actual: string): boolean {
 	if (expected === undefined) return true;
-	if (Array.isArray(expected)) return expected.includes(actual);
-	return expected === actual;
+	const actualLower = actual.toLowerCase();
+	if (Array.isArray(expected)) return expected.some((e) => e.toLowerCase() === actualLower);
+	return expected.toLowerCase() === actualLower;
 }
 
 function matchesPrincipal(expected: string | undefined, actual: string): boolean {

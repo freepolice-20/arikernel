@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""AriKernel Python behavioral quarantine example.
+"""AriKernel Python behavioral quarantine example (local mode).
 
-Demonstrates how the native Python runtime detects multi-step attack
-patterns and quarantines the session:
+Demonstrates how the native Python runtime (local mode) detects multi-step
+attack patterns and quarantines the session:
 
 1. Agent receives tainted web data
 2. Agent reads a sensitive file (.ssh/id_rsa)
 3. Agent attempts HTTP POST to exfiltrate data
 4. AriKernel detects the sequence and quarantines the run
+
+Local mode runs the policy engine in-process. For production, prefer
+sidecar mode (the default) where the TypeScript sidecar handles all
+enforcement, execution, and behavioral detection.
 
 Usage:
     pip install -e python/
@@ -34,6 +38,7 @@ def main():
         preset="workspace-assistant",
         principal="compromised-agent",
         audit_log=AUDIT_DB,
+        mode="local",
     )
 
     print("AriKernel behavioral quarantine demo (Python)")

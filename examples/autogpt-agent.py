@@ -1,9 +1,12 @@
 """
-AutoGPT — AriKernel Compatibility Layer Example
+AutoGPT — AriKernel Compatibility Layer Example (local mode)
 
 Demonstrates how AriKernel protects AutoGPT-style commands at the
 execution boundary. Every command call routes through capability checks,
 policy evaluation, taint tracking, and behavioral detection.
+
+Uses local mode so the command functions execute in-process.
+For production, prefer sidecar mode (the default).
 
 Support level: experimental compatibility layer
 
@@ -38,6 +41,7 @@ def main():
         preset="safe-research",
         audit_log=":memory:",
         max_denied_sensitive_actions=3,
+        mode="local",
     )
 
     print(f"\n{CYAN}{BOLD}{'═' * 60}{RESET}")

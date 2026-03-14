@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""AriKernel Python basic agent example.
+"""AriKernel Python basic agent example (local mode).
 
-Demonstrates native Python enforcement without a decision server:
+Demonstrates native Python enforcement in local mode (no sidecar required):
 - Tool protection with create_kernel + protect_tool
 - Allowed and denied tool calls
 - Audit log generation with hash-chain integrity
+
+Local mode runs the policy engine in-process and executes the decorated
+function body directly. For production use, prefer sidecar mode (the default)
+which delegates enforcement and execution to the TypeScript sidecar.
 
 Usage:
     pip install -e python/
@@ -28,11 +32,13 @@ if os.path.exists(AUDIT_DB):
 
 
 def main():
-    # Create a kernel with the safe-research preset and audit logging
+    # Create a local-mode kernel with the safe-research preset and audit logging.
+    # Local mode runs the policy engine in-process — no sidecar required.
     kernel = create_kernel(
         preset="safe-research",
         principal="python-basic-agent",
         audit_log=AUDIT_DB,
+        mode="local",
     )
 
     print(f"AriKernel Python agent started")

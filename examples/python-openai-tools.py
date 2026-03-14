@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""AriKernel Python + OpenAI tool calling example.
+"""AriKernel Python + OpenAI tool calling example (local mode).
 
 Demonstrates how AriKernel protects tools in an OpenAI-style agent loop.
 The model picks which tool to call, AriKernel enforces security.
 
 No actual OpenAI API call is made — this simulates the agent loop.
+Uses local mode so the decorated function bodies execute in-process.
+For production, prefer sidecar mode (the default).
 
 Usage:
     pip install -e python/
@@ -24,6 +26,7 @@ def main():
         preset="safe-research",
         principal="openai-agent",
         audit_log="python-openai-audit.db",
+        mode="local",
     )
 
     print("AriKernel + OpenAI tool calling example")
