@@ -3,15 +3,15 @@
  *
  * Post-fix behavior:
  *   - sensitiveReadObserved is only set when a sensitive file read is ALLOWED
- *     AND executed (not on denied attempts). This prevents framing attacks
- *     where an adversary triggers denied sensitive reads to contaminate
- *     cross-principal shared stores.
+ *     AND the read succeeds (result.success === true). This prevents framing
+ *     attacks where an adversary triggers denied or nonexistent sensitive reads
+ *     to contaminate cross-principal shared stores.
  *   - The contamination chain only fires for principals that ACTUALLY read
- *     sensitive data, not those that merely attempted to.
+ *     sensitive data successfully, not those that merely attempted to.
  *
  * These tests document the current behavior and lock it in as intentional.
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deriveCapabilityClass } from "@arikernel/core";
@@ -37,8 +37,39 @@ const SHARED_STORE_CONFIG: SharedStoreConfig = {
 	sharedStorePaths: ["/shared"],
 };
 
-function tempDir(): string {
-	return mkdtempSync(join(tmpdir(), "arikernel-cp-regr-"));
+function tempDir(prefix = "arikernel-cp-regr-"): string {
+	return mkdtempSync(join(tmpdir(), prefix));
+}
+
+/** Create a temp file root with sensitive-looking files that FileExecutor can actually read. */
+function createSensitiveFileRoot(): {
+	root: string;
+	sshKey: string;
+	envFile: string;
+	credentialsFile: string;
+	reportFile: string;
+} {
+	const root = tempDir("arikernel-file-root-");
+
+	const sshDir = join(root, ".ssh");
+	mkdirSync(sshDir, { recursive: true });
+	const sshKey = join(sshDir, "id_rsa");
+	writeFileSync(sshKey, "fake-private-key-for-test");
+
+	const envFile = join(root, ".env");
+	writeFileSync(envFile, "SECRET_KEY=fake-secret-for-test");
+
+	const configDir = join(root, "config");
+	mkdirSync(configDir, { recursive: true });
+	const credentialsFile = join(configDir, "credentials.yaml");
+	writeFileSync(credentialsFile, "db_password: fake-password");
+
+	const dataDir = join(root, "data");
+	mkdirSync(dataDir, { recursive: true });
+	const reportFile = join(dataDir, "report.csv");
+	writeFileSync(reportFile, "col1,col2\nval1,val2");
+
+	return { root, sshKey, envFile, credentialsFile, reportFile };
 }
 
 async function secureExecute(
@@ -58,17 +89,32 @@ async function secureExecute(
 }
 
 // ---------------------------------------------------------------------------
-// False-positive risk: attempted-read marks contamination chain
+// Successful sensitive read marks contamination chain
 // ---------------------------------------------------------------------------
 
-describe("cross-principal contamination: false-positive from attempted reads (noisy by design)", () => {
+describe("cross-principal contamination: successful sensitive reads propagate contamination", () => {
 	let registry: PrincipalRegistry;
 	let dir: string;
 	let alerts: CrossPrincipalAlert[];
+	let fileRoot: string;
+	let sshKeyPath: string;
+	let envFilePath: string;
+	let credentialsPath: string;
+	let reportPath: string;
+	let savedFileRoot: string | undefined;
 
 	beforeEach(() => {
 		dir = tempDir();
 		alerts = [];
+
+		const files = createSensitiveFileRoot();
+		fileRoot = files.root;
+		sshKeyPath = files.sshKey;
+		envFilePath = files.envFile;
+		credentialsPath = files.credentialsFile;
+		reportPath = files.reportFile;
+		savedFileRoot = process.env.FILE_EXECUTOR_ROOT;
+		process.env.FILE_EXECUTOR_ROOT = fileRoot;
 
 		const config = resolveRegistryConfig({
 			policy: ALLOW_ALL_POLICY,
@@ -84,27 +130,31 @@ describe("cross-principal contamination: false-positive from attempted reads (no
 
 	afterEach(() => {
 		registry.closeAll();
+		if (savedFileRoot !== undefined) {
+			process.env.FILE_EXECUTOR_ROOT = savedFileRoot;
+		} else {
+			delete process.env.FILE_EXECUTOR_ROOT;
+		}
 		rmSync(dir, { recursive: true, force: true });
+		rmSync(fileRoot, { recursive: true, force: true });
 	});
 
-	it("attempted sensitive read sets sensitiveReadObserved even on allowed-policy (noisy by design)", async () => {
+	it("allowed and successful sensitive read sets sensitiveReadObserved", async () => {
 		const fw = registry.getOrCreate("agent-A");
 
-		// The file read is allowed by policy, but the path matches sensitive patterns.
-		// This sets sensitiveReadObserved = true, which marks subsequent shared writes
-		// as contaminated even if the agent had legitimate reasons to read the file.
-		await secureExecute(fw, "file", "read", { path: "/home/user/.env" });
+		// The file read is allowed by policy, the file exists and reads succeed.
+		// The path matches sensitive patterns (.env), so sensitiveReadObserved is set.
+		await secureExecute(fw, "file", "read", { path: envFilePath });
 
 		expect(fw.sensitiveReadObserved).toBe(true);
 	});
 
-	it("contamination propagates even when Agent A never saw actual secret data (noisy by design)", async () => {
+	it("contamination propagates when Agent A successfully reads sensitive data", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");
 
-		// Agent A reads a file with a sensitive-matching path
-		// In reality, the file might not contain secrets — but the pattern matches.
-		await secureExecute(fwA, "file", "read", { path: "/app/config/credentials.yaml" });
+		// Agent A reads a real file with a sensitive-matching path (credentials.yaml)
+		await secureExecute(fwA, "file", "read", { path: credentialsPath });
 		expect(fwA.sensitiveReadObserved).toBe(true);
 
 		// Agent A writes to shared DB — contaminates it
@@ -128,8 +178,8 @@ describe("cross-principal contamination: false-positive from attempted reads (no
 	it("non-sensitive file read does NOT trigger contamination chain", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 
-		// This path does not match any sensitive pattern
-		await secureExecute(fwA, "file", "read", { path: "/app/data/report.csv" });
+		// This path does not match any sensitive pattern (report.csv)
+		await secureExecute(fwA, "file", "read", { path: reportPath });
 		expect(fwA.sensitiveReadObserved).toBe(false);
 
 		// Write to shared store — should NOT be contaminated
@@ -147,7 +197,7 @@ describe("cross-principal contamination: false-positive from attempted reads (no
 		const fwB = registry.getOrCreate("agent-B");
 
 		// Agent A reads sensitive + writes to 'messages'
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		await secureExecute(fwA, "database", "mutate", {
 			table: "messages",
 			data: { content: "secret" },
@@ -174,7 +224,7 @@ describe("cross-principal contamination: false-positive from attempted reads (no
 		const fwB = registry.getOrCreate("agent-B");
 
 		// Agent A reads sensitive + writes to 'messages'
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		await secureExecute(fwA, "database", "mutate", {
 			table: "messages",
 			data: { content: "secret" },
