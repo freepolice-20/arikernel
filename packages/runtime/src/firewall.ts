@@ -16,6 +16,7 @@ import type {
 } from "@arikernel/core";
 import {
 	CAPABILITY_CLASS_MAP,
+	ToolCallDeniedError,
 	createDelegatedPrincipal,
 	delegateCapability,
 	generateId,
@@ -39,7 +40,7 @@ import {
 	type RunStatePolicy,
 	RunStateTracker,
 } from "./run-state.js";
-import { createSidecarProxies } from "./sidecar-proxy.js";
+import { SidecarHttpClient, createSidecarProxies } from "./sidecar-proxy.js";
 import { TokenStore } from "./token-store.js";
 
 export class Firewall {
@@ -56,6 +57,7 @@ export class Firewall {
 	private _persistentTaint: PersistentTaintRegistry | null = null;
 	private readonly _mode: EnforcementMode;
 	private readonly _sidecarOptions?: import("./config.js").SidecarConnectionOptions;
+	private readonly _sidecarClient?: SidecarHttpClient;
 	readonly runId: string;
 
 	constructor(options: FirewallOptions) {
@@ -113,15 +115,25 @@ export class Firewall {
 		this.executorRegistry = new ExecutorRegistry();
 		this.tokenStore = new TokenStore();
 
-		// In sidecar mode, replace all real executors with proxies that
-		// delegate execution to the sidecar HTTP API. The host process
-		// never executes tools directly.
+		// In sidecar mode, the Firewall acts as a thin client. All policy
+		// evaluation, token management, behavioral rules, taint tracking, and
+		// tool execution are delegated to the sidecar over HTTP.
+		// The SidecarHttpClient handles both requestCapability() and execute().
+		// SidecarProxyExecutors are still registered for backward compatibility
+		// (e.g., if anything calls pipeline.intercept directly), but the primary
+		// path bypasses the local pipeline entirely.
 		if (this._mode === "sidecar") {
+			const principalId = options.sidecar?.principalId ?? options.principal.name;
 			const proxyConfig = {
 				baseUrl: options.sidecar?.baseUrl,
-				principalId: options.sidecar?.principalId ?? options.principal.name,
+				principalId,
 				authToken: options.sidecar?.authToken,
 			};
+			this._sidecarClient = new SidecarHttpClient({
+				baseUrl: options.sidecar?.baseUrl ?? "http://localhost:8787",
+				principalId,
+				authToken: options.sidecar?.authToken,
+			});
 			for (const proxy of createSidecarProxies(proxyConfig)) {
 				this.executorRegistry.register(proxy);
 			}
@@ -170,7 +182,117 @@ export class Firewall {
 		);
 	}
 
+	/**
+	 * Request a capability grant.
+	 *
+	 * **Sidecar mode (compatibility-only):** Returns a synthetic, non-authoritative
+	 * grant immediately. This grant is NEVER used as an enforcement decision —
+	 * the real allow/deny comes from the sidecar when `execute()` is called.
+	 * The synthetic grant exists solely for backward compatibility with callers
+	 * that expect a synchronous return value. No code path can use this grant
+	 * to bypass sidecar authority because `execute()` routes directly to the
+	 * sidecar and never consults the local token store.
+	 *
+	 * Prefer `requestCapabilityAsync()` in sidecar mode for a real sidecar decision.
+	 *
+	 * **Embedded mode:** Evaluates policy locally and returns synchronously.
+	 */
 	requestCapability(
+		capabilityClass: CapabilityClass,
+		options?: {
+			constraints?: CapabilityConstraint;
+			taintLabels?: TaintLabel[];
+			justification?: string;
+		},
+	): IssuanceDecision {
+		// In sidecar mode, synchronous requestCapability cannot route to the
+		// sidecar (HTTP is async). Return a synthetic non-authoritative grant.
+		//
+		// SAFETY: This synthetic grant cannot bypass sidecar authority because:
+		// 1. execute() routes directly to the sidecar, never consulting local tokens
+		// 2. The grant has empty lease/nonce values that would fail real validation
+		// 3. No local pipeline code path runs in sidecar mode
+		//
+		// Callers SHOULD use requestCapabilityAsync() for a real sidecar decision.
+		if (this._sidecarClient) {
+			const ts = now();
+			const requestId = generateId();
+			return {
+				requestId,
+				granted: true,
+				grant: {
+					id: generateId(),
+					requestId,
+					principalId: this.principal.id,
+					capabilityClass,
+					constraints: (options?.constraints ?? {}) as CapabilityConstraint,
+					lease: {
+						issuedAt: ts,
+						expiresAt: "", // sidecar manages expiry
+						maxCalls: 0, // sidecar manages call count
+						callsUsed: 0,
+					},
+					taintContext: options?.taintLabels ?? [],
+					revoked: false,
+					nonce: "",
+				},
+				reason: "Sidecar-mode: authoritative grant issued by sidecar on execute()",
+				taintLabels: options?.taintLabels ?? [],
+				timestamp: ts,
+			};
+		}
+
+		return this._requestCapabilityLocal(capabilityClass, options);
+	}
+
+	/**
+	 * Request a capability grant asynchronously.
+	 *
+	 * In sidecar mode, routes to the sidecar `/request-capability` endpoint.
+	 * The sidecar is the authoritative decision source.
+	 *
+	 * In embedded mode, delegates to the synchronous local evaluator.
+	 */
+	async requestCapabilityAsync(
+		capabilityClass: CapabilityClass,
+		options?: {
+			constraints?: CapabilityConstraint;
+			taintLabels?: TaintLabel[];
+			justification?: string;
+		},
+	): Promise<IssuanceDecision> {
+		if (this._sidecarClient) {
+			const decision = await this._sidecarClient.requestCapability(
+				capabilityClass,
+				{
+					constraints: options?.constraints as Record<string, unknown> | undefined,
+					taintLabels: options?.taintLabels,
+					justification: options?.justification,
+				},
+			);
+
+			// Fire local hooks for observability (non-authoritative)
+			this._hooks.onIssuance?.(
+				{
+					id: decision.requestId,
+					principalId: this.principal.id,
+					capabilityClass,
+					constraints: options?.constraints,
+					taintLabels: options?.taintLabels ?? [],
+					justification: options?.justification,
+					timestamp: decision.timestamp,
+				},
+				decision,
+			);
+
+			return decision;
+		}
+
+		return this._requestCapabilityLocal(capabilityClass, options);
+	}
+
+	/** Local capability evaluation — used only in embedded mode. */
+	private _requestCapabilityLocal(
 		capabilityClass: CapabilityClass,
 		options?: {
 			constraints?: CapabilityConstraint;
@@ -290,7 +412,63 @@ export class Firewall {
 	}
 
 	async execute(request: ToolCallRequest): Promise<ToolResult> {
+		// In sidecar mode, bypass the local pipeline entirely.
+		// The sidecar is the single authoritative enforcement boundary —
+		// it handles policy evaluation, token enforcement, behavioral rules,
+		// taint tracking, tool execution, and audit logging.
+		// The host fires local hooks for observability only.
+		if (this._sidecarClient) {
+			return this._executeViaSidecar(request);
+		}
+
 		return this.pipeline.intercept(request);
+	}
+
+	/**
+	 * Execute a tool call through the sidecar thin-client path.
+	 *
+	 * NO local policy evaluation, NO local token enforcement, NO local
+	 * behavioral rules, NO local quarantine gating. The sidecar is
+	 * authoritative for all of these.
+	 *
+	 * On success: returns ToolResult, fires local hooks for observability.
+	 * On denial: throws ToolCallDeniedError, fires local hooks.
+	 *
+	 * Host-side denial counters (deniedActions) and local audit records
+	 * are intentionally NOT updated here. In sidecar mode the sidecar
+	 * owns all accounting, audit trails, and run-state tracking. The
+	 * host fires onDecision/onExecute hooks for observability only.
+	 */
+	private async _executeViaSidecar(request: ToolCallRequest): Promise<ToolResult> {
+		try {
+			const result = await this._sidecarClient!.execute(request);
+
+			// Fire observability hooks (non-authoritative — host-side telemetry only)
+			this._hooks.onExecute?.(
+				{
+					id: result.callId,
+					runId: this.runId,
+					sequence: 0,
+					timestamp: now(),
+					principalId: this.principal.id,
+					toolClass: request.toolClass,
+					action: request.action,
+					parameters: request.parameters,
+					taintLabels: request.taintLabels ?? [],
+					grantId: request.grantId,
+				},
+				result,
+			);
+
+			return result;
+		} catch (e) {
+			if (e instanceof ToolCallDeniedError) {
+				// Fire observability hooks for the denial
+				this._hooks.onDecision?.(e.toolCall, e.decision);
+				throw e;
+			}
+			throw e;
+		}
 	}
 
 	/**

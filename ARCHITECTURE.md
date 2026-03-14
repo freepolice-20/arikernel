@@ -77,7 +77,7 @@ arikernel/
 │   └── benchmarks-agentdojo/          # AgentDojo-aligned benchmark harness
 ├── apps/
 │   ├── cli/                           # CLI application (arikernel binary)
-│   └── server/                        # HTTP decision server (legacy, port 9099)
+│   └── server/                        # DEPRECATED — legacy decision server (port 9099, use sidecar instead)
 ├── python/                            # Python runtime (experimental — not in v0.1.0)
 ├── policies/                          # YAML policy files (safe-defaults, deny-all)
 ├── examples/                          # Runnable demos

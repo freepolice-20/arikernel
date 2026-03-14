@@ -14,7 +14,7 @@ the policy, runs the tool, and returns the result (or a denial).
 |------|-------------|
 | **Library** | `createKernel()` embedded in the agent process. Zero network overhead. TypeScript/JavaScript runtime (Python experimental, not in v0.1.0). |
 | **Sidecar** | Separate process on port 8787. Language-agnostic — any HTTP client works. Isolation: policy bugs can't crash the agent. |
-| **Decision server** (`apps/server`) | Session-based multi-principal API on port 9099. Returns decisions only; agent executes tools itself. Defaults to localhost binding, optional bearer auth (`AUTH_TOKEN`), 1 MB body limit, and per-IP rate limiting (120 req/min). |
+| **Decision server** (`apps/server`) | **Deprecated.** Legacy session-based API on port 9099. Returns decisions only; does not execute tools. Superseded by the sidecar. Will be removed in a future release. |
 
 ## Security Notes
 

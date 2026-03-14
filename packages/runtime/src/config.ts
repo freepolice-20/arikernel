@@ -12,16 +12,24 @@ import type { RunStatePolicy } from "./run-state.js";
 export type SecurityMode = "dev" | "secure";
 
 /**
- * Enforcement mode determines where tool execution actually happens.
+ * Enforcement mode determines where policy evaluation and tool execution happen.
  *
- * - `"sidecar"` (recommended for production): Tools execute only via the
- *   sidecar HTTP API. The host process has no direct access to real
- *   executors — all execution is delegated through SidecarProxyExecutors.
- *   The sidecar is the authoritative enforcement boundary.
+ * - `"sidecar"` (recommended for production): The host Firewall acts as a
+ *   **thin client**. All policy evaluation, token management, behavioral
+ *   rules, taint tracking, and tool execution are delegated to the sidecar
+ *   HTTP server. The host performs NO local policy evaluation — the sidecar
+ *   is the single authoritative enforcement boundary.
  *
- * - `"embedded"`: Tools execute in-process. Security is cooperative —
- *   the host could bypass the pipeline. Suitable for development or
- *   trusted environments only. Must be set explicitly.
+ *   `requestCapability()` returns a synthetic grant for backward compat.
+ *   Use `requestCapabilityAsync()` for explicit sidecar routing.
+ *   `execute()` bypasses the local pipeline entirely and routes directly
+ *   to the sidecar `/execute` endpoint.
+ *
+ *   Local hooks still fire for observability but do not gate decisions.
+ *
+ * - `"embedded"`: Tools execute in-process with full local policy evaluation.
+ *   Security is cooperative — the host could bypass the pipeline.
+ *   Suitable for development or trusted environments only.
  *
  * **Mode must be set explicitly.** Omitting it in production throws a
  * startup error. In non-production, omitting it warns and defaults to
@@ -58,10 +66,11 @@ export interface FirewallOptions {
 	/**
 	 * Enforcement mode. **Must be set explicitly in production.**
 	 *
-	 * - `"sidecar"` (recommended): delegates all tool execution to the
-	 *   sidecar HTTP server. Requires `sidecar` connection options.
-	 * - `"embedded"`: runs tools in-process. Suitable for development
-	 *   or trusted environments only.
+	 * - `"sidecar"` (recommended): acts as a thin client — all policy
+	 *   evaluation and tool execution are delegated to the sidecar.
+	 *   No local policy evaluation occurs. Requires `sidecar` options.
+	 * - `"embedded"`: runs tools in-process with full local policy
+	 *   evaluation. Suitable for development or trusted environments only.
 	 *
 	 * Omitting this field in production throws a startup error.
 	 * In non-production it defaults to `"embedded"` with a warning.

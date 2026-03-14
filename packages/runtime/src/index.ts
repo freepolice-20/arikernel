@@ -5,8 +5,8 @@ export type {
 	EnforcementMode,
 	SidecarConnectionOptions,
 } from "./config.js";
-export { SidecarProxyExecutor, createSidecarProxies } from "./sidecar-proxy.js";
-export type { SidecarProxyConfig } from "./sidecar-proxy.js";
+export { SidecarProxyExecutor, createSidecarProxies, SidecarHttpClient } from "./sidecar-proxy.js";
+export type { SidecarProxyConfig, SidecarHttpClientConfig } from "./sidecar-proxy.js";
 export type { FirewallHooks } from "./hooks.js";
 export { CapabilityIssuer, setUntrustedSources, getUntrustedSources } from "./issuer.js";
 export { RunStateTracker, isSuspiciousGetExfil, hasEncodedPayload } from "./run-state.js";
