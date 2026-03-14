@@ -48,6 +48,33 @@ See [examples/](examples/) for runnable demos, [Middleware docs](docs/middleware
 
 ---
 
+## Security Presets
+
+Pick a preset. Get protection immediately. No policy authoring required.
+
+| Preset | Use Case | What It Does |
+|--------|----------|-------------|
+| **`safe`** | Production agents (recommended default) | Blocks tainted shell/writes/egress. Behavioral quarantine on repeated violations. Read-only HTTP and file access. |
+| **`strict`** | High-security / enterprise | All tainted actions blocked. Empty host allowlist. Aggressive quarantine threshold (3 violations). Approval-gated everything. |
+| **`safe-research`** | Web research, summarization | HTTP reads + file reads. All writes and shell blocked. |
+| **`rag-reader`** | Document retrieval, RAG pipelines | File reads + DB queries. All writes blocked. |
+| **`workspace-assistant`** | Coding assistants (Copilot-like) | File read/write in workspace. Shell approval-gated. HTTP reads. |
+| **`automation-agent`** | API integrations, workflows | HTTP GET/POST + database queries/writes. No filesystem or shell. |
+| **`research`** | Development, experimentation | Permissive — HTTP, files, DB, shell (approval-gated). Taint tracked. High quarantine threshold. |
+| **`anti-collusion`** | Multi-agent deployments | Blocks egress and shared-store writes when data has derived-sensitive taint. |
+
+Every preset silently enables taint propagation, behavioral sequence detection, capability enforcement, and hash-chained audit logging. You don't need to configure any of these individually.
+
+```typescript
+// Production: one line
+const kernel = createKernel({ preset: "safe" })
+
+// Zero-config: same as preset: "safe" with default capabilities
+const kernel = createKernel()
+```
+
+---
+
 ## What Ari Kernel Protects Against
 
 - **Prompt injection reaching tool execution** — behavioral rules detect sequences like web-tainted input followed by sensitive file reads or shell execution, and quarantine the run before exfiltration can occur
