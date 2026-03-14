@@ -95,6 +95,7 @@ export function resolveRegistryConfig(config: {
  */
 export class PrincipalRegistry {
 	private readonly firewalls = new Map<string, Firewall>();
+	private readonly tokenStores = new Map<string, SqliteTokenStore>();
 	private readonly auditDir: string;
 	private readonly policies: string | PolicyRule[];
 	private readonly capabilities: Capability[];
@@ -192,6 +193,7 @@ export class PrincipalRegistry {
 		// Stored alongside the audit DB in the same directory.
 		const tokenDbPath = join(this.auditDir, `${sanitized}-tokens.db`);
 		const tokenStore = new SqliteTokenStore(tokenDbPath);
+		this.tokenStores.set(principalId, tokenStore);
 
 		const firewall = createFirewall({
 			principal: {
@@ -246,5 +248,13 @@ export class PrincipalRegistry {
 			}
 		}
 		this.firewalls.clear();
+		for (const ts of this.tokenStores.values()) {
+			try {
+				ts.close();
+			} catch {
+				/* ignore */
+			}
+		}
+		this.tokenStores.clear();
 	}
 }
