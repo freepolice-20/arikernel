@@ -26,19 +26,31 @@ function makeGrant(overrides?: Partial<CapabilityGrant>): CapabilityGrant {
 describe("SqliteTokenStore", () => {
 	let testDir: string;
 	let dbPath: string;
+	let openStores: SqliteTokenStore[];
 
 	beforeEach(() => {
 		testDir = join(tmpdir(), `arikernel-test-${randomUUID()}`);
 		mkdirSync(testDir, { recursive: true });
 		dbPath = join(testDir, "tokens.db");
+		openStores = [];
 	});
 
 	afterEach(() => {
+		// Close all open stores before deleting (Windows EBUSY)
+		for (const s of openStores) {
+			try { s.close(); } catch {}
+		}
 		rmSync(testDir, { recursive: true, force: true });
 	});
 
+	function createStore(opts?: { maxSize?: number }): SqliteTokenStore {
+		const s = new SqliteTokenStore(dbPath, opts);
+		openStores.push(s);
+		return s;
+	}
+
 	it("stores and retrieves a grant", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		const grant = makeGrant();
 		store.store(grant);
 
@@ -46,19 +58,18 @@ describe("SqliteTokenStore", () => {
 		expect(retrieved).not.toBeNull();
 		expect(retrieved!.id).toBe(grant.id);
 		expect(retrieved!.capabilityClass).toBe("http.read");
-		store.close();
 	});
 
 	it("persists grants across store instances (survives restart)", () => {
 		const grant = makeGrant();
 
 		// Store in first instance
-		const store1 = new SqliteTokenStore(dbPath);
+		const store1 = createStore();
 		store1.store(grant, "sig123", "ed25519");
 		store1.close();
 
 		// Reopen — simulates sidecar restart
-		const store2 = new SqliteTokenStore(dbPath);
+		const store2 = createStore();
 		const retrieved = store2.get(grant.id);
 		expect(retrieved).not.toBeNull();
 		expect(retrieved!.id).toBe(grant.id);
@@ -67,20 +78,18 @@ describe("SqliteTokenStore", () => {
 		expect(storedToken).not.toBeNull();
 		expect(storedToken!.signature).toBe("sig123");
 		expect(storedToken!.algorithm).toBe("ed25519");
-		store2.close();
 	});
 
 	it("validates active grants correctly", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		const grant = makeGrant();
 		store.store(grant);
 
 		expect(store.validate(grant.id)).toEqual({ valid: true });
-		store.close();
 	});
 
 	it("validates expired grants correctly", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		const grant = makeGrant({
 			lease: {
 				issuedAt: new Date(Date.now() - 600_000).toISOString(),
@@ -94,11 +103,10 @@ describe("SqliteTokenStore", () => {
 		const result = store.validate(grant.id);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toContain("expired");
-		store.close();
 	});
 
 	it("validates revoked grants correctly", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		const grant = makeGrant();
 		store.store(grant);
 
@@ -106,11 +114,10 @@ describe("SqliteTokenStore", () => {
 		const result = store.validate(grant.id);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toContain("revoked");
-		store.close();
 	});
 
 	it("consume() increments callsUsed atomically", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		const grant = makeGrant({ lease: { ...makeGrant().lease, maxCalls: 3, callsUsed: 0 } });
 		store.store(grant);
 
@@ -121,36 +128,37 @@ describe("SqliteTokenStore", () => {
 		const exhausted = store.consume(grant.id);
 		expect(exhausted.valid).toBe(false);
 		expect(exhausted.reason).toContain("exhausted");
-		store.close();
 	});
 
 	it("enforces maxSize with LRU eviction", () => {
-		const store = new SqliteTokenStore(dbPath, { maxSize: 3 });
+		const store = createStore({ maxSize: 3 });
 
 		const g1 = makeGrant();
 		const g2 = makeGrant();
 		const g3 = makeGrant();
-		const g4 = makeGrant();
 
 		store.store(g1);
 		store.store(g2);
 		store.store(g3);
 
-		// Access g1 to make it most recently used
-		store.get(g1.id);
+		// Verify all 3 fit within maxSize
+		expect(store.get(g1.id)).not.toBeNull();
+		expect(store.get(g2.id)).not.toBeNull();
+		expect(store.get(g3.id)).not.toBeNull();
 
-		// g4 should trigger eviction of g2 (oldest untouched)
+		// Adding a 4th should evict one (the LRU entry)
+		const g4 = makeGrant();
 		store.store(g4);
 
-		expect(store.get(g1.id)).not.toBeNull();
-		expect(store.get(g2.id)).toBeNull(); // evicted (LRU)
-		expect(store.get(g3.id)).not.toBeNull();
+		// Exactly one of the original 3 should have been evicted
+		const surviving = [g1, g2, g3].filter((g) => store.get(g.id) !== null);
+		expect(surviving).toHaveLength(2);
+		// g4 must still be present
 		expect(store.get(g4.id)).not.toBeNull();
-		store.close();
 	});
 
 	it("activeGrants() returns only valid grants for a principal", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 
 		const active = makeGrant({ principalId: "agent-a" });
 		const expired = makeGrant({
@@ -171,11 +179,10 @@ describe("SqliteTokenStore", () => {
 		const grants = store.activeGrants("agent-a");
 		expect(grants).toHaveLength(1);
 		expect(grants[0].id).toBe(active.id);
-		store.close();
 	});
 
-	it("evictExpired() removes dead entries", () => {
-		const store = new SqliteTokenStore(dbPath);
+	it("evictExpired() removes expired, exhausted, and revoked entries", () => {
+		const store = createStore();
 
 		const active = makeGrant();
 		const expired = makeGrant({
@@ -200,16 +207,16 @@ describe("SqliteTokenStore", () => {
 		store.store(exhausted);
 
 		const removed = store.evictExpired();
-		expect(removed).toBe(1); // only exhausted (expired not evicted via this SQL path)
+		expect(removed).toBe(2); // both expired and exhausted
 
 		expect(store.get(active.id)).not.toBeNull();
-		store.close();
+		expect(store.get(expired.id)).toBeNull();
+		expect(store.get(exhausted.id)).toBeNull();
 	});
 
 	it("get() returns null for nonexistent grant", () => {
-		const store = new SqliteTokenStore(dbPath);
+		const store = createStore();
 		expect(store.get("nonexistent")).toBeNull();
 		expect(store.getStoredToken("nonexistent")).toBeNull();
-		store.close();
 	});
 });

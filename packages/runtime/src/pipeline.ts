@@ -28,7 +28,7 @@ import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
 import type { PersistentTaintRegistry } from "./persistent-taint-registry.js";
 import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil } from "./run-state.js";
-import type { TokenStore } from "./token-store.js";
+import type { ITokenStore } from "./token-store.js";
 
 /**
  * Precompute a lookup: toolClass -> Set of actions that are covered by
@@ -60,7 +60,7 @@ export class Pipeline {
 		private readonly auditStore: AuditStore,
 		private readonly executorRegistry: ExecutorRegistry,
 		private readonly hooks: FirewallHooks,
-		private readonly tokenStore?: TokenStore,
+		private readonly tokenStore?: ITokenStore,
 		private readonly runState?: RunStateTracker,
 		private readonly signingKey?: SigningKey,
 		private readonly securityMode: SecurityMode = "dev",

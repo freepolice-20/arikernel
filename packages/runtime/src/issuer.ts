@@ -18,7 +18,7 @@ import {
 } from "@arikernel/core";
 import { type PolicyEngine, matchesRule } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
-import type { TokenStore } from "./token-store.js";
+import type { ITokenStore } from "./token-store.js";
 
 const DEFAULT_LEASE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_MAX_CALLS = 10;
@@ -79,7 +79,7 @@ export class CapabilityIssuer {
 	constructor(
 		private readonly policyEngine: PolicyEngine,
 		private readonly taintTracker: TaintTracker,
-		private readonly tokenStore: TokenStore,
+		private readonly tokenStore: ITokenStore,
 		private readonly signingKey?: SigningKey,
 	) {}
 
