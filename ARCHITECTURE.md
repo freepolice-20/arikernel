@@ -697,13 +697,12 @@ The sidecar server (`packages/sidecar/`) implements proxy mode. See [Sidecar Mod
 
 ### Current Limitations
 
-1. **In-memory TokenStore** — grants are lost on process restart. Production use requires persistent storage.
-2. **Single-process** — no distributed token validation. Tokens are only valid within the process that issued them.
-3. **Database executor is a stub** — validates and audits calls but does not execute real queries.
-4. **Retrieval executor is a stub** — validates and audits calls but does not execute real lookups.
-5. **Static principal** — the principal is configured at kernel creation time. There is no dynamic principal resolution or authentication.
-6. **Taint labeling is partially automatic** — HTTP, RAG, and MCP executors auto-attach provenance labels. Other sources (email, custom inputs) require manual labeling.
-7. **YAML policies only** — no API for dynamic policy updates at runtime.
+1. **Single-process** — no distributed token validation. Tokens are only valid within the process that issued them.
+2. **Database executor is a stub** — validates and audits calls but does not execute real queries.
+3. **Retrieval executor is a stub** — validates and audits calls but does not execute real lookups.
+4. **Static principal** — the principal is configured at kernel creation time. There is no dynamic principal resolution or authentication.
+5. **Taint labeling is partially automatic** — HTTP, RAG, and MCP executors auto-attach provenance labels. Other sources (email, custom inputs) require manual labeling.
+6. **YAML policies only** — no API for dynamic policy updates at runtime.
 
 ### Key Design Tradeoffs
 

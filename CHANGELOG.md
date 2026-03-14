@@ -154,7 +154,7 @@ Versions are listed newest-first. For the initial release, see [0.1.0](#010--202
 - Output filtering (DLP) with bounded-quantifier secret pattern detection and recursive nested-object scanning
 - CLI: `simulate`, `trace`, `replay`, `replay-trace`, `sidecar`, `policy`, `attack simulate`, `compliance-report`, `verify-receipt`, `control-plane export-audit` commands
 - Sidecar HTTP proxy mode with per-principal isolation, bearer token auth, rate limiting, body size limits
-- 7 security presets: `safe`, `strict`, `research`, `safe-research`, `rag-reader`, `workspace-assistant`, `automation-agent`
+- 8 security presets: `safe`, `strict`, `research`, `safe-research`, `rag-reader`, `workspace-assistant`, `automation-agent`, `anti-collusion`
 - Framework middleware: LangChain, OpenAI Agents SDK, CrewAI, AutoGen wrappers
 - MCP tool integration via `protectMCPTools()`
 - Python runtime with `@protect_tool` decorator **(experimental — not part of v0.1.0 release scope)**
