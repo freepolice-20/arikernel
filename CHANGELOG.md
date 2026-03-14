@@ -1,6 +1,9 @@
 # Changelog
 
 All notable changes to Ari Kernel are documented here.
+Versions are listed newest-first. For the initial release, see [0.1.0](#010--2026-03-05).
+
+---
 
 ## [0.1.8] — 2026-03-12
 
@@ -112,7 +115,9 @@ All notable changes to Ari Kernel are documented here.
 - LangChain integration example at `examples/langchain-protected-agent/`
 - Framework adapters: `protectTools()`, `protectOpenAITools()`, `LangChainAdapter`, `CrewAIAdapter`, `protectVercelTools()`
 
-## [0.1.0] — 2026-03-05
+---
+
+## [0.1.0] — 2026-03-05 — Initial Release
 
 ### Important: Release Scope
 
