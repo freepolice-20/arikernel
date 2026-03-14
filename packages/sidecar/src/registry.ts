@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { AuditEvent, Capability, PolicyRule, SigningKey } from "@arikernel/core";
 import { getPreset, now } from "@arikernel/core";
 import type { PresetId } from "@arikernel/core";
-import { type Firewall, createFirewall } from "@arikernel/runtime";
+import { type Firewall, SqliteTokenStore, createFirewall } from "@arikernel/runtime";
 import type { FirewallHooks, RunStatePolicy, SecurityMode } from "@arikernel/runtime";
 import {
 	DatabaseExecutor,
@@ -188,6 +188,11 @@ export class PrincipalRegistry {
 			},
 		};
 
+		// Persistent token store: grants survive sidecar restarts.
+		// Stored alongside the audit DB in the same directory.
+		const tokenDbPath = join(this.auditDir, `${sanitized}-tokens.db`);
+		const tokenStore = new SqliteTokenStore(tokenDbPath);
+
 		const firewall = createFirewall({
 			principal: {
 				name: principalId,
@@ -199,6 +204,7 @@ export class PrincipalRegistry {
 			signingKey: this.signingKey,
 			securityMode: this.securityMode,
 			hooks,
+			tokenStore,
 		});
 
 		attachExecutors(firewall);

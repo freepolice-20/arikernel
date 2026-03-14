@@ -5,6 +5,18 @@ Versions are listed newest-first. For the initial release, see [0.1.0](#010--202
 
 ---
 
+## [0.1.9] — 2026-03-13
+
+### Added
+- **Persistent TokenStore**: SQLite-backed grant storage — tokens survive sidecar restarts. Each principal gets a dedicated `{name}-tokens.db` alongside its audit DB. Same LRU eviction and TTL behavior as the in-memory store.
+- **TLS support**: `--tls-cert` and `--tls-key` CLI flags enable HTTPS on the sidecar. Recommended for non-localhost deployments where agent and sidecar are in separate containers.
+- `ITokenStore` interface for pluggable token store implementations
+- `SqliteTokenStore` class exported from `@arikernel/runtime`
+- Python integration tests now use a local HTTP server fixture instead of external URLs (httpbin.org, example.com) for offline CI stability
+
+### Fixed
+- Scoped "cannot bypass" claims in README, ARCHITECTURE.md, and control-plane docs to "for mediated calls" — aligns with NIST reference monitor framing
+
 ## [0.1.8] — 2026-03-12
 
 ### Security Hardening

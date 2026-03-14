@@ -41,7 +41,7 @@ import {
 	RunStateTracker,
 } from "./run-state.js";
 import { SidecarHttpClient, createSidecarProxies } from "./sidecar-proxy.js";
-import { TokenStore } from "./token-store.js";
+import { type ITokenStore, TokenStore } from "./token-store.js";
 
 export class Firewall {
 	private principal: Principal;
@@ -51,7 +51,7 @@ export class Firewall {
 	private executorRegistry: ExecutorRegistry;
 	private pipeline: Pipeline;
 	private issuer: CapabilityIssuer;
-	private tokenStore: TokenStore;
+	private tokenStore: ITokenStore;
 	private _hooks: FirewallHooks;
 	private _runState: RunStateTracker;
 	private _persistentTaint: PersistentTaintRegistry | null = null;
@@ -113,7 +113,7 @@ export class Firewall {
 		this.taintTracker = new TaintTracker();
 		this.auditStore = new AuditStore(options.auditLog ?? "./audit.db");
 		this.executorRegistry = new ExecutorRegistry();
-		this.tokenStore = new TokenStore();
+		this.tokenStore = options.tokenStore ?? new TokenStore();
 
 		// In sidecar mode, the Firewall acts as a thin client. All policy
 		// evaluation, token management, behavioral rules, taint tracking, and

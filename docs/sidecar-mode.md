@@ -30,11 +30,17 @@ The sidecar is hardened for production deployment:
 # Production: localhost + auth
 arikernel sidecar --policy ./policy.yaml --auth-token "$SIDECAR_TOKEN"
 
-# Development: no auth, localhost only
+# Production: TLS + auth (for non-localhost / container deployments)
+arikernel sidecar --policy ./policy.yaml --auth-token "$SIDECAR_TOKEN" \
+  --tls-cert ./server.crt --tls-key ./server.key
+
+# Development: no auth, no TLS, localhost only
 arikernel sidecar --policy ./policy.yaml
 ```
 
 When auth is enabled, all requests must include `Authorization: Bearer <token>`. The `/health` endpoint is exempt.
+
+When TLS is enabled (`--tls-cert` + `--tls-key`), the sidecar serves HTTPS. This is recommended for any deployment where the agent and sidecar are in separate containers or hosts, to prevent credential and tool-call interception on the network.
 
 ## Identity Binding Modes
 

@@ -13,7 +13,22 @@ export interface StoredToken {
 	algorithm?: SigningAlgorithm;
 }
 
-export class TokenStore {
+/**
+ * Common interface for token stores. Both the in-memory TokenStore and
+ * the SQLite-backed SqliteTokenStore implement this interface.
+ */
+export interface ITokenStore {
+	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void;
+	evictExpired(): number;
+	get(grantId: string): CapabilityGrant | null;
+	getStoredToken(grantId: string): StoredToken | null;
+	validate(grantId: string): TokenValidation;
+	consume(grantId: string): TokenValidation;
+	revoke(grantId: string): boolean;
+	activeGrants(principalId: string): CapabilityGrant[];
+}
+
+export class TokenStore implements ITokenStore {
 	private grants = new Map<string, StoredToken>();
 
 	/**
