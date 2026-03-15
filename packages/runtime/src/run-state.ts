@@ -481,6 +481,64 @@ const MAX_SAFE_PARAM_VALUE_LENGTH = 128;
 /** Minimum path segment length to consider for entropy analysis. */
 const MIN_SUSPICIOUS_SEGMENT_LENGTH = 32;
 
+/** Cumulative path payload budget — total encoded-looking bytes across all segments. */
+const MAX_CUMULATIVE_PATH_PAYLOAD = 64;
+
+/** Minimum length for a single path segment to be flagged as hex exfil. */
+const MIN_HEX_SEGMENT_LENGTH = 16;
+
+/** Minimum length for a single path segment to be flagged as base32 exfil. */
+const MIN_BASE32_SEGMENT_LENGTH = 16;
+
+/** Minimum length for a single path segment to be flagged as base64 path exfil. */
+const MIN_BASE64_PATH_SEGMENT_LENGTH = 20;
+
+// ── Path-segment encoding detectors ──────────────────────────────
+
+/** Pure hex: 16+ hex chars (e.g. "4d7953656372657456616c7565"). */
+const PATH_HEX_RE = /^[0-9a-fA-F]+$/;
+
+/** Base32-like: 16+ uppercase alpha + digits 2-7, optional padding. */
+const PATH_BASE32_RE = /^[A-Z2-7]+=*$/;
+
+/** Base64url-like: 20+ chars from the base64url alphabet (no padding in paths). */
+const PATH_BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Check if a path segment looks like an encoded payload (hex, base32, base64url).
+ * Returns the segment length if it matches, 0 otherwise.
+ * Short segments that match common REST patterns (UUIDs, short IDs) are excluded.
+ */
+function encodedPathSegmentLength(segment: string): number {
+	// Pure hex segment (16+ chars) — catches hex-encoded secrets
+	if (segment.length >= MIN_HEX_SEGMENT_LENGTH && PATH_HEX_RE.test(segment)) {
+		return segment.length;
+	}
+	// Base32-like segment (16+ chars)
+	if (segment.length >= MIN_BASE32_SEGMENT_LENGTH && PATH_BASE32_RE.test(segment)) {
+		// Exclude short all-caps words that aren't base32 (e.g. "ORDERS", "USERS")
+		// Real base32 payloads are longer and contain digits 2-7
+		if (segment.length < 20 && !/[2-7]/.test(segment)) return 0;
+		return segment.length;
+	}
+	// Base64url-like segment (20+ chars) — must contain mixed case or digits to avoid
+	// flagging normal path words like "notifications" or "authentication".
+	// Exclude UUID-shaped segments (contains hyphens splitting hex groups).
+	if (
+		segment.length >= MIN_BASE64_PATH_SEGMENT_LENGTH &&
+		!segment.includes("-") &&
+		PATH_BASE64URL_RE.test(segment)
+	) {
+		const hasUpper = /[A-Z]/.test(segment);
+		const hasLower = /[a-z]/.test(segment);
+		const hasDigit = /[0-9]/.test(segment);
+		// Must have at least 2 of: uppercase, lowercase, digits — normal words are single-case
+		const mixCount = (hasUpper ? 1 : 0) + (hasLower ? 1 : 0) + (hasDigit ? 1 : 0);
+		if (mixCount >= 2) return segment.length;
+	}
+	return 0;
+}
+
 /**
  * Shannon entropy of a string, normalized to [0, 1] relative to the charset.
  * High entropy (>0.7) in long path segments suggests encoded data (base64, hex).
@@ -531,10 +589,24 @@ export function isSuspiciousGetExfil(url: string): boolean {
 
 		// Path segment checks — detect encoded data in URL path
 		const segments = parsed.pathname.split("/").filter(Boolean);
+		let cumulativeEncodedBytes = 0;
 		for (const segment of segments) {
+			// Original entropy check for long high-entropy segments
 			if (segment.length >= MIN_SUSPICIOUS_SEGMENT_LENGTH && normalizedEntropy(segment) > 0.7) {
 				return true;
 			}
+			// Explicit encoded-payload detection (hex, base32, base64url)
+			const encLen = encodedPathSegmentLength(segment);
+			if (encLen > 0) {
+				// A single encoded segment ≥24 chars is suspicious on its own
+				if (encLen >= 24) return true;
+				// Accumulate for chunked exfil detection
+				cumulativeEncodedBytes += encLen;
+			}
+		}
+		// Cumulative budget: multiple shorter encoded segments add up
+		if (cumulativeEncodedBytes > MAX_CUMULATIVE_PATH_PAYLOAD) {
+			return true;
 		}
 
 		return false;

@@ -208,7 +208,7 @@ The following attack patterns are within Ari Kernel's defensive scope:
 | Sidecar principal spoofing | API key → principalId binding; mismatched body `principalId` rejected |
 | Resource exhaustion against sidecar | Per-principal rate limiting, concurrent execution limits, firewall instance caps |
 | Regex DoS in policy rules | Input length cap (8192 bytes), fail-closed `UnsafeMatchError`, bounded output filter quantifiers |
-| Capability token replay / double-spend | Atomic `consume()` with `callsUsed`/`maxCalls`, expiry enforcement, principal binding |
+| Capability token replay / double-spend (single instance) | Atomic `consume()` with `callsUsed`/`maxCalls`, expiry enforcement, principal binding. **Scope: single `ITokenStore` instance only.** In multi-sidecar deployments with independent stores, the same signed grant can be consumed independently on each replica — see [Known Limitations](known-limitations.md). Mitigation: back all replicas with a shared `ITokenStore` implementation (shared SQLite WAL file, Redis, or Postgres). |
 
 ---
 

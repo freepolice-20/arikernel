@@ -26,7 +26,16 @@ Remaining Python-specific limitations:
 
 ## Tool executors
 
-**Database executor is a stub in v0.1.0.** The database executor validates and audits calls but does not execute real queries or connect to real databases. Cross-principal taint tracking for database tools works at the policy and taint-label level, but actual SQL injection prevention and query result inspection require a real adapter. Production database protection requires implementing a custom executor that connects to your database and wires through the kernel's taint and policy checks.
+**Default database executor is a stub.** The default `DatabaseExecutor` validates and audits calls but does not execute real queries. A real `SqliteDatabaseExecutor` is available for SQLite databases — it supports structured `query` and `mutate` operations with parameterized queries, strict identifier validation, and no raw SQL passthrough. To use it:
+
+```ts
+import Database from "better-sqlite3";
+import { SqliteDatabaseExecutor } from "@arikernel/tool-executors";
+const executor = new SqliteDatabaseExecutor(new Database("app.db"));
+registry.register(executor); // replaces the stub
+```
+
+For other databases (Postgres, MySQL), implement a custom `ToolExecutor` with the same structured-operations pattern. Do not accept raw SQL from agents.
 
 ## Taint registry
 
@@ -43,6 +52,22 @@ Remaining Python-specific limitations:
 ## Content inspection
 
 **Content scanner patterns are heuristic and opt-in.** The DLP output filter is an optional hook (`onOutputFilter`) — it is not enabled by default. When registered, it and the `isSuspiciousGetExfil()` detector use pattern matching (regex, entropy analysis, base64/hex detection) to identify potential data exfiltration. These are defense-in-depth heuristics, not a security boundary. A determined attacker can encode data in ways that evade pattern detection. Do not rely on content scanning as a primary control.
+
+## Capability token replay across replicas
+
+**Grant consumption is local to a single `ITokenStore` instance.** The built-in `TokenStore` (in-memory) and `SqliteTokenStore` (single-file SQLite) both enforce atomic `consume()` with `callsUsed`/`maxCalls` tracking — but only within the same store instance. If multiple sidecar replicas hold independent stores and both receive a copy of the same signed grant (e.g., the agent forwards a grant token to a different replica, or both replicas issue from the same signing key), each store will independently accept and consume it. A `maxCalls: 1` grant can be used twice — once per replica.
+
+**This is a known design boundary, not a bug.** The `ITokenStore` interface is the intended plug-in seam for shared consumption. To prevent double-spend in horizontally scaled deployments:
+
+1. **Shared SQLite WAL file** — point all replicas at the same `SqliteTokenStore` database file (works for co-located processes).
+2. **External shared store** — implement `ITokenStore` backed by Redis, Postgres, or another shared data store with atomic increment semantics.
+3. **Single-writer architecture** — route all grant issuance and consumption through a single control plane instance.
+
+Revocation has the same scope limitation: revoking a grant on one store does not propagate to independent stores.
+
+**Test coverage:** `packages/runtime/__tests__/token-double-spend-multi-store.test.ts` explicitly demonstrates the replay risk across independent stores and confirms that a shared store eliminates it.
+
+---
 
 ## Replay and verification
 
