@@ -28,6 +28,12 @@ jobs:
 
       - run: pnpm lint
 
+      - name: Attack simulation regression gate
+        run: |
+          node apps/cli/dist/main.js attack simulate packages/attack-sim/scenarios/prompt-injection-exfiltration.yaml
+          node apps/cli/dist/main.js attack simulate packages/attack-sim/scenarios/shell-escalation.yaml
+          echo "Attack simulations passed"
+
       - name: Check for legacy server references in docs
         run: bash scripts/check-legacy-refs.sh
 
