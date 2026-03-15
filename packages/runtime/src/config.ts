@@ -20,6 +20,10 @@ export type SecurityMode = "dev" | "secure";
  *   HTTP server. The host performs NO local policy evaluation — the sidecar
  *   is the single authoritative enforcement boundary.
  *
+ *   The sidecar enforces policies locally by default (`decisionMode: "local"`).
+ *   Remote decision delegation (`decisionMode: "remote"`) is experimental
+ *   and not recommended for production.
+ *
  *   `requestCapability()` returns a synthetic grant for backward compat.
  *   Use `requestCapabilityAsync()` for explicit sidecar routing.
  *   `execute()` bypasses the local pipeline entirely and routes directly

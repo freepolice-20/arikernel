@@ -1,10 +1,10 @@
-import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { SqliteTokenStore } from "../src/sqlite-token-store.js";
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { CapabilityGrant } from "@arikernel/core";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { SqliteTokenStore } from "../src/sqlite-token-store.js";
 
 function makeGrant(overrides?: Partial<CapabilityGrant>): CapabilityGrant {
 	return {
@@ -38,7 +38,9 @@ describe("SqliteTokenStore", () => {
 	afterEach(() => {
 		// Close all open stores before deleting (Windows EBUSY)
 		for (const s of openStores) {
-			try { s.close(); } catch {}
+			try {
+				s.close();
+			} catch {}
 		}
 		rmSync(testDir, { recursive: true, force: true });
 	});
@@ -56,8 +58,8 @@ describe("SqliteTokenStore", () => {
 
 		const retrieved = store.get(grant.id);
 		expect(retrieved).not.toBeNull();
-		expect(retrieved!.id).toBe(grant.id);
-		expect(retrieved!.capabilityClass).toBe("http.read");
+		expect(retrieved?.id).toBe(grant.id);
+		expect(retrieved?.capabilityClass).toBe("http.read");
 	});
 
 	it("persists grants across store instances (survives restart)", () => {
@@ -72,12 +74,12 @@ describe("SqliteTokenStore", () => {
 		const store2 = createStore();
 		const retrieved = store2.get(grant.id);
 		expect(retrieved).not.toBeNull();
-		expect(retrieved!.id).toBe(grant.id);
+		expect(retrieved?.id).toBe(grant.id);
 
 		const storedToken = store2.getStoredToken(grant.id);
 		expect(storedToken).not.toBeNull();
-		expect(storedToken!.signature).toBe("sig123");
-		expect(storedToken!.algorithm).toBe("ed25519");
+		expect(storedToken?.signature).toBe("sig123");
+		expect(storedToken?.algorithm).toBe("ed25519");
 	});
 
 	it("validates active grants correctly", () => {

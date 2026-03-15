@@ -133,7 +133,7 @@ describe("cross-principal contamination: successful sensitive reads propagate co
 		if (savedFileRoot !== undefined) {
 			process.env.FILE_EXECUTOR_ROOT = savedFileRoot;
 		} else {
-			delete process.env.FILE_EXECUTOR_ROOT;
+			process.env.FILE_EXECUTOR_ROOT = undefined;
 		}
 		rmSync(dir, { recursive: true, force: true });
 		rmSync(fileRoot, { recursive: true, force: true });

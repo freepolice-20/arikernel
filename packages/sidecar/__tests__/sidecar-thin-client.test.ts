@@ -15,9 +15,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolCallDeniedError } from "@arikernel/core";
 import { Firewall, type FirewallHooks } from "@arikernel/runtime";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidecarServer } from "../src/index.js";
 
 function tempDir(): string {

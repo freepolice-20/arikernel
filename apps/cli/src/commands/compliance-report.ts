@@ -91,7 +91,7 @@ function detectDeploymentMode(configContent: string | null): string {
 }
 
 function detectSidecarAuth(configContent: string | null): string {
-	if (configContent && configContent.includes("authToken")) return "bearer-token";
+	if (configContent?.includes("authToken")) return "bearer-token";
 	return "none (dev mode)";
 }
 

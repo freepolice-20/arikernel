@@ -355,10 +355,10 @@ importers:
         version: link:../core
     devDependencies:
       '@types/better-sqlite3':
-        specifier: ^7.6.12
+        specifier: ^7.6.13
         version: 7.6.13
       better-sqlite3:
-        specifier: ^11.7.0
+        specifier: ^11.10.0
         version: 11.10.0
       typescript:
         specifier: ^5.7.2

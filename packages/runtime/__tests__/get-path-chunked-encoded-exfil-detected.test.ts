@@ -43,15 +43,11 @@ describe("GET path-segment chunked encoded exfil detection", () => {
 
 	it("safe normal paths are not affected by cumulative budget", () => {
 		expect(
-			isSuspiciousGetExfil(
-				"https://example.com/api/v1/users/123/orders/456/items/789/details",
-			),
+			isSuspiciousGetExfil("https://example.com/api/v1/users/123/orders/456/items/789/details"),
 		).toBe(false);
 	});
 
 	it("path with normal words and one short hex ID stays safe", () => {
-		expect(
-			isSuspiciousGetExfil("https://example.com/repos/deadbeef12345678/commits"),
-		).toBe(false);
+		expect(isSuspiciousGetExfil("https://example.com/repos/deadbeef12345678/commits")).toBe(false);
 	});
 });

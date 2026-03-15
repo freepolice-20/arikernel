@@ -36,13 +36,13 @@ function makeEvent(overrides: Partial<SecurityEvent>): SecurityEvent {
 
 describe("GET exfil heuristic: boundary behavior (regression)", () => {
 	it("BLOCKS: query string at exactly 257 chars (just over threshold)", () => {
-		const query = "x=" + "A".repeat(255);
+		const query = `x=${"A".repeat(255)}`;
 		expect(query.length).toBe(257);
 		expect(isSuspiciousGetExfil(`https://evil.com/c?${query}`)).toBe(true);
 	});
 
 	it("ALLOWS: query string at exactly 256 chars (at threshold)", () => {
-		const query = "x=" + "A".repeat(254);
+		const query = `x=${"A".repeat(254)}`;
 		expect(query.length).toBe(256);
 		// query including the leading '?' is 257, but search = '?' + query
 		// The actual check is on parsed.search which includes '?'
@@ -210,7 +210,7 @@ describe("behavioral rule: GET treated as egress post-sensitive-read (regression
 
 		const record = state.getCumulativeEgress("tracker.com");
 		expect(record).toBeDefined();
-		expect(record!.requestCount).toBe(2);
-		expect(record!.totalQueryBytes).toBeGreaterThan(0);
+		expect(record?.requestCount).toBe(2);
+		expect(record?.totalQueryBytes).toBeGreaterThan(0);
 	});
 });

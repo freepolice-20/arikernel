@@ -146,15 +146,10 @@ export class FileExecutor implements ToolExecutor {
 						const realParent = await realpath(parentDir);
 						const realRoot = await realpath(allowedRoot);
 						if (!realParent.startsWith(realRoot + path.sep) && realParent !== realRoot) {
-							throw new Error(
-								`Parent directory escapes allowed root via symlink: ${filePath}`,
-							);
+							throw new Error(`Parent directory escapes allowed root via symlink: ${filePath}`);
 						}
 					} catch (err) {
-						if (
-							err instanceof Error &&
-							err.message.startsWith("Parent directory escapes")
-						) {
+						if (err instanceof Error && err.message.startsWith("Parent directory escapes")) {
 							throw err;
 						}
 						// Parent doesn't exist — open() will fail with ENOENT, which is fine

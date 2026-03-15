@@ -4,9 +4,9 @@
  */
 
 import { createHash } from "node:crypto";
-import { createServer, type Server } from "node:http";
-import { describe, expect, it, afterEach } from "vitest";
+import { type Server, createServer } from "node:http";
 import { DecisionSigner, generateSigningKey } from "@arikernel/control-plane";
+import { afterEach, describe, expect, it } from "vitest";
 import { DecisionDelegate } from "../src/decision-delegate.js";
 
 const SEED = generateSigningKey();
@@ -99,17 +99,17 @@ describe("DecisionDelegate — receipt verification", () => {
 
 		const result = await delegate.requestDecision(CALL_PARAMS);
 		expect(result).not.toBeNull();
-		expect(result!.verdict).toBe("allow");
-		expect(result!.decisionId).toMatch(/^dec-/);
-		expect(result!.policyHash).toBe("abcdef0123456789");
-		expect(result!.kernelBuild).toBe("test-build");
+		expect(result?.verdict).toBe("allow");
+		expect(result?.decisionId).toMatch(/^dec-/);
+		expect(result?.policyHash).toBe("abcdef0123456789");
+		expect(result?.kernelBuild).toBe("test-build");
 	});
 
 	it("rejects a receipt with a tampered signature", async () => {
 		const mock = await startMockCP(19201, (req) => {
 			const receipt = signedReceipt("allow", req);
 			// Tamper: flip the first byte of the signature
-			const tampered = "00" + receipt.signature.slice(2);
+			const tampered = `00${receipt.signature.slice(2)}`;
 			return { ...receipt, signature: tampered };
 		});
 		servers.push(mock);
@@ -210,7 +210,7 @@ describe("DecisionDelegate — receipt verification", () => {
 
 		const result = await delegate.requestDecision(CALL_PARAMS);
 		expect(result).not.toBeNull();
-		expect(result!.verdict).toBe("allow");
+		expect(result?.verdict).toBe("allow");
 	});
 
 	it("returns deny verdicts after successful verification", async () => {
@@ -224,7 +224,7 @@ describe("DecisionDelegate — receipt verification", () => {
 
 		const result = await delegate.requestDecision(CALL_PARAMS);
 		expect(result).not.toBeNull();
-		expect(result!.verdict).toBe("deny");
-		expect(result!.reason).toBe("test-reason");
+		expect(result?.verdict).toBe("deny");
+		expect(result?.reason).toBe("test-reason");
 	});
 });

@@ -60,7 +60,7 @@ describe("Persistent taint keyed by stable principal name", () => {
 			},
 		});
 		// Directly record via the registry (simulates a completed sensitive read)
-		fw1.persistentTaintRegistry!.recordSensitiveRead("/home/.ssh/id_rsa");
+		fw1.persistentTaintRegistry?.recordSensitiveRead("/home/.ssh/id_rsa");
 		expect(fw1.sensitiveReadObserved).toBe(false); // not set via pipeline, just persisted
 		fw1.close();
 
@@ -75,7 +75,7 @@ describe("Persistent taint keyed by stable principal name", () => {
 		const db = auditPath("multi-flags");
 
 		const fw1 = createFirewall(makeOptions("agent-beta", db));
-		fw1.persistentTaintRegistry!.recordTaintObserved("web");
+		fw1.persistentTaintRegistry?.recordTaintObserved("web");
 		fw1.close();
 
 		const fw2 = createFirewall(makeOptions("agent-beta", db));
@@ -89,7 +89,7 @@ describe("Persistent taint keyed by stable principal name", () => {
 
 		// Principal A records sensitive read
 		const fwA = createFirewall(makeOptions("principal-A", db));
-		fwA.persistentTaintRegistry!.recordSensitiveRead("/etc/shadow");
+		fwA.persistentTaintRegistry?.recordSensitiveRead("/etc/shadow");
 		fwA.close();
 
 		// Principal B on the same DB should NOT inherit A's state
@@ -108,13 +108,13 @@ describe("Persistent taint keyed by stable principal name", () => {
 
 		// Run 1: record sensitive read
 		const fw1 = createFirewall(makeOptions("agent-gamma", db));
-		fw1.persistentTaintRegistry!.recordSensitiveRead("/home/.ssh/id_rsa");
+		fw1.persistentTaintRegistry?.recordSensitiveRead("/home/.ssh/id_rsa");
 		fw1.close();
 
 		// Run 2: inherits and records more
 		const fw2 = createFirewall(makeOptions("agent-gamma", db));
 		expect(fw2.sensitiveReadObserved).toBe(true);
-		fw2.persistentTaintRegistry!.recordTaintObserved("web");
+		fw2.persistentTaintRegistry?.recordTaintObserved("web");
 		fw2.close();
 
 		// Run 3: sees both flags

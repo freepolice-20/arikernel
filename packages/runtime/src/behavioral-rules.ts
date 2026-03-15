@@ -6,6 +6,7 @@
  * No DSL, no graph engine — just direct pattern matching.
  */
 
+import { isWriteAction } from "@arikernel/core";
 import type { QuarantineInfo, RunStateTracker, SecurityEvent } from "./run-state.js";
 
 export interface BehavioralRuleMatch {
@@ -228,8 +229,11 @@ function checkSensitiveReadThenEgress(
 // If untrusted taint was observed, and the run then attempts a database
 // write/exec/mutate action → quarantine. Prevents tainted SQL injection.
 
-const DB_WRITE_ACTIONS = new Set(["exec", "write", "insert", "update", "delete", "mutate"]);
-
+/**
+ * Detect database write actions using the canonical action taxonomy.
+ * Uses isWriteAction() so new database actions (e.g. "bulkInsert")
+ * are automatically classified as writes and caught here.
+ */
 function checkTaintedDatabaseWrite(
 	events: readonly SecurityEvent[],
 	state: RunStateTracker,
@@ -250,7 +254,7 @@ function checkTaintedDatabaseWrite(
 	const dbWrite = findAfter(
 		events,
 		searchFromIdx,
-		(e) => e.toolClass === "database" && DB_WRITE_ACTIONS.has(e.action ?? ""),
+		(e) => e.toolClass === "database" && isWriteAction("database", e.action ?? ""),
 	);
 	if (!dbWrite) return null;
 

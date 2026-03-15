@@ -96,8 +96,12 @@ export async function handleDecision(
 				toolClass: decReq.toolClass,
 			},
 			Object.keys({
-				action: 1, parameters: 1, principalId: 1,
-				requestNonce: 1, runId: 1, toolClass: 1,
+				action: 1,
+				parameters: 1,
+				principalId: 1,
+				requestNonce: 1,
+				runId: 1,
+				toolClass: 1,
 			}).sort(),
 		);
 		requestHash = createHash("sha256").update(hashPayload).digest("hex");

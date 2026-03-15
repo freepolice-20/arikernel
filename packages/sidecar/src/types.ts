@@ -193,8 +193,17 @@ export interface SidecarConfig {
 	 */
 	onCrossPrincipalAlert?: import("./correlator.js").AlertHandler;
 	/**
-	 * Decision mode: 'local' (default) evaluates policies in-process,
-	 * 'remote' delegates policy decisions to a control plane service.
+	 * Decision mode: 'local' (default, recommended) evaluates policies in-process,
+	 * 'remote' (experimental) delegates policy decisions to a control plane service.
+	 *
+	 * **Local mode is the recommended production default.** It eliminates network
+	 * latency, availability dependencies, and receipt-substitution attack surface.
+	 *
+	 * Remote mode is experimental and may be removed in a future release.
+	 * If you enable it, you MUST also configure `controlPlanePublicKey` to
+	 * verify Ed25519 decision signatures.
+	 *
+	 * @default "local"
 	 */
 	decisionMode?: import("./decision-delegate.js").DecisionMode;
 	/**

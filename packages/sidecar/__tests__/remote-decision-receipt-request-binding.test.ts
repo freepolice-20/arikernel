@@ -110,7 +110,7 @@ describe("Receipt-request binding", () => {
 
 			const result = await delegate.requestDecision(baseParams);
 			expect(result).not.toBeNull();
-			expect(result!.verdict).toBe("allow");
+			expect(result?.verdict).toBe("allow");
 		} finally {
 			await srv.close();
 		}

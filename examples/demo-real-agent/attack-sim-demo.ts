@@ -10,13 +10,13 @@
 
 import { resolve } from "node:path";
 import {
-	simulateAttack,
-	simulateAll,
+	type AttackResult,
+	type AttackScenario,
+	generateReport,
 	multiStepExfiltrationScenarios,
 	runSimulation,
-	generateReport,
-	type AttackScenario,
-	type AttackResult,
+	simulateAll,
+	simulateAttack,
 } from "@arikernel/attack-sim";
 
 // ── Colors ────────────────────────────────────────────────────────────

@@ -13,23 +13,23 @@
  * Run: pnpm demo:capability
  */
 
-import type { IssuanceDecision, TaintLabel } from '@arikernel/core';
-import { ToolCallDeniedError } from '@arikernel/core';
-import { createFirewall } from '@arikernel/runtime';
-import { resolve } from 'node:path';
+import { resolve } from "node:path";
+import type { IssuanceDecision, TaintLabel } from "@arikernel/core";
+import { ToolCallDeniedError } from "@arikernel/core";
+import { createFirewall } from "@arikernel/runtime";
 
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const RESET = '\x1b[0m';
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const RESET = "\x1b[0m";
 
 function header(text: string): void {
-	console.log(`\n${CYAN}${BOLD}${'='.repeat(60)}${RESET}`);
+	console.log(`\n${CYAN}${BOLD}${"=".repeat(60)}${RESET}`);
 	console.log(`${CYAN}${BOLD}  ${text}${RESET}`);
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}\n`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}\n`);
 }
 
 function step(n: number, text: string): void {
@@ -38,7 +38,7 @@ function step(n: number, text: string): void {
 
 function printIssuance(decision: IssuanceDecision): void {
 	const color = decision.granted ? GREEN : RED;
-	const verdict = decision.granted ? 'GRANTED' : 'DENIED';
+	const verdict = decision.granted ? "GRANTED" : "DENIED";
 	console.log(`  ${DIM}Issuance:${RESET} ${color}${verdict}${RESET}`);
 	console.log(`  ${DIM}Reason: ${decision.reason}${RESET}`);
 
@@ -50,30 +50,30 @@ function printIssuance(decision: IssuanceDecision): void {
 	}
 
 	if (decision.taintLabels.length > 0) {
-		const sources = decision.taintLabels.map((t) => `${t.source}:${t.origin}`).join(', ');
+		const sources = decision.taintLabels.map((t) => `${t.source}:${t.origin}`).join(", ");
 		console.log(`  ${DIM}Taint context: ${sources}${RESET}`);
 	}
 }
 
 async function main() {
-	header('AriKernel - Capability Issuance Demo');
+	header("AriKernel - Capability Issuance Demo");
 
-	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
-	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-capability-audit.db');
+	const policyPath = resolve(import.meta.dirname ?? ".", "..", "policies", "safe-defaults.yaml");
+	const auditPath = resolve(import.meta.dirname ?? ".", "..", "demo-capability-audit.db");
 
 	const firewall = createFirewall({
 		principal: {
-			name: 'research-agent',
+			name: "research-agent",
 			capabilities: [
 				{
-					toolClass: 'http',
-					actions: ['get'],
-					constraints: { allowedHosts: ['httpbin.org', 'api.github.com'] },
+					toolClass: "http",
+					actions: ["get"],
+					constraints: { allowedHosts: ["httpbin.org", "api.github.com"] },
 				},
 				{
-					toolClass: 'database',
-					actions: ['query'],
-					constraints: { allowedDatabases: ['analytics'] },
+					toolClass: "database",
+					actions: ["query"],
+					constraints: { allowedDatabases: ["analytics"] },
 				},
 			],
 		},
@@ -83,15 +83,15 @@ async function main() {
 			onIssuance(request, decision) {
 				const color = decision.granted ? GREEN : RED;
 				console.log(
-					`  ${DIM}[HOOK]${RESET} Capability ${color}${decision.granted ? 'GRANTED' : 'DENIED'}${RESET} ` +
-					`for ${request.capabilityClass}`,
+					`  ${DIM}[HOOK]${RESET} Capability ${color}${decision.granted ? "GRANTED" : "DENIED"}${RESET} ` +
+						`for ${request.capabilityClass}`,
 				);
 			},
 			onDecision(toolCall, decision) {
-				const color = decision.verdict === 'allow' ? GREEN : RED;
+				const color = decision.verdict === "allow" ? GREEN : RED;
 				console.log(
 					`  ${DIM}[HOOK]${RESET} Tool call ${color}${decision.verdict.toUpperCase()}${RESET} ` +
-					`${toolCall.toolClass}.${toolCall.action}`,
+						`${toolCall.toolClass}.${toolCall.action}`,
 				);
 			},
 		},
@@ -102,9 +102,9 @@ async function main() {
 	// ----------------------------------------------------------
 	// Step 1: Request http.read capability (clean context)
 	// ----------------------------------------------------------
-	step(1, 'Request http.read capability (clean context)');
+	step(1, "Request http.read capability (clean context)");
 
-	const httpDecision = firewall.requestCapability('http.read');
+	const httpDecision = firewall.requestCapability("http.read");
 	printIssuance(httpDecision);
 
 	if (!httpDecision.granted) {
@@ -116,14 +116,14 @@ async function main() {
 	// ----------------------------------------------------------
 	// Step 2: Execute HTTP GET using the granted token
 	// ----------------------------------------------------------
-	step(2, 'Execute HTTP GET with capability token');
+	step(2, "Execute HTTP GET with capability token");
 
 	try {
 		const result = await firewall.execute({
-			toolClass: 'http',
-			action: 'get',
-			parameters: { url: 'https://httpbin.org/json' },
-			grantId: httpDecision.grant!.id,
+			toolClass: "http",
+			action: "get",
+			parameters: { url: "https://httpbin.org/json" },
+			grantId: httpDecision.grant?.id,
 		});
 		console.log(`  ${GREEN}Success!${RESET} Status: ${(result.data as any)?.status}`);
 		console.log(`  ${DIM}Duration: ${result.durationMs}ms${RESET}`);
@@ -134,12 +134,12 @@ async function main() {
 	// ----------------------------------------------------------
 	// Step 3: Simulate reading untrusted web content (taint enters)
 	// ----------------------------------------------------------
-	step(3, 'Simulate reading untrusted web content');
+	step(3, "Simulate reading untrusted web content");
 
 	const webTaint: TaintLabel[] = [
 		{
-			source: 'web',
-			origin: 'untrusted-news-site.com',
+			source: "web",
+			origin: "untrusted-news-site.com",
 			confidence: 1.0,
 			addedAt: new Date().toISOString(),
 		},
@@ -151,11 +151,11 @@ async function main() {
 	// ----------------------------------------------------------
 	// Step 4: Request database.read with web-tainted provenance
 	// ----------------------------------------------------------
-	step(4, 'Request database.read with web-tainted provenance (should DENY)');
+	step(4, "Request database.read with web-tainted provenance (should DENY)");
 
-	const dbDenied = firewall.requestCapability('database.read', {
+	const dbDenied = firewall.requestCapability("database.read", {
 		taintLabels: webTaint,
-		justification: 'Need to query analytics based on web article',
+		justification: "Need to query analytics based on web article",
 	});
 	printIssuance(dbDenied);
 
@@ -169,16 +169,18 @@ async function main() {
 	// Step 5: Try to execute database query WITHOUT a token
 	//         Must be DENIED — protected actions require a grant
 	// ----------------------------------------------------------
-	step(5, 'Try database query without capability token (should DENY)');
+	step(5, "Try database query without capability token (should DENY)");
 
 	try {
 		await firewall.execute({
-			toolClass: 'database',
-			action: 'query',
-			parameters: { query: 'SELECT * FROM analytics.pageviews' },
+			toolClass: "database",
+			action: "query",
+			parameters: { query: "SELECT * FROM analytics.pageviews" },
 			taintLabels: webTaint,
 		});
-		console.log(`  ${RED}ERROR: Executed without a capability token — enforcement is broken!${RESET}`);
+		console.log(
+			`  ${RED}ERROR: Executed without a capability token — enforcement is broken!${RESET}`,
+		);
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
 			console.log(`  ${GREEN}Correctly denied! No capability token = no execution.${RESET}`);
@@ -189,10 +191,10 @@ async function main() {
 	// ----------------------------------------------------------
 	// Step 6: Request database.read with clean provenance (granted)
 	// ----------------------------------------------------------
-	step(6, 'Request database.read with clean provenance (should GRANT)');
+	step(6, "Request database.read with clean provenance (should GRANT)");
 
-	const dbGranted = firewall.requestCapability('database.read', {
-		justification: 'Need analytics data for scheduled report',
+	const dbGranted = firewall.requestCapability("database.read", {
+		justification: "Need analytics data for scheduled report",
 	});
 	printIssuance(dbGranted);
 
@@ -205,14 +207,16 @@ async function main() {
 		const grants = firewall.activeGrants();
 		console.log(`\n  ${DIM}Active grants for this agent: ${grants.length}${RESET}`);
 		for (const g of grants) {
-			console.log(`    ${DIM}- ${g.capabilityClass} (${g.lease.callsUsed}/${g.lease.maxCalls} calls used)${RESET}`);
+			console.log(
+				`    ${DIM}- ${g.capabilityClass} (${g.lease.callsUsed}/${g.lease.maxCalls} calls used)${RESET}`,
+			);
 		}
 	}
 
 	// ----------------------------------------------------------
 	// Step 7: Audit replay
 	// ----------------------------------------------------------
-	step(7, 'Audit replay');
+	step(7, "Audit replay");
 
 	const replay = firewall.replay();
 	if (replay) {
@@ -220,18 +224,18 @@ async function main() {
 		console.log(
 			`  ${DIM}Hash chain integrity: ${replay.integrity.valid ? `${GREEN}VALID` : `${RED}BROKEN`}${RESET}`,
 		);
-		console.log('');
+		console.log("");
 		for (const event of replay.events) {
 			const color =
-				event.decision.verdict === 'allow'
+				event.decision.verdict === "allow"
 					? GREEN
-					: event.decision.verdict === 'deny'
+					: event.decision.verdict === "deny"
 						? RED
 						: YELLOW;
 			console.log(
 				`  ${DIM}#${event.sequence}${RESET} ${color}${event.decision.verdict.toUpperCase().padEnd(7)}${RESET} ` +
 					`${event.toolCall.toolClass}.${event.toolCall.action} ` +
-					`${DIM}${event.toolCall.grantId ? `[token:${event.toolCall.grantId.slice(0, 8)}...]` : '[no token]'} ` +
+					`${DIM}${event.toolCall.grantId ? `[token:${event.toolCall.grantId.slice(0, 8)}...]` : "[no token]"} ` +
 					`(${event.result?.durationMs ?? 0}ms)${RESET}`,
 			);
 		}
@@ -242,11 +246,11 @@ async function main() {
 	// ----------------------------------------------------------
 	firewall.close();
 
-	header('Demo Complete');
-	console.log('Key takeaway: the agent was DENIED a database.read token when its');
-	console.log('provenance chain included untrusted web content, but GRANTED one');
-	console.log('when the context was clean. This is dynamic, taint-aware capability');
-	console.log('issuance -- the core of AriKernel.\n');
+	header("Demo Complete");
+	console.log("Key takeaway: the agent was DENIED a database.read token when its");
+	console.log("provenance chain included untrusted web content, but GRANTED one");
+	console.log("when the context was clean. This is dynamic, taint-aware capability");
+	console.log("issuance -- the core of AriKernel.\n");
 	console.log(`${DIM}Audit log: ${auditPath}${RESET}`);
 	console.log(`${DIM}Run ID: ${firewall.runId}${RESET}\n`);
 }

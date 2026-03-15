@@ -20,14 +20,23 @@ import {
 } from "@arikernel/core";
 import type { PolicyEngine } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
-import { type ExecutorRegistry, SAFE_GET_HEADERS, VALUE_INSPECTED_HEADERS } from "@arikernel/tool-executors";
+import {
+	type ExecutorRegistry,
+	SAFE_GET_HEADERS,
+	VALUE_INSPECTED_HEADERS,
+} from "@arikernel/tool-executors";
 import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
 import { validateCommand } from "./command-security.js";
 import type { SecurityMode } from "./config.js";
 import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
 import type { PersistentTaintRegistry } from "./persistent-taint-registry.js";
-import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil, suspiciousHeaderValue } from "./run-state.js";
+import {
+	type RunStateTracker,
+	hasEncodedPayload,
+	isSuspiciousGetExfil,
+	suspiciousHeaderValue,
+} from "./run-state.js";
 import type { ITokenStore } from "./token-store.js";
 
 /**
@@ -227,16 +236,12 @@ export class Pipeline {
 					(toolCall.action === "get" || toolCall.action === "head") &&
 					this.runState.sensitiveReadObserved
 				) {
-					const headers = toolCall.parameters.headers as
-						| Record<string, string>
-						| undefined;
+					const headers = toolCall.parameters.headers as Record<string, string> | undefined;
 					if (headers) {
-						const customHeaders = Object.keys(headers).filter(
-							(h) => {
-								const lower = h.toLowerCase();
-								return !SAFE_GET_HEADERS.has(lower) && !VALUE_INSPECTED_HEADERS.has(lower);
-							},
-						);
+						const customHeaders = Object.keys(headers).filter((h) => {
+							const lower = h.toLowerCase();
+							return !SAFE_GET_HEADERS.has(lower) && !VALUE_INSPECTED_HEADERS.has(lower);
+						});
 						if (customHeaders.length > 0) {
 							this.runState.recordEgressAttempt();
 							this.runState.pushEvent({
@@ -252,16 +257,17 @@ export class Pipeline {
 							});
 							this.denyQuarantinedAction(
 								toolCall,
-								`Custom headers on HTTP ${toolCall.action.toUpperCase()} blocked in security-sensitive context. ` +
-									`Non-standard headers [${customHeaders.join(", ")}] can exfiltrate data. ` +
-									`Only standard headers are allowed after sensitive reads.`,
+								`Custom headers on HTTP ${toolCall.action.toUpperCase()} blocked in security-sensitive context. Non-standard headers [${customHeaders.join(", ")}] can exfiltrate data. Only standard headers are allowed after sensitive reads.`,
 							);
 						}
 
-						// Inspect values of allowed-but-inspectable headers for encoded payloads
+						// Inspect values of all non-custom headers for encoded payloads.
+						// Both VALUE_INSPECTED_HEADERS and SAFE_GET_HEADERS are checked:
+						// SAFE_GET_HEADERS (accept, host, etc.) can carry encoded data in
+						// values even though the header names themselves are benign.
 						for (const [name, value] of Object.entries(headers)) {
 							const lower = name.toLowerCase();
-							if (!VALUE_INSPECTED_HEADERS.has(lower)) continue;
+							if (!VALUE_INSPECTED_HEADERS.has(lower) && !SAFE_GET_HEADERS.has(lower)) continue;
 							const reason = suspiciousHeaderValue(lower, value);
 							if (reason) {
 								this.runState.recordEgressAttempt();
@@ -396,12 +402,13 @@ export class Pipeline {
 			}
 			if (toolCall.toolClass === "database") {
 				const table = String(toolCall.parameters.table ?? "");
+				const query = String(toolCall.parameters.query ?? "");
 				this.runState.pushEvent({
 					timestamp: toolCall.timestamp,
 					type: "tool_call_allowed",
 					toolClass: toolCall.toolClass,
 					action: toolCall.action,
-					metadata: { table },
+					metadata: { table, query },
 				});
 				if (this.checkBehavioralRules(toolCall)) {
 					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");

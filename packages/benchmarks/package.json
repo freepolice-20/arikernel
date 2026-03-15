@@ -1,5 +1,6 @@
 {
 	"name": "@arikernel/benchmarks",
+	"private": true,
 	"version": "0.1.0",
 	"description": "Reproducible attack benchmark suite for AriKernel",
 	"type": "module",

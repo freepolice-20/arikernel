@@ -3,8 +3,8 @@
  * are merged into the sidecar's run state, affecting subsequent enforcement.
  */
 
-import { createServer } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -92,7 +92,12 @@ describe("Control-plane taint merge into sidecar run state", () => {
 	it("remote decision taintLabels are injected into run state", async () => {
 		dir = tempDir();
 		cpServer = await startFakeControlPlane(19300, [
-			{ source: "web", origin: "control-plane-policy", confidence: 0.9, addedAt: new Date().toISOString() },
+			{
+				source: "web",
+				origin: "control-plane-policy",
+				confidence: 0.9,
+				addedAt: new Date().toISOString(),
+			},
 		]);
 
 		server = new SidecarServer({
@@ -124,7 +129,12 @@ describe("Control-plane taint merge into sidecar run state", () => {
 	it("subsequent shell call is blocked after CP injects web taint", async () => {
 		dir = tempDir();
 		cpServer = await startFakeControlPlane(19302, [
-			{ source: "web", origin: "cp-taint-injection", confidence: 1.0, addedAt: new Date().toISOString() },
+			{
+				source: "web",
+				origin: "cp-taint-injection",
+				confidence: 1.0,
+				addedAt: new Date().toISOString(),
+			},
 		]);
 
 		server = new SidecarServer({

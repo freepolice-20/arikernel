@@ -157,7 +157,14 @@ async function fetchWebPage(firewall: Firewall, url: string): Promise<ToolCallRe
 		});
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			return { success: false, output: "", denied: true, reason: err.decision.reason, toolClass: "http", action: "get" };
+			return {
+				success: false,
+				output: "",
+				denied: true,
+				reason: err.decision.reason,
+				toolClass: "http",
+				action: "get",
+			};
 		}
 	}
 
@@ -193,7 +200,14 @@ async function readFile(firewall: Firewall, path: string): Promise<ToolCallResul
 		});
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			return { success: false, output: "", denied: true, reason: err.decision.reason, toolClass: "file", action: "read" };
+			return {
+				success: false,
+				output: "",
+				denied: true,
+				reason: err.decision.reason,
+				toolClass: "file",
+				action: "read",
+			};
 		}
 		throw err;
 	}
@@ -234,7 +248,14 @@ async function postHttp(firewall: Firewall, url: string, body: string): Promise<
 		});
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			return { success: false, output: "", denied: true, reason: err.decision.reason, toolClass: "http", action: "post" };
+			return {
+				success: false,
+				output: "",
+				denied: true,
+				reason: err.decision.reason,
+				toolClass: "http",
+				action: "post",
+			};
 		}
 		throw err;
 	}

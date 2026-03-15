@@ -48,7 +48,8 @@ export class DatabaseExecutor implements ToolExecutor {
 			database: database ?? undefined,
 			query: query ?? undefined,
 			connectionString: connectionString ? "[redacted]" : undefined,
-			note: "Database executor is a stub — query was validated and audited but not executed. " +
+			note:
+				"Database executor is a stub — query was validated and audited but not executed. " +
 				"Implement a custom executor for real database connectivity.",
 			rows: [],
 		});

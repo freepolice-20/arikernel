@@ -65,7 +65,10 @@ describe("Compliance report generator", () => {
 		// Create a fake control-plane package.json
 		const cpDir = join(tmpDir, "packages", "control-plane");
 		mkdirSync(cpDir, { recursive: true });
-		writeFileSync(join(cpDir, "package.json"), JSON.stringify({ name: "@arikernel/control-plane" }));
+		writeFileSync(
+			join(cpDir, "package.json"),
+			JSON.stringify({ name: "@arikernel/control-plane" }),
+		);
 
 		try {
 			const report = generateComplianceReport(tmpDir);
@@ -82,7 +85,10 @@ describe("Compliance report generator", () => {
 		writeFileSync(join(tmpDir, "package.json"), JSON.stringify({ version: "0.0.0-test" }));
 		const cpDir = join(tmpDir, "packages", "control-plane");
 		mkdirSync(cpDir, { recursive: true });
-		writeFileSync(join(cpDir, "package.json"), JSON.stringify({ name: "@arikernel/control-plane" }));
+		writeFileSync(
+			join(cpDir, "package.json"),
+			JSON.stringify({ name: "@arikernel/control-plane" }),
+		);
 		// Create config with signing key
 		writeFileSync(
 			join(tmpDir, "arikernel.config.json"),
@@ -134,7 +140,12 @@ describe("Compliance report generator", () => {
 
 	it("all protection statuses are valid ProtectionStatus values", () => {
 		const report = generateComplianceReport(ROOT);
-		const validStatuses: ProtectionStatus[] = ["enabled", "configured", "not-configured", "unavailable"];
+		const validStatuses: ProtectionStatus[] = [
+			"enabled",
+			"configured",
+			"not-configured",
+			"unavailable",
+		];
 		for (const [key, value] of Object.entries(report.protections)) {
 			expect(validStatuses).toContain(value);
 		}

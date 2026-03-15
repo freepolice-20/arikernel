@@ -85,7 +85,11 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 	}
 
 	// Scenario 4: Tampered payload — take a real signature but change the decision field
-	const tamperedReceipt = { ...legitimateDeny, decision: "allow" as const, nonce: randomBytes(16).toString("hex") };
+	const tamperedReceipt = {
+		...legitimateDeny,
+		decision: "allow" as const,
+		nonce: randomBytes(16).toString("hex"),
+	};
 	const tamperedVerified = verifier.verify(tamperedReceipt, nonceStore);
 	if (tamperedVerified) {
 		allowedCount++; // Tampered receipt accepted — bad

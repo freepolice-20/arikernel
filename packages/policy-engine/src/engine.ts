@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { Capability, Decision, PolicyRule, TaintLabel, ToolCall } from "@arikernel/core";
-import { now } from "@arikernel/core";
+import { isKnownAction, now } from "@arikernel/core";
 import { DEFAULT_RULES } from "./defaults.js";
 import { loadPolicies } from "./loader.js";
 import { UnsafeMatchError, matchesRule } from "./matcher.js";
@@ -32,9 +32,11 @@ export class PolicyEngine {
 			};
 		}
 
-		// Step 2: action check within capability
+		// Step 2: action check within capability (case-insensitive)
 		if (capability.actions && capability.actions.length > 0) {
-			if (!capability.actions.includes(toolCall.action)) {
+			const normalizedAction = toolCall.action.toLowerCase();
+			const permitted = capability.actions.map((a) => a.toLowerCase());
+			if (!permitted.includes(normalizedAction)) {
 				return {
 					verdict: "deny",
 					matchedRule: null,
@@ -43,6 +45,13 @@ export class PolicyEngine {
 					timestamp,
 				};
 			}
+		}
+
+		// Step 2b: warn on unknown actions (fail-closed via categorizeAction downstream)
+		if (!isKnownAction(toolCall.toolClass, toolCall.action)) {
+			console.warn(
+				`[arikernel] Unknown action '${toolCall.action}' for tool class '${toolCall.toolClass}' — treating as write`,
+			);
 		}
 
 		// Step 3: constraint check

@@ -1,3 +1,5 @@
+import type { ActionCategory } from "./actions.js";
+import { categorizeAction } from "./actions.js";
 import type { PolicyRule } from "./policy.js";
 import type { ToolClass } from "./principal.js";
 import type { TaintLabel } from "./taint.js";

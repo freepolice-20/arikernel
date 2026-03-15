@@ -97,19 +97,19 @@ export class SqliteDatabaseExecutor implements ToolExecutor {
 			if (action === "mutate" || action === "exec") {
 				return this.executeMutate(toolCall.id, start, parameters as Record<string, unknown>);
 			}
-			return this.fail(toolCall.id, start, `Unsupported action '${action}'. Use 'query' or 'mutate'.`);
+			return this.fail(
+				toolCall.id,
+				start,
+				`Unsupported action '${action}'. Use 'query' or 'mutate'.`,
+			);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return this.fail(toolCall.id, start, `Database error: ${msg}`);
 		}
 	}
 
-	private executeQuery(
-		callId: string,
-		start: number,
-		params: Record<string, unknown>,
-	): ToolResult {
-		const { table, columns, where, limit } = params as QueryParams;
+	private executeQuery(callId: string, start: number, params: Record<string, unknown>): ToolResult {
+		const { table, columns, where, limit } = params as unknown as QueryParams;
 
 		// Validate table
 		const tableErr = validateIdentifier(table, "table");
@@ -166,7 +166,7 @@ export class SqliteDatabaseExecutor implements ToolExecutor {
 		start: number,
 		params: Record<string, unknown>,
 	): ToolResult {
-		const { table, op, values, where } = params as MutateParams;
+		const { table, op, values, where } = params as unknown as MutateParams;
 
 		// Validate table
 		const tableErr = validateIdentifier(table, "table");
@@ -175,7 +175,11 @@ export class SqliteDatabaseExecutor implements ToolExecutor {
 		// Validate op
 		const operation = (op ?? "insert") as MutateOp;
 		if (!["insert", "update", "delete"].includes(operation)) {
-			return this.fail(callId, start, `Unsupported mutation op '${operation}'. Use 'insert', 'update', or 'delete'.`);
+			return this.fail(
+				callId,
+				start,
+				`Unsupported mutation op '${operation}'. Use 'insert', 'update', or 'delete'.`,
+			);
 		}
 
 		// Validate values
@@ -194,7 +198,11 @@ export class SqliteDatabaseExecutor implements ToolExecutor {
 		// Validate WHERE keys
 		const whereEntries = where ? Object.entries(where) : [];
 		if ((operation === "update" || operation === "delete") && whereEntries.length === 0) {
-			return this.fail(callId, start, `'where' is required for '${operation}' to prevent unscoped mutations`);
+			return this.fail(
+				callId,
+				start,
+				`'where' is required for '${operation}' to prevent unscoped mutations`,
+			);
 		}
 		for (const [key] of whereEntries) {
 			const keyErr = validateIdentifier(key, "where column");
@@ -229,9 +237,10 @@ export class SqliteDatabaseExecutor implements ToolExecutor {
 			table,
 			op: operation,
 			changes: result.changes,
-			lastInsertRowid: typeof result.lastInsertRowid === "bigint"
-				? Number(result.lastInsertRowid)
-				: result.lastInsertRowid,
+			lastInsertRowid:
+				typeof result.lastInsertRowid === "bigint"
+					? Number(result.lastInsertRowid)
+					: result.lastInsertRowid,
 		});
 		return { ...out, taintLabels: [] };
 	}
