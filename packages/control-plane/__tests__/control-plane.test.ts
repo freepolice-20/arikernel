@@ -350,7 +350,7 @@ describe("ControlPlaneServer", () => {
 		expect((body as { error: string }).error).toContain("Duplicate requestNonce");
 	});
 
-	it("allows requests without requestNonce (backwards compatible)", async () => {
+	it("rejects requests without requestNonce (mandatory for request binding)", async () => {
 		server = new ControlPlaneServer({
 			signingKey: TEST_KEY,
 			policy: ALLOW_HTTP_POLICY,
@@ -368,20 +368,15 @@ describe("ControlPlaneServer", () => {
 			timestamp: new Date().toISOString(),
 		};
 
-		// Two identical requests without nonce — both should succeed
-		const res1 = await fetch("http://127.0.0.1:9204/decision", {
+		// Request without nonce — should be rejected with 400
+		const res = await fetch("http://127.0.0.1:9204/decision", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(request),
 		});
-		expect(res1.status).toBe(200);
-
-		const res2 = await fetch("http://127.0.0.1:9204/decision", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(request),
-		});
-		expect(res2.status).toBe(200);
+		expect(res.status).toBe(400);
+		const body = await res.json();
+		expect((body as { error: string }).error).toContain("requestNonce is required");
 	});
 
 	it("audit store exports JSONL", async () => {

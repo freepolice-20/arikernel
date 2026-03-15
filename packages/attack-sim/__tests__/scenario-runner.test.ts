@@ -71,7 +71,7 @@ describe("ACTION_MAP", () => {
 describe("loadBuiltinScenarios", () => {
 	it("loads all built-in scenarios", () => {
 		const scenarios = loadBuiltinScenarios();
-		expect(scenarios.length).toBe(13);
+		expect(scenarios.length).toBe(16);
 	});
 
 	it("each scenario has name, steps, and expected outcome", () => {
@@ -98,7 +98,7 @@ describe("loadScenarioFile", () => {
 describe("loadScenarioDirectory", () => {
 	it("loads all YAML files from the built-in directory", () => {
 		const scenarios = loadScenarioDirectory(BUILTIN_SCENARIOS_DIR);
-		expect(scenarios.length).toBe(13);
+		expect(scenarios.length).toBe(16);
 	});
 });
 
@@ -116,7 +116,7 @@ describe("runScenarioFile", () => {
 describe("runScenarioDirectory", () => {
 	it("executes all built-in scenarios", async () => {
 		const results = await runScenarioDirectory(BUILTIN_SCENARIOS_DIR);
-		expect(results.length).toBe(13);
+		expect(results.length).toBe(16);
 		// All policy-enforced scenarios should be blocked by safe-defaults.
 		// path_ambiguity_bypass requires file executor path constraints (not sim-enforced).
 		// http_get_body_exfiltration requires executor-level enforcement (not policy).
@@ -133,15 +133,15 @@ describe("runScenarioDirectory", () => {
 describe("runPolicyTest", () => {
 	it("produces a report with no weaknesses for safe defaults", async () => {
 		const result = await runPolicyTest(DEFAULT_POLICY, BUILTIN_SCENARIOS_DIR);
-		expect(result.scenarios.length).toBe(13);
-		// 11 of 13 blocked by policy/pipeline rules:
-		//   Original 9 + http_get_header_exfiltration + symlink_parent_write_escape
+		expect(result.scenarios.length).toBe(16);
+		// 14 of 16 blocked by policy/pipeline rules:
+		//   Original 11 + dns_subdomain_exfiltration + unicode_homoglyph_injection + correlator_window_spacing
 		// 2 not blocked:
 		//   path_ambiguity_bypass: requires file executor path constraints
 		//   http_get_body_exfiltration: requires real HttpExecutor (expectedBlocked=false)
-		expect(result.blocked).toBe(11);
+		expect(result.blocked).toBe(14);
 		expect(result.allowed).toBe(2);
-		expect(result.passed).toBeGreaterThanOrEqual(10);
+		expect(result.passed).toBeGreaterThanOrEqual(12);
 		expect(result.failed).toBeGreaterThanOrEqual(1);
 		// path_ambiguity_bypass is always a weakness (requires file executor path constraints).
 		// Additional weaknesses may arise from scenarios requiring executor-level enforcement.

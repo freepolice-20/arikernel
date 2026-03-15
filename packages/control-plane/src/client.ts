@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { TaintLabel, ToolClass } from "@arikernel/core";
 import type { DecisionResponse, TaintQueryResponse } from "./types.js";
 
@@ -39,10 +40,12 @@ export class ControlPlaneClient {
 		taintLabels: TaintLabel[];
 		runId: string;
 		timestamp?: string;
+		requestNonce?: string;
 	}): Promise<DecisionResponse> {
 		return this.post("/decision", {
 			...params,
 			timestamp: params.timestamp ?? new Date().toISOString(),
+			requestNonce: params.requestNonce ?? randomBytes(16).toString("hex"),
 		});
 	}
 

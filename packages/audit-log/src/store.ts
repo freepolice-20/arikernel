@@ -76,8 +76,11 @@ export class AuditStore {
 	private insertEvent: Database.Statement;
 	private insertRun: Database.Statement;
 	private insertPersistentTaintEvent: Database.Statement;
+	/** Optional HMAC key for keyed hash chain — prevents hash forgery with filesystem access. */
+	private readonly hmacKey?: Buffer;
 
-	constructor(dbPath: string) {
+	constructor(dbPath: string, hmacKey?: Buffer) {
+		this.hmacKey = hmacKey;
 		this.db = new Database(dbPath);
 		this.db.pragma("journal_mode = WAL");
 		this.db.pragma("foreign_keys = ON");
@@ -150,7 +153,7 @@ export class AuditStore {
 
 		const eventData = JSON.stringify({ toolCall, decision, result });
 		const previousHash = this.lastHash;
-		const hash = computeHash(eventData, previousHash);
+		const hash = computeHash(eventData, previousHash, this.hmacKey);
 		this.lastHash = hash;
 
 		this.insertEvent.run(
@@ -223,7 +226,7 @@ export class AuditStore {
 
 		const eventData = JSON.stringify({ toolCall, decision });
 		const previousHash = this.lastHash;
-		const hash = computeHash(eventData, previousHash);
+		const hash = computeHash(eventData, previousHash, this.hmacKey);
 		this.lastHash = hash;
 
 		this.insertEvent.run(

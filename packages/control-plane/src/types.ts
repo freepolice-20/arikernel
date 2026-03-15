@@ -18,8 +18,8 @@ export interface DecisionRequest {
 	runId: string;
 	/** ISO 8601 timestamp of the request (used for freshness validation) */
 	timestamp: string;
-	/** Client-supplied nonce for request deduplication / replay protection */
-	requestNonce?: string;
+	/** Client-supplied nonce for request binding and replay protection (required) */
+	requestNonce: string;
 }
 
 /**

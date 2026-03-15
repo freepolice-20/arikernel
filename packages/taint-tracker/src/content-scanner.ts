@@ -126,8 +126,10 @@ function extractText(data: unknown): string {
  * identifies which pattern matched, providing forensic traceability.
  */
 export function scanForInjection(data: unknown, callId: string): TaintLabel[] {
-	const text = extractText(data);
-	if (!text || text.length < 10) return [];
+	const rawText = extractText(data);
+	if (!rawText || rawText.length < 10) return [];
+	// NFKC-normalize to defeat Unicode homoglyph bypass (e.g. Cyrillic і/е for ASCII i/e)
+	const text = rawText.normalize("NFKC");
 
 	const signals: InjectionSignal[] = [];
 	const seen = new Set<string>();
