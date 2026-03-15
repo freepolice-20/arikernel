@@ -53,11 +53,13 @@ export class DecisionSigner {
 		timestamp: string;
 		matchedRule?: PolicyRule;
 		taintLabels: TaintLabel[];
+		requestHash?: string;
+		requestNonce?: string;
 	}): DecisionResponse {
 		const nonce = randomBytes(16).toString("hex");
 		const decisionId = `dec-${Date.now()}-${randomBytes(4).toString("hex")}`;
 
-		const canonical = this.canonicalize({
+		const fields: Record<string, string> = {
 			decision: params.decision,
 			decisionId,
 			kernelBuild: params.kernelBuild,
@@ -66,8 +68,11 @@ export class DecisionSigner {
 			policyVersion: params.policyVersion,
 			reason: params.reason,
 			timestamp: params.timestamp,
-		});
+		};
+		if (params.requestHash) fields.requestHash = params.requestHash;
+		if (params.requestNonce) fields.requestNonce = params.requestNonce;
 
+		const canonical = this.canonicalize(fields);
 		const sig = sign(null, Buffer.from(canonical, "utf-8"), this.privateKey);
 
 		return {
@@ -80,6 +85,8 @@ export class DecisionSigner {
 			timestamp: params.timestamp,
 			nonce,
 			signature: sig.toString("hex"),
+			requestHash: params.requestHash,
+			requestNonce: params.requestNonce,
 			matchedRule: params.matchedRule ?? undefined,
 			taintLabels: params.taintLabels,
 		};
@@ -94,7 +101,7 @@ export class DecisionSigner {
 			return false;
 		}
 
-		const canonical = this.canonicalize({
+		const fields: Record<string, string> = {
 			decision: response.decision,
 			decisionId: response.decisionId,
 			kernelBuild: response.kernelBuild,
@@ -103,7 +110,11 @@ export class DecisionSigner {
 			policyVersion: response.policyVersion,
 			reason: response.reason,
 			timestamp: response.timestamp,
-		});
+		};
+		if (response.requestHash) fields.requestHash = response.requestHash;
+		if (response.requestNonce) fields.requestNonce = response.requestNonce;
+
+		const canonical = this.canonicalize(fields);
 
 		try {
 			const sig = Buffer.from(response.signature, "hex");
@@ -155,7 +166,7 @@ export class DecisionVerifier {
 			return false;
 		}
 
-		const fields = {
+		const fields: Record<string, string> = {
 			decision: response.decision,
 			decisionId: response.decisionId,
 			kernelBuild: response.kernelBuild,
@@ -165,6 +176,9 @@ export class DecisionVerifier {
 			reason: response.reason,
 			timestamp: response.timestamp,
 		};
+		if (response.requestHash) fields.requestHash = response.requestHash;
+		if (response.requestNonce) fields.requestNonce = response.requestNonce;
+
 		const canonical = JSON.stringify(fields, Object.keys(fields).sort());
 
 		try {

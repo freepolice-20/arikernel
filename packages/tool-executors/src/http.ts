@@ -25,11 +25,18 @@ export const SAFE_GET_HEADERS = new Set([
 	"accept",
 	"accept-encoding",
 	"accept-language",
-	"authorization",
+	"host",
+]);
+
+/**
+ * Headers allowed on GET/HEAD but whose values must be inspected for encoded
+ * payloads in security-sensitive contexts (post-sensitive-read).
+ * These headers legitimately appear on requests but can carry arbitrary data.
+ */
+export const VALUE_INSPECTED_HEADERS = new Set([
 	"cache-control",
 	"connection",
 	"cookie",
-	"host",
 	"if-match",
 	"if-modified-since",
 	"if-none-match",
