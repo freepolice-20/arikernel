@@ -649,3 +649,46 @@ export function hasEncodedPayload(url: string): boolean {
 		return false;
 	}
 }
+
+// ── Header value exfil detection ──────────────────────────────────
+
+/** Maximum allowed header value length in sensitive context. */
+const MAX_HEADER_VALUE_LENGTH = 256;
+
+/**
+ * Check if a header value looks like it contains an encoded secret.
+ * Reuses the same detectors used for URL path/query exfil:
+ * - Base64/base64url patterns
+ * - Hex-encoded payloads
+ * - Oversized values (>256 chars)
+ *
+ * Returns a reason string if suspicious, null if clean.
+ */
+export function suspiciousHeaderValue(name: string, value: string): string | null {
+	if (value.length > MAX_HEADER_VALUE_LENGTH) {
+		return `header '${name}' value too long (${value.length} > ${MAX_HEADER_VALUE_LENGTH})`;
+	}
+	// Split on spaces/semicolons/commas/equals to inspect individual tokens
+	// (e.g., "Mozilla/5.0 (X11; Linux)" → individual tokens,
+	//  "session=4d7953656372657456616c7565" → ["session", "4d79..."])
+	const tokens = value.split(/[\s;,=]+/).filter((t) => t.length >= 8);
+	for (const token of tokens) {
+		if (HEX_RE.test(token) && token.length >= MIN_HEX_SEGMENT_LENGTH) {
+			return `header '${name}' contains hex-encoded payload '${token.slice(0, 20)}...'`;
+		}
+		if (isBase64Like(token) && token.length >= MIN_BASE64_PATH_SEGMENT_LENGTH) {
+			// Exclude common browser tokens that look base64-ish but aren't secrets
+			// e.g. "AppleWebKit/537.36", "Gecko/20100101"
+			if (/^[A-Za-z]+\/[\d.]+$/.test(token)) continue;
+			// Require mixed-case or digits to distinguish from normal words
+			const hasUpper = /[A-Z]/.test(token);
+			const hasLower = /[a-z]/.test(token);
+			const hasDigit = /[0-9]/.test(token);
+			const mixCount = (hasUpper ? 1 : 0) + (hasLower ? 1 : 0) + (hasDigit ? 1 : 0);
+			if (mixCount >= 2) {
+				return `header '${name}' contains base64-encoded payload '${token.slice(0, 20)}...'`;
+			}
+		}
+	}
+	return null;
+}

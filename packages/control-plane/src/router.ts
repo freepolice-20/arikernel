@@ -1,4 +1,4 @@
-import { timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual as cryptoTimingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { TOOL_CLASSES, now } from "@arikernel/core";
 import type { TaintLabel, ToolClass } from "@arikernel/core";
@@ -83,6 +83,26 @@ export async function handleDecision(
 		taintRegistry.register(decReq.principalId, decReq.runId, mergedTaints, resourceIds);
 	}
 
+	// Compute requestHash binding the decision to the original request
+	let requestHash: string | undefined;
+	if (decReq.requestNonce) {
+		const hashPayload = JSON.stringify(
+			{
+				action: decReq.action,
+				parameters: decReq.parameters,
+				principalId: decReq.principalId,
+				requestNonce: decReq.requestNonce,
+				runId: decReq.runId,
+				toolClass: decReq.toolClass,
+			},
+			Object.keys({
+				action: 1, parameters: 1, principalId: 1,
+				requestNonce: 1, runId: 1, toolClass: 1,
+			}).sort(),
+		);
+		requestHash = createHash("sha256").update(hashPayload).digest("hex");
+	}
+
 	const effectivePolicyHash = policyHash ?? "0000000000000000";
 	const response = signer.sign({
 		decision: decision.verdict,
@@ -93,6 +113,8 @@ export async function handleDecision(
 		timestamp: decision.timestamp,
 		matchedRule: decision.matchedRule ?? undefined,
 		taintLabels: mergedTaints,
+		requestHash,
+		requestNonce: decReq.requestNonce,
 	});
 
 	auditStore?.record({

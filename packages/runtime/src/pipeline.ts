@@ -20,14 +20,14 @@ import {
 } from "@arikernel/core";
 import type { PolicyEngine } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
-import { type ExecutorRegistry, SAFE_GET_HEADERS } from "@arikernel/tool-executors";
+import { type ExecutorRegistry, SAFE_GET_HEADERS, VALUE_INSPECTED_HEADERS } from "@arikernel/tool-executors";
 import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
 import { validateCommand } from "./command-security.js";
 import type { SecurityMode } from "./config.js";
 import type { FirewallHooks } from "./hooks.js";
 import { isPathAllowed } from "./path-security.js";
 import type { PersistentTaintRegistry } from "./persistent-taint-registry.js";
-import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil } from "./run-state.js";
+import { type RunStateTracker, hasEncodedPayload, isSuspiciousGetExfil, suspiciousHeaderValue } from "./run-state.js";
 import type { ITokenStore } from "./token-store.js";
 
 /**
@@ -219,7 +219,9 @@ export class Pipeline {
 
 				// After a sensitive read or in a tainted run, custom headers on GET/HEAD
 				// are a potential exfil vector (secrets smuggled in X-Data, X-Payload, etc.).
-				// Only standard browser/HTTP headers are permitted.
+				// Only standard browser/HTTP headers are permitted. Allowed headers that
+				// can carry arbitrary values (User-Agent, Cookie, Referer, etc.) have their
+				// values inspected for encoded payloads.
 				if (
 					!isWriteEgress &&
 					(toolCall.action === "get" || toolCall.action === "head") &&
@@ -230,7 +232,10 @@ export class Pipeline {
 						| undefined;
 					if (headers) {
 						const customHeaders = Object.keys(headers).filter(
-							(h) => !SAFE_GET_HEADERS.has(h.toLowerCase()),
+							(h) => {
+								const lower = h.toLowerCase();
+								return !SAFE_GET_HEADERS.has(lower) && !VALUE_INSPECTED_HEADERS.has(lower);
+							},
 						);
 						if (customHeaders.length > 0) {
 							this.runState.recordEgressAttempt();
@@ -252,6 +257,31 @@ export class Pipeline {
 									`Only standard headers are allowed after sensitive reads.`,
 							);
 						}
+
+						// Inspect values of allowed-but-inspectable headers for encoded payloads
+						for (const [name, value] of Object.entries(headers)) {
+							const lower = name.toLowerCase();
+							if (!VALUE_INSPECTED_HEADERS.has(lower)) continue;
+							const reason = suspiciousHeaderValue(lower, value);
+							if (reason) {
+								this.runState.recordEgressAttempt();
+								this.runState.pushEvent({
+									timestamp: toolCall.timestamp,
+									type: "egress_attempt",
+									toolClass: toolCall.toolClass,
+									action: toolCall.action,
+									metadata: {
+										url: toolCall.parameters.url,
+										suspiciousHeader: name,
+										reason,
+									},
+								});
+								this.denyQuarantinedAction(
+									toolCall,
+									`Suspicious encoded payload in HTTP header value blocked in security-sensitive context. ${reason}`,
+								);
+							}
+						}
 					}
 				}
 			}
@@ -272,16 +302,6 @@ export class Pipeline {
 							"behavioral rule triggered by sensitive file access",
 						);
 					}
-				}
-			}
-			if (toolCall.toolClass === "shell") {
-				if (this.checkBehavioralRules(toolCall)) {
-					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by shell command");
-				}
-			}
-			if (toolCall.toolClass === "database") {
-				if (this.checkBehavioralRules(toolCall)) {
-					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");
 				}
 			}
 		}
@@ -355,6 +375,37 @@ export class Pipeline {
 				this.runState?.recordDeniedAction();
 				this.logEvent(toolCall, deniedDecision);
 				throw new ApprovalRequiredError(toolCall, deniedDecision);
+			}
+		}
+
+		// Step 4.5: Emit metadata for behavioral rules AFTER policy allowed the action.
+		// This prevents false quarantines from denied actions.
+		if (this.runState) {
+			if (toolCall.toolClass === "shell") {
+				const command = String(toolCall.parameters.command ?? "");
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: "tool_call_allowed",
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					metadata: { commandLength: command.length },
+				});
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by shell command");
+				}
+			}
+			if (toolCall.toolClass === "database") {
+				const table = String(toolCall.parameters.table ?? "");
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: "tool_call_allowed",
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					metadata: { table },
+				});
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");
+				}
 			}
 		}
 

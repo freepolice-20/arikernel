@@ -44,6 +44,10 @@ export interface DecisionResponse {
 	nonce: string;
 	/** Ed25519 signature over the canonical decision payload (hex-encoded) */
 	signature: string;
+	/** SHA-256 hash of the canonical request fields, binding this receipt to the original request */
+	requestHash?: string;
+	/** Echo of the client-supplied requestNonce, proving receipt freshness for this specific request */
+	requestNonce?: string;
 	/** The matched policy rule, if any */
 	matchedRule?: PolicyRule;
 	/** Taint labels forwarded through the decision */

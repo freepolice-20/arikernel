@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { DecisionVerdict, TaintLabel, ToolClass } from "@arikernel/core";
 import {
 	DecisionVerifier,
@@ -59,6 +59,34 @@ export class DecisionDelegate {
 	private readonly verifier: DecisionVerifier | undefined;
 	private readonly nonceStore: NonceStore | undefined;
 
+	/**
+	 * Compute SHA-256 hash of canonical request fields for receipt binding.
+	 */
+	static computeRequestHash(fields: {
+		principalId: string;
+		toolClass: string;
+		action: string;
+		parameters: Record<string, unknown>;
+		runId: string;
+		requestNonce: string;
+	}): string {
+		const canonical = JSON.stringify(
+			{
+				action: fields.action,
+				parameters: fields.parameters,
+				principalId: fields.principalId,
+				requestNonce: fields.requestNonce,
+				runId: fields.runId,
+				toolClass: fields.toolClass,
+			},
+			Object.keys({
+				action: 1, parameters: 1, principalId: 1,
+				requestNonce: 1, runId: 1, toolClass: 1,
+			}).sort(),
+		);
+		return createHash("sha256").update(canonical).digest("hex");
+	}
+
 	constructor(config: RemoteDecisionConfig) {
 		this.endpoint = config.controlPlaneUrl.replace(/\/$/, "");
 		this.timeoutMs = config.controlPlaneTimeoutMs ?? 5000;
@@ -112,6 +140,27 @@ export class DecisionDelegate {
 			if (this.verifier) {
 				const valid = this.verifier.verify(data, this.nonceStore);
 				if (!valid) {
+					return null;
+				}
+
+				// Verify request binding: requestNonce must echo back
+				if (data.requestNonce !== requestNonce) {
+					return null;
+				}
+
+				// Verify requestHash binds receipt to the exact request parameters
+				if (!data.requestHash) {
+					return null; // requestHash is mandatory when verifier is configured
+				}
+				const expectedHash = DecisionDelegate.computeRequestHash({
+					principalId: params.principalId,
+					toolClass: params.toolClass,
+					action: params.action,
+					parameters: params.parameters,
+					runId: params.runId,
+					requestNonce,
+				});
+				if (data.requestHash !== expectedHash) {
 					return null;
 				}
 			}

@@ -226,7 +226,36 @@ export async function handleExecute(
 				});
 			}
 
-			// Control plane allowed — continue to local execution
+			// Control plane allowed — merge returned taint into run state
+			if (remoteDecision.taintLabels.length > 0) {
+				// Validate and cap taint labels from the control plane
+				const MAX_CP_TAINT_LABELS = 20;
+				const validLabels = remoteDecision.taintLabels
+					.slice(0, MAX_CP_TAINT_LABELS)
+					.filter(
+						(l) =>
+							typeof l.source === "string" &&
+							l.source.length > 0 &&
+							typeof l.origin === "string" &&
+							l.origin.length > 0 &&
+							typeof l.confidence === "number" &&
+							typeof l.addedAt === "string",
+					);
+				if (validLabels.length > 0) {
+					firewall.injectExternalTaint(validLabels);
+					// Merge into request taint so execute() also sees them
+					const existing = execReq.taint ?? [];
+					const seen = new Set(existing.map((l) => `${l.source}:${l.origin}`));
+					for (const label of validLabels) {
+						const key = `${label.source}:${label.origin}`;
+						if (!seen.has(key)) {
+							seen.add(key);
+							existing.push(label);
+						}
+					}
+					execReq.taint = existing;
+				}
+			}
 		}
 
 		// If a client provides a serialized capability token, verify it server-side
