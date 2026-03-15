@@ -16,4 +16,8 @@ __pycache__/
 *.egg-info/
 *.egg-link
 *.pdf
+*.tgz
+*.docx
+*trace*.json
+test-report.md
 benchmarks/results/

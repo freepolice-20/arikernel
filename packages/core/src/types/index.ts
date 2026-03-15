@@ -18,6 +18,27 @@ export type {
 	ToolResult,
 } from "./tool-call.js";
 
+export {
+	type HttpAction,
+	type FileAction,
+	type ShellAction,
+	type DatabaseAction,
+	type BrowserAction,
+	type RetrievalAction,
+	type ActionCategory,
+	HTTP_ACTIONS,
+	FILE_ACTIONS,
+	SHELL_ACTIONS,
+	DATABASE_ACTIONS,
+	BROWSER_ACTIONS,
+	RETRIEVAL_ACTIONS,
+	ACTION_CATEGORIES,
+	TOOL_CLASS_ACTIONS,
+	categorizeAction,
+	isKnownAction,
+	isWriteAction,
+} from "./actions.js";
+
 export type {
 	DecisionVerdict,
 	ParameterMatcher,

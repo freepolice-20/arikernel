@@ -999,9 +999,14 @@ describe("POST /execute — grantId support", () => {
 		expect(cap.grantId).toBeTruthy();
 
 		// Step 2: Execute with grantId
-		const result = await client.execute("file", "read", { path: "./package.json" }, {
-			grantId: cap.grantId,
-		});
+		const result = await client.execute(
+			"file",
+			"read",
+			{ path: "./package.json" },
+			{
+				grantId: cap.grantId,
+			},
+		);
 		expect(result.allowed).toBe(true);
 		expect(result.success).toBe(true);
 	});

@@ -14,8 +14,8 @@
  * TokenStore and SqliteTokenStore are local-only implementations.
  */
 
-import { describe, expect, it } from "vitest";
 import type { CapabilityGrant } from "@arikernel/core";
+import { describe, expect, it } from "vitest";
 import { TokenStore } from "../src/token-store.js";
 
 function makeGrant(overrides?: Partial<CapabilityGrant>): CapabilityGrant {
@@ -130,7 +130,9 @@ describe("token double-spend across independent stores", () => {
 		const storeA = new TokenStore();
 		const storeB = new TokenStore();
 
-		const grant = makeGrant({ lease: { maxCalls: 5, callsUsed: 0, expiresAt: new Date(Date.now() + 60_000).toISOString() } });
+		const grant = makeGrant({
+			lease: { maxCalls: 5, callsUsed: 0, expiresAt: new Date(Date.now() + 60_000).toISOString() },
+		});
 
 		storeA.store({ ...grant, lease: { ...grant.lease } });
 		storeB.store({ ...grant, lease: { ...grant.lease } });

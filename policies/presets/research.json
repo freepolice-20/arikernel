@@ -1,25 +1,29 @@
 {
-  "$comment": "Extracted from arikernel-policy.json — use the canonical source for runtime.",
-  "id": "research",
-  "name": "Research",
-  "description": "Experimentation and debugging. Permissive — allows HTTP, file read/write, DB queries. Taint tracked, high quarantine threshold. Shell approval-gated.",
-  "capabilities": [
-    { "toolClass": "http", "actions": ["get", "post"], "constraints": { "allowedHosts": ["*"] } },
-    { "toolClass": "file", "actions": ["read", "write"], "constraints": { "allowedPaths": ["./**"] } },
-    { "toolClass": "database", "actions": ["query", "exec"] },
-    { "toolClass": "shell", "actions": ["exec"] }
-  ],
-  "policies": [
-    "deny-tainted-shell",
-    "allow-http-get",
-    "allow-http-post-research (inline)",
-    "allow-file-read",
-    "allow-file-write-research (inline)",
-    "allow-db-all-research (inline)",
-    "approve-shell-research (inline — require-approval)"
-  ],
-  "runStatePolicy": {
-    "maxDeniedSensitiveActions": 20,
-    "behavioralRules": true
-  }
+	"$comment": "Extracted from arikernel-policy.json — use the canonical source for runtime.",
+	"id": "research",
+	"name": "Research",
+	"description": "Experimentation and debugging. Permissive — allows HTTP, file read/write, DB queries. Taint tracked, high quarantine threshold. Shell approval-gated.",
+	"capabilities": [
+		{ "toolClass": "http", "actions": ["get", "post"], "constraints": { "allowedHosts": ["*"] } },
+		{
+			"toolClass": "file",
+			"actions": ["read", "write"],
+			"constraints": { "allowedPaths": ["./**"] }
+		},
+		{ "toolClass": "database", "actions": ["query", "exec"] },
+		{ "toolClass": "shell", "actions": ["exec"] }
+	],
+	"policies": [
+		"deny-tainted-shell",
+		"allow-http-get",
+		"allow-http-post-research (inline)",
+		"allow-file-read",
+		"allow-file-write-research (inline)",
+		"allow-db-all-research (inline)",
+		"approve-shell-research (inline — require-approval)"
+	],
+	"runStatePolicy": {
+		"maxDeniedSensitiveActions": 20,
+		"behavioralRules": true
+	}
 }

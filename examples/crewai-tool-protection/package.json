@@ -1,9 +1,9 @@
 {
-  "name": "crewai-tool-protection-example",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@arikernel/core": "workspace:*",
-    "@arikernel/runtime": "workspace:*"
-  }
+	"name": "crewai-tool-protection-example",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@arikernel/core": "workspace:*",
+		"@arikernel/runtime": "workspace:*"
+	}
 }

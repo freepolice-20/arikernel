@@ -8,8 +8,8 @@
  * - Guardrails (row limits, required WHERE on update/delete)
  */
 
-import Database from "better-sqlite3";
 import type { ToolCall } from "@arikernel/core";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteDatabaseExecutor } from "../src/sqlite-database.js";
 
@@ -74,9 +74,7 @@ describe("SqliteDatabaseExecutor", () => {
 	});
 
 	it("queries with limit", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "users", limit: 1 }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "users", limit: 1 }));
 		expect(result.success).toBe(true);
 		const data = result.data as { rows: unknown[]; limited: boolean };
 		expect(data.rows).toHaveLength(1);
@@ -144,49 +142,37 @@ describe("SqliteDatabaseExecutor", () => {
 	});
 
 	it("rejects table name with spaces", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "users DROP" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "users DROP" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
 
 	it("rejects table name with dots (schema traversal)", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "sqlite_master.type" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "sqlite_master.type" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
 
 	it("rejects table name with brackets", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "[users]" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "[users]" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
 
 	it("rejects table name with quotes", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: '"users"' }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: '"users"' }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
 
 	it("rejects table name starting with a digit", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "1users" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "1users" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
 
 	it("rejects oversized table name (>64 chars)", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "a".repeat(65) }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "a".repeat(65) }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/invalid characters/i);
 	});
@@ -231,9 +217,7 @@ describe("SqliteDatabaseExecutor", () => {
 	});
 
 	it("rejects unsupported action", async () => {
-		const result = await executor.execute(
-			makeToolCall("drop", { table: "users" }),
-		);
+		const result = await executor.execute(makeToolCall("drop", { table: "users" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/unsupported action/i);
 	});
@@ -285,9 +269,7 @@ describe("SqliteDatabaseExecutor", () => {
 	});
 
 	it("handles nonexistent table gracefully", async () => {
-		const result = await executor.execute(
-			makeToolCall("query", { table: "nonexistent" }),
-		);
+		const result = await executor.execute(makeToolCall("query", { table: "nonexistent" }));
 		expect(result.success).toBe(false);
 		expect(result.error).toMatch(/database error/i);
 	});

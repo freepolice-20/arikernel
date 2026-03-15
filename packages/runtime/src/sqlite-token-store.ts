@@ -53,14 +53,14 @@ export class SqliteTokenStore implements ITokenStore {
 			SELECT data, signature, algorithm FROM grants WHERE id = ?
 		`);
 
-		this.stmtDelete = this.db.prepare(`DELETE FROM grants WHERE id = ?`);
+		this.stmtDelete = this.db.prepare("DELETE FROM grants WHERE id = ?");
 
 		this.stmtRevoke = this.db.prepare(`
 			UPDATE grants SET data = json_set(data, '$.revoked', json('true'))
 			WHERE id = ?
 		`);
 
-		this.stmtCount = this.db.prepare(`SELECT COUNT(*) as cnt FROM grants`);
+		this.stmtCount = this.db.prepare("SELECT COUNT(*) as cnt FROM grants");
 
 		this.stmtEvictExpired = this.db.prepare(`
 			DELETE FROM grants WHERE

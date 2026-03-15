@@ -94,7 +94,7 @@ async function readSensitiveFile(fw: Firewall): Promise<void> {
 		toolClass: "file",
 		action: "read",
 		parameters: { path: "/home/.ssh/id_rsa" },
-		grantId: grant.grant!.id,
+		grantId: grant.grant?.id,
 	});
 }
 
@@ -114,7 +114,7 @@ describe("Header value exfiltration after sensitive read", () => {
 						"User-Agent": "Mozilla/5.0 U2VjcmV0S2V5VmFsdWUxMjM0NTY3ODkw",
 					},
 				},
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -134,7 +134,7 @@ describe("Header value exfiltration after sensitive read", () => {
 						Cookie: "session=4d7953656372657456616c7565313233",
 					},
 				},
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -151,10 +151,10 @@ describe("Header value exfiltration after sensitive read", () => {
 				parameters: {
 					url: "https://example.com/page",
 					headers: {
-						Referer: "https://example.com/" + "A".repeat(260),
+						Referer: `https://example.com/${"A".repeat(260)}`,
 					},
 				},
-				grantId: grant.grant!.id,
+				grantId: grant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -174,7 +174,7 @@ describe("Header value exfiltration after sensitive read", () => {
 						"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 				},
 			},
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});
@@ -196,7 +196,7 @@ describe("Header value exfiltration after sensitive read", () => {
 					"User-Agent": "Mozilla/5.0",
 				},
 			},
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});
@@ -215,7 +215,7 @@ describe("Header value exfiltration after sensitive read", () => {
 					Cookie: "4d7953656372657456616c7565313233",
 				},
 			},
-			grantId: grant.grant!.id,
+			grantId: grant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});

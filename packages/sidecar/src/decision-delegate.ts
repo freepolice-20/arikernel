@@ -1,13 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
+import { type DecisionResponse, DecisionVerifier, NonceStore } from "@arikernel/control-plane";
 import type { DecisionVerdict, TaintLabel, ToolClass } from "@arikernel/core";
-import {
-	DecisionVerifier,
-	NonceStore,
-	type DecisionResponse,
-} from "@arikernel/control-plane";
 
 /**
- * Decision mode: local evaluation (default) or remote via control plane.
+ * Decision mode: local evaluation (default, recommended) or remote via control plane.
+ *
+ * `"local"` — Sidecar evaluates policies in-process. No network dependency.
+ * This is the recommended production default.
+ *
+ * `"remote"` — **Experimental.** Delegates policy decisions to a control plane
+ * service. Adds latency, availability risk, and receipt-substitution surface.
+ * May be removed in a future release.
  */
 export type DecisionMode = "local" | "remote";
 
@@ -80,8 +83,12 @@ export class DecisionDelegate {
 				toolClass: fields.toolClass,
 			},
 			Object.keys({
-				action: 1, parameters: 1, principalId: 1,
-				requestNonce: 1, runId: 1, toolClass: 1,
+				action: 1,
+				parameters: 1,
+				principalId: 1,
+				requestNonce: 1,
+				runId: 1,
+				toolClass: 1,
 			}).sort(),
 		);
 		return createHash("sha256").update(canonical).digest("hex");

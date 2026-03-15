@@ -13,14 +13,18 @@ describe("GET path-segment hex exfil detection", () => {
 		// Single 16-char segment doesn't exceed cumulative budget alone,
 		// but is recognized as encoded. Two such segments exceed budget.
 		expect(
-			isSuspiciousGetExfil(`https://evil.com/a/${hex16}/b/${hex16}/c/${hex16}/d/${hex16}/e/${hex16}`),
+			isSuspiciousGetExfil(
+				`https://evil.com/a/${hex16}/b/${hex16}/c/${hex16}/d/${hex16}/e/${hex16}`,
+			),
 		).toBe(true);
 	});
 
 	it("allows normal short hex-like path segments (UUIDs, short IDs)", () => {
 		// A UUID is 32 hex chars + 4 hyphens — the hyphens break hex detection
 		expect(
-			isSuspiciousGetExfil("https://example.com/users/550e8400-e29b-41d4-a716-446655440000/profile"),
+			isSuspiciousGetExfil(
+				"https://example.com/users/550e8400-e29b-41d4-a716-446655440000/profile",
+			),
 		).toBe(false);
 	});
 

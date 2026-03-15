@@ -75,10 +75,25 @@ export class SidecarServer {
 
 		// Remote decision delegation: when decisionMode is 'remote', the sidecar
 		// calls the control plane for policy decisions before executing tools.
+		// EXPERIMENTAL: Remote mode adds network latency, availability dependency,
+		// and receipt-substitution attack surface. Local mode is recommended.
 		let decisionDelegate: DecisionDelegate | undefined;
 		if (config.decisionMode === "remote") {
+			console.warn(
+				"[AriKernel] WARNING: decisionMode 'remote' is experimental. " +
+					"Local sidecar enforcement is the recommended production default. " +
+					"Remote mode adds latency, availability risk, and receipt-substitution surface. " +
+					"See docs/control-plane.md for migration guidance.",
+			);
 			if (!config.controlPlaneUrl) {
 				throw new Error("controlPlaneUrl is required when decisionMode is 'remote'");
+			}
+			if (!config.controlPlanePublicKey) {
+				console.warn(
+					"[AriKernel] WARNING: controlPlanePublicKey is not configured. " +
+						"Without signature verification, remote decisions are vulnerable to tampering. " +
+						"This is strongly discouraged even in non-production environments.",
+				);
 			}
 			decisionDelegate = new DecisionDelegate({
 				controlPlaneUrl: config.controlPlaneUrl,
@@ -90,7 +105,10 @@ export class SidecarServer {
 
 		// TLS: when cert + key are provided, serve HTTPS instead of HTTP.
 		this.tls = !!(config.tlsCert && config.tlsKey);
-		const requestHandler = (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => {
+		const requestHandler = (
+			req: import("node:http").IncomingMessage,
+			res: import("node:http").ServerResponse,
+		) => {
 			const url = req.url ?? "/";
 			const method = req.method ?? "GET";
 

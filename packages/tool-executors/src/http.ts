@@ -21,12 +21,7 @@ const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
  * Non-standard or custom headers (X-*, etc.) are potential exfil vectors
  * and are stripped when the run is in a security-sensitive state.
  */
-export const SAFE_GET_HEADERS = new Set([
-	"accept",
-	"accept-encoding",
-	"accept-language",
-	"host",
-]);
+export const SAFE_GET_HEADERS = new Set(["accept", "accept-encoding", "accept-language", "host"]);
 
 /**
  * Headers allowed on GET/HEAD but whose values must be inspected for encoded

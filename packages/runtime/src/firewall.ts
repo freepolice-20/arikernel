@@ -265,14 +265,11 @@ export class Firewall {
 		},
 	): Promise<IssuanceDecision> {
 		if (this._sidecarClient) {
-			const decision = await this._sidecarClient.requestCapability(
-				capabilityClass,
-				{
-					constraints: options?.constraints as Record<string, unknown> | undefined,
-					taintLabels: options?.taintLabels,
-					justification: options?.justification,
-				},
-			);
+			const decision = await this._sidecarClient.requestCapability(capabilityClass, {
+				constraints: options?.constraints as Record<string, unknown> | undefined,
+				taintLabels: options?.taintLabels,
+				justification: options?.justification,
+			});
 
 			// Fire local hooks for observability (non-authoritative)
 			this._hooks.onIssuance?.(

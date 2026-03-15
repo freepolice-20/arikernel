@@ -7,7 +7,7 @@
  * which limits the agent to read-only safe actions.
  */
 
-import type { TaintLabel, TaintState } from "@arikernel/core";
+import { type TaintLabel, type TaintState, categorizeAction } from "@arikernel/core";
 import { normalizeInput } from "./unicode-safety.js";
 
 export interface RunStatePolicy {
@@ -84,7 +84,10 @@ const TOOL_CLASS_RISK_MAP: Record<string, number> = {
 const MAX_EVENT_WINDOW = 20;
 
 /**
- * Actions considered "safe read-only" that are still allowed in restricted mode.
+ * Check if a (toolClass, action) pair is safe read-only.
+ *
+ * Uses the canonical action taxonomy from @arikernel/core so new actions
+ * that aren't explicitly registered as "read" are blocked (fail-closed).
  *
  * HTTP GET/HEAD are allowed for content ingress (fetching pages to read).
  * Suspicious GET exfil patterns (large query strings, data-bearing params)
@@ -92,11 +95,9 @@ const MAX_EVENT_WINDOW = 20;
  *
  * True egress methods (POST/PUT/PATCH/DELETE) are always blocked in quarantine.
  */
-const SAFE_READONLY_ACTIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-	["http", new Set(["get", "head", "options"])],
-	["file", new Set(["read"])],
-	["database", new Set(["query"])],
-]);
+function isSafeReadOnlyAction(toolClass: string, action: string): boolean {
+	return categorizeAction(toolClass, action) === "read";
+}
 
 /** Sensitive file path patterns that count toward sensitiveFileReadAttempts. */
 const SENSITIVE_PATH_PATTERNS = [
@@ -348,7 +349,7 @@ export class RunStateTracker {
 
 	/** Check if an action is allowed in restricted mode. */
 	isAllowedInRestrictedMode(toolClass: string, action: string): boolean {
-		return SAFE_READONLY_ACTIONS.get(toolClass)?.has(action) ?? false;
+		return isSafeReadOnlyAction(toolClass, action);
 	}
 
 	/** Push a security event into the recent window. */

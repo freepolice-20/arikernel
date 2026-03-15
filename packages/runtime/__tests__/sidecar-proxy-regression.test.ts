@@ -9,10 +9,10 @@
  * trigger quarantine.
  */
 import http from "node:http";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { ToolCallDeniedError, now } from "@arikernel/core";
-import { SidecarProxyExecutor } from "../src/sidecar-proxy.js";
 import type { ToolCall } from "@arikernel/core";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SidecarProxyExecutor } from "../src/sidecar-proxy.js";
 
 function makeToolCall(overrides?: Partial<ToolCall>): ToolCall {
 	return {

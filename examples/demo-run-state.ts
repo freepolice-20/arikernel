@@ -17,30 +17,30 @@
  * Run: pnpm demo:run-state
  */
 
-import { ToolCallDeniedError } from '@arikernel/core';
-import { createFirewall } from '@arikernel/runtime';
-import { resolve } from 'node:path';
+import { resolve } from "node:path";
+import { ToolCallDeniedError } from "@arikernel/core";
+import { createFirewall } from "@arikernel/runtime";
 
 // ── Terminal formatting ──────────────────────────────────────────────
 
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const MAGENTA = '\x1b[35m';
-const BG_RED = '\x1b[41m';
-const BG_GREEN = '\x1b[42m';
-const BG_MAGENTA = '\x1b[45m';
-const WHITE = '\x1b[37m';
-const RESET = '\x1b[0m';
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const MAGENTA = "\x1b[35m";
+const BG_RED = "\x1b[41m";
+const BG_GREEN = "\x1b[42m";
+const BG_MAGENTA = "\x1b[45m";
+const WHITE = "\x1b[37m";
+const RESET = "\x1b[0m";
 
 function banner(text: string): void {
-	const pad = ' '.repeat(Math.max(0, 58 - text.length) >> 1);
-	console.log(`\n${CYAN}${BOLD}${'='.repeat(60)}${RESET}`);
+	const pad = " ".repeat(Math.max(0, 58 - text.length) >> 1);
+	console.log(`\n${CYAN}${BOLD}${"=".repeat(60)}${RESET}`);
 	console.log(`${CYAN}${BOLD} ${pad}${text}${RESET}`);
-	console.log(`${CYAN}${BOLD}${'='.repeat(60)}${RESET}\n`);
+	console.log(`${CYAN}${BOLD}${"=".repeat(60)}${RESET}\n`);
 }
 
 function phase(n: number, title: string): void {
@@ -58,37 +58,37 @@ function statusLine(fw: ReturnType<typeof createFirewall>): void {
 		: `${GREEN}normal${RESET}`;
 	console.log(
 		`  ${DIM}Run state:${RESET} ${mode}  ` +
-		`${DIM}denied=${c.deniedActions} caps=${c.capabilityRequests} ` +
-		`egress=${c.externalEgressAttempts} sensitive=${c.sensitiveFileReadAttempts}${RESET}\n`,
+			`${DIM}denied=${c.deniedActions} caps=${c.capabilityRequests} ` +
+			`egress=${c.externalEgressAttempts} sensitive=${c.sensitiveFileReadAttempts}${RESET}\n`,
 	);
 }
 
 // ── Main demo ────────────────────────────────────────────────────────
 
 async function main() {
-	banner('Run-State Escalation Demo');
+	banner("Run-State Escalation Demo");
 
 	console.log(`${DIM}Scenario: An AI agent starts with legitimate requests but then`);
-	console.log(`probes sensitive files and attempts shell execution. After 3 denied`);
-	console.log(`actions (configurable threshold), the run enters restricted mode.`);
+	console.log("probes sensitive files and attempts shell execution. After 3 denied");
+	console.log("actions (configurable threshold), the run enters restricted mode.");
 	console.log(`In restricted mode, only read-only safe actions are allowed.${RESET}\n`);
 
-	const policyPath = resolve(import.meta.dirname ?? '.', '..', 'policies', 'safe-defaults.yaml');
-	const auditPath = resolve(import.meta.dirname ?? '.', '..', 'demo-run-state-audit.db');
+	const policyPath = resolve(import.meta.dirname ?? ".", "..", "policies", "safe-defaults.yaml");
+	const auditPath = resolve(import.meta.dirname ?? ".", "..", "demo-run-state-audit.db");
 
 	const firewall = createFirewall({
 		principal: {
-			name: 'suspicious-agent',
+			name: "suspicious-agent",
 			capabilities: [
 				{
-					toolClass: 'http',
-					actions: ['get', 'post'],
-					constraints: { allowedHosts: ['api.github.com', 'httpbin.org'] },
+					toolClass: "http",
+					actions: ["get", "post"],
+					constraints: { allowedHosts: ["api.github.com", "httpbin.org"] },
 				},
 				{
-					toolClass: 'file',
-					actions: ['read'],
-					constraints: { allowedPaths: ['./data/**'] },
+					toolClass: "file",
+					actions: ["read"],
+					constraints: { allowedPaths: ["./data/**"] },
 				},
 			],
 		},
@@ -100,30 +100,34 @@ async function main() {
 	});
 
 	info(`Firewall started. Run ID: ${firewall.runId}`);
-	info(`Restricted mode threshold: 3 denied sensitive actions\n`);
+	info("Restricted mode threshold: 3 denied sensitive actions\n");
 
 	let allowed = 0;
 	let denied = 0;
 
 	// ── Phase 1: Legitimate action ──────────────────────────────────
 
-	phase(1, 'Legitimate action: HTTP GET to api.github.com');
+	phase(1, "Legitimate action: HTTP GET to api.github.com");
 
-	const httpGrant = firewall.requestCapability('http.read');
+	const httpGrant = firewall.requestCapability("http.read");
 	info(`Capability: ${httpGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`);
 
 	try {
 		await firewall.execute({
-			toolClass: 'http',
-			action: 'get',
-			parameters: { url: 'https://api.github.com/repos/example' },
-			grantId: httpGrant.grant!.id,
+			toolClass: "http",
+			action: "get",
+			parameters: { url: "https://api.github.com/repos/example" },
+			grantId: httpGrant.grant?.id,
 		});
-		console.log(`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}HTTP GET to api.github.com${RESET}`);
+		console.log(
+			`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}HTTP GET to api.github.com${RESET}`,
+		);
 		allowed++;
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			console.log(`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}${err.decision.reason}${RESET}`);
+			console.log(
+				`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}${err.decision.reason}${RESET}`,
+			);
 			denied++;
 		}
 	}
@@ -131,26 +135,24 @@ async function main() {
 
 	// ── Phase 2: Probe sensitive files ──────────────────────────────
 
-	phase(2, 'Probing sensitive files (denied — builds up run state)');
+	phase(2, "Probing sensitive files (denied — builds up run state)");
 
-	const sensitiveFiles = [
-		'~/.ssh/id_rsa',
-		'~/.aws/credentials',
-		'/etc/shadow',
-	];
+	const sensitiveFiles = ["~/.ssh/id_rsa", "~/.aws/credentials", "/etc/shadow"];
 
-	const fileGrant = firewall.requestCapability('file.read');
+	const fileGrant = firewall.requestCapability("file.read");
 	info(`Capability: ${fileGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`);
 
 	for (const path of sensitiveFiles) {
 		try {
 			await firewall.execute({
-				toolClass: 'file',
-				action: 'read',
+				toolClass: "file",
+				action: "read",
 				parameters: { path },
 				grantId: fileGrant.grant?.id,
 			});
-			console.log(`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}file.read ${path}${RESET}`);
+			console.log(
+				`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}file.read ${path}${RESET}`,
+			);
 			allowed++;
 		} catch (err) {
 			if (err instanceof ToolCallDeniedError) {
@@ -164,22 +166,28 @@ async function main() {
 
 	// ── Phase 3: Check if restricted mode activated ─────────────────
 
-	phase(3, 'Run-state check');
+	phase(3, "Run-state check");
 
 	if (firewall.isRestricted) {
 		console.log(`  ${BG_MAGENTA}${WHITE}${BOLD} RESTRICTED MODE ACTIVATED ${RESET}`);
 		console.log(`  ${MAGENTA}The run entered restricted mode at ${firewall.restrictedAt}${RESET}`);
-		console.log(`  ${MAGENTA}Only read-only safe actions (http.get, file.read, db.query) are allowed.${RESET}\n`);
+		console.log(
+			`  ${MAGENTA}Only read-only safe actions (http.get, file.read, db.query) are allowed.${RESET}\n`,
+		);
 	} else {
-		console.log(`  ${GREEN}Run is still in normal mode. Denied actions: ${firewall.runStateCounters.deniedActions}${RESET}\n`);
+		console.log(
+			`  ${GREEN}Run is still in normal mode. Denied actions: ${firewall.runStateCounters.deniedActions}${RESET}\n`,
+		);
 	}
 
 	// ── Phase 4: Attempt HTTP POST in restricted mode ───────────────
 
-	phase(4, 'Attempt HTTP POST (blocked by restricted mode)');
+	phase(4, "Attempt HTTP POST (blocked by restricted mode)");
 
-	const writeGrant = firewall.requestCapability('http.write');
-	info(`Capability issuance for http.write: ${writeGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`);
+	const writeGrant = firewall.requestCapability("http.write");
+	info(
+		`Capability issuance for http.write: ${writeGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`,
+	);
 	if (!writeGrant.granted) {
 		info(`Reason: ${writeGrant.reason}`);
 	}
@@ -187,15 +195,19 @@ async function main() {
 	// Even if we had a pre-existing write token, the pipeline blocks it
 	try {
 		await firewall.execute({
-			toolClass: 'http',
-			action: 'post',
-			parameters: { url: 'https://httpbin.org/post', body: { data: 'exfiltrated' } },
+			toolClass: "http",
+			action: "post",
+			parameters: { url: "https://httpbin.org/post", body: { data: "exfiltrated" } },
 		});
-		console.log(`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${RED}HTTP POST — should not happen!${RESET}`);
+		console.log(
+			`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${RED}HTTP POST — should not happen!${RESET}`,
+		);
 		allowed++;
 	} catch (err) {
 		if (err instanceof ToolCallDeniedError) {
-			console.log(`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}HTTP POST blocked by restricted mode${RESET}`);
+			console.log(
+				`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}HTTP POST blocked by restricted mode${RESET}`,
+			);
 			info(`Reason: ${err.decision.reason}`);
 			denied++;
 		}
@@ -204,24 +216,30 @@ async function main() {
 
 	// ── Phase 5: Attempt safe read-only action in restricted mode ───
 
-	phase(5, 'Attempt HTTP GET in restricted mode (still allowed)');
+	phase(5, "Attempt HTTP GET in restricted mode (still allowed)");
 
-	const readGrant = firewall.requestCapability('http.read');
-	info(`Capability issuance for http.read: ${readGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`);
+	const readGrant = firewall.requestCapability("http.read");
+	info(
+		`Capability issuance for http.read: ${readGrant.granted ? `${GREEN}GRANTED${RESET}` : `${RED}DENIED${RESET}`}`,
+	);
 
 	if (readGrant.granted) {
 		try {
 			await firewall.execute({
-				toolClass: 'http',
-				action: 'get',
-				parameters: { url: 'https://api.github.com/repos/example' },
-				grantId: readGrant.grant!.id,
+				toolClass: "http",
+				action: "get",
+				parameters: { url: "https://api.github.com/repos/example" },
+				grantId: readGrant.grant?.id,
 			});
-			console.log(`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}HTTP GET still works in restricted mode${RESET}`);
+			console.log(
+				`  ${BG_GREEN}${WHITE}${BOLD} ALLOWED ${RESET} ${GREEN}HTTP GET still works in restricted mode${RESET}`,
+			);
 			allowed++;
 		} catch (err) {
 			if (err instanceof ToolCallDeniedError) {
-				console.log(`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}${err.decision.reason}${RESET}`);
+				console.log(
+					`  ${BG_RED}${WHITE}${BOLD} BLOCKED ${RESET} ${RED}${err.decision.reason}${RESET}`,
+				);
 				denied++;
 			}
 		}
@@ -230,7 +248,7 @@ async function main() {
 
 	// ── Phase 6: Summary ────────────────────────────────────────────
 
-	phase(6, 'Results');
+	phase(6, "Results");
 
 	const counters = firewall.runStateCounters;
 	console.log(`  ${GREEN}${BOLD}Allowed:${RESET} ${allowed} action(s)`);
@@ -245,36 +263,38 @@ async function main() {
 	if (firewall.isRestricted) {
 		console.log(`  ${BG_MAGENTA}${WHITE}${BOLD} RUN QUARANTINED ${RESET}`);
 		console.log(`  ${MAGENTA}Restricted mode entered at ${firewall.restrictedAt}${RESET}`);
-		console.log(`  ${MAGENTA}Agent was limited to read-only safe actions for the rest of the run.${RESET}\n`);
+		console.log(
+			`  ${MAGENTA}Agent was limited to read-only safe actions for the rest of the run.${RESET}\n`,
+		);
 	}
 
 	// ── Phase 7: Forensic audit trail ───────────────────────────────
 
-	phase(7, 'Forensic audit trail');
+	phase(7, "Forensic audit trail");
 
 	const events = firewall.getEvents();
 	for (const event of events) {
 		const verdict = event.decision.verdict;
-		const color = verdict === 'allow' ? GREEN : RED;
-		const icon = verdict === 'allow' ? 'ALLOW' : 'DENY ';
-		const restricted = event.decision.reason.includes('restricted mode')
+		const color = verdict === "allow" ? GREEN : RED;
+		const icon = verdict === "allow" ? "ALLOW" : "DENY ";
+		const restricted = event.decision.reason.includes("restricted mode")
 			? ` ${MAGENTA}[RESTRICTED]${RESET}`
-			: '';
+			: "";
 
 		console.log(
 			`  ${DIM}#${event.sequence}${RESET} ${color}${BOLD}${icon}${RESET} ` +
-			`${event.toolCall.toolClass}.${event.toolCall.action}` +
-			`${restricted} ` +
-			`${DIM}${event.toolCall.grantId ? `[token:${event.toolCall.grantId.slice(0, 8)}...]` : '[no token]'}${RESET}`,
+				`${event.toolCall.toolClass}.${event.toolCall.action}` +
+				`${restricted} ` +
+				`${DIM}${event.toolCall.grantId ? `[token:${event.toolCall.grantId.slice(0, 8)}...]` : "[no token]"}${RESET}`,
 		);
 		console.log(`     ${DIM}Reason: ${event.decision.reason}${RESET}`);
-		console.log('');
+		console.log("");
 	}
 
 	const replay = firewall.replay();
 	if (replay) {
 		const integrityColor = replay.integrity.valid ? GREEN : RED;
-		const integrityLabel = replay.integrity.valid ? 'VALID' : 'BROKEN';
+		const integrityLabel = replay.integrity.valid ? "VALID" : "BROKEN";
 		console.log(`  ${DIM}Audit events: ${replay.events.length}${RESET}`);
 		console.log(`  ${DIM}Hash chain integrity: ${integrityColor}${BOLD}${integrityLabel}${RESET}`);
 		console.log(`  ${DIM}Run ID: ${firewall.runId}${RESET}`);
@@ -282,10 +302,10 @@ async function main() {
 
 	firewall.close();
 
-	banner('Simulation Complete');
+	banner("Simulation Complete");
 	console.log(`${DIM}The agent started normally but repeatedly probed sensitive files.`);
-	console.log(`After 3 denied actions, the run entered restricted mode.`);
-	console.log(`In restricted mode, only read-only actions were allowed —`);
+	console.log("After 3 denied actions, the run entered restricted mode.");
+	console.log("In restricted mode, only read-only actions were allowed —");
 	console.log(`HTTP POST was blocked, but HTTP GET still worked.${RESET}\n`);
 	console.log(`${DIM}Replay: pnpm ari replay --db ${auditPath} --latest --verbose${RESET}\n`);
 }

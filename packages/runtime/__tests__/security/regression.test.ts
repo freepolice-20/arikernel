@@ -664,9 +664,7 @@ describe("sensitive read sticky flag: gated on file.read + success", () => {
 		return createFirewall({
 			principal: {
 				name: "test",
-				capabilities: [
-					{ toolClass: "file", actions: ["read", "write"], constraints: {} },
-				],
+				capabilities: [{ toolClass: "file", actions: ["read", "write"], constraints: {} }],
 			},
 			policies: [
 				{ id: "allow-all", name: "Allow", priority: 100, match: {}, decision: "allow" as const },

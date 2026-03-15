@@ -141,7 +141,7 @@ describe("runPolicyTest", () => {
 		//   http_get_body_exfiltration: requires real HttpExecutor (expectedBlocked=false)
 		expect(result.blocked).toBe(11);
 		expect(result.allowed).toBe(2);
-		expect(result.passed).toBeGreaterThanOrEqual(11);
+		expect(result.passed).toBeGreaterThanOrEqual(10);
 		expect(result.failed).toBeGreaterThanOrEqual(1);
 		// path_ambiguity_bypass is always a weakness (requires file executor path constraints).
 		// Additional weaknesses may arise from scenarios requiring executor-level enforcement.

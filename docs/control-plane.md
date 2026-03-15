@@ -204,7 +204,28 @@ Key trust properties:
 
 ## Sidecar Integration
 
-Set `decisionMode: "remote"` in the sidecar config to delegate policy decisions to the control plane.
+> **Recommended:** Use local sidecar enforcement (the default). The sidecar evaluates
+> policies in-process with no control plane dependency. This eliminates network latency,
+> availability risk, and the receipt-substitution attack surface.
+
+### Local enforcement (default, recommended)
+
+```typescript
+import { SidecarServer } from "@arikernel/sidecar";
+
+const sidecar = new SidecarServer({
+  preset: "safe",
+  // decisionMode defaults to "local" — no control plane needed
+});
+```
+
+### Remote decision delegation (experimental)
+
+> **Warning:** Remote decision mode is experimental and adds latency, availability
+> dependency, and receipt-substitution attack surface. It may be removed in a future
+> release. If you use it, `controlPlanePublicKey` is strongly recommended.
+
+Set `decisionMode: "remote"` to delegate policy decisions to the control plane:
 
 ```typescript
 import { SidecarServer } from "@arikernel/sidecar";
@@ -219,7 +240,7 @@ const sidecar = new SidecarServer({
 });
 ```
 
-**Receipt verification:** When `controlPlanePublicKey` is configured, the sidecar verifies the Ed25519 signature and response nonce on every decision receipt before trusting it. Invalid signatures, tampered fields, and replayed nonces all cause fail-closed denial. Strongly recommended for production deployments.
+**Receipt verification:** When `controlPlanePublicKey` is configured, the sidecar verifies the Ed25519 signature and response nonce on every decision receipt before trusting it. Invalid signatures, tampered fields, and replayed nonces all cause fail-closed denial. Strongly recommended when using remote mode.
 
 **Fail-closed behavior:** The sidecar returns HTTP 503 and does not execute the tool call when:
 - The control plane is unreachable within the timeout window

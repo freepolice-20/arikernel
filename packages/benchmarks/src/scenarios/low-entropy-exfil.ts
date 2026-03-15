@@ -149,7 +149,7 @@ export async function run(dbPath: string): Promise<BenchmarkResult> {
 	}
 
 	globalThis.fetch = origFetch;
-	if (origRoot === undefined) delete process.env.FILE_EXECUTOR_ROOT;
+	if (origRoot === undefined) process.env.FILE_EXECUTOR_ROOT = undefined;
 	else process.env.FILE_EXECUTOR_ROOT = origRoot;
 	fw.close();
 

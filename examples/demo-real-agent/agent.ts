@@ -231,7 +231,11 @@ async function main() {
 			if (result.denied && result.capabilityDenied) {
 				recorder.recordCapabilityDenial(
 					result.capabilityClass ?? "unknown",
-					{ toolClass: result.toolClass ?? "unknown", action: result.action ?? "unknown", parameters: args },
+					{
+						toolClass: result.toolClass ?? "unknown",
+						action: result.action ?? "unknown",
+						parameters: args,
+					},
 					result.reason ?? "Capability denied",
 				);
 			}
@@ -239,15 +243,16 @@ async function main() {
 
 			// Print kernel decision
 			if (result.denied) {
-				const eventType = firewall.isRestricted && result.capabilityDenied
-					? "Quarantine enforcement"
-					: "Capability denied";
+				const eventType =
+					firewall.isRestricted && result.capabilityDenied
+						? "Quarantine enforcement"
+						: "Capability denied";
 				printSecurityEvent(
 					"ARI KERNEL  SECURITY EVENT",
 					`\n  ${W}${B}Type:${X}   ${eventType}` +
-					`\n  ${W}${B}Tool:${X}   ${result.toolClass ?? name}.${result.action ?? "unknown"}` +
-					`\n  ${W}${B}Target:${X} ${args.path ?? args.url ?? "—"}` +
-					`\n\n  ${W}${B}Reason:${X}\n  ${result.reason}\n`,
+						`\n  ${W}${B}Tool:${X}   ${result.toolClass ?? name}.${result.action ?? "unknown"}` +
+						`\n  ${W}${B}Target:${X} ${args.path ?? args.url ?? "—"}` +
+						`\n\n  ${W}${B}Reason:${X}\n  ${result.reason}\n`,
 				);
 
 				// Show quarantine activation once
@@ -255,11 +260,7 @@ async function main() {
 					quarantineShown = true;
 					const info = firewall.quarantineInfo;
 					printQuarantineEvent(
-						`\n  ${W}${B}Rule:${X}  ${info?.triggerRule ?? "behavioral detection"}` +
-						`\n\n  The agent attempted to access a sensitive file` +
-						`\n  after consuming untrusted web content.` +
-						`\n\n  Run is now ${B}READ-ONLY${X}. Blocked capabilities:` +
-						`\n    ${D}http.write, shell.execute, file.write${X}\n`,
+						`\n  ${W}${B}Rule:${X}  ${info?.triggerRule ?? "behavioral detection"}\n\n  The agent attempted to access a sensitive file\n  after consuming untrusted web content.\n\n  Run is now ${B}READ-ONLY${X}. Blocked capabilities:\n    ${D}http.write, shell.execute, file.write${X}\n`,
 					);
 				}
 			} else {
@@ -268,7 +269,10 @@ async function main() {
 				// Show fetched content + highlight the injection
 				if (name === "fetch_web_page" && result.output) {
 					const injection = extractInjection(result.output);
-					const preview = result.output.replace(/\n/g, " ").replace(/<[^>]+>/g, "").slice(0, 120);
+					const preview = result.output
+						.replace(/\n/g, " ")
+						.replace(/<[^>]+>/g, "")
+						.slice(0, 120);
 					console.log(`${D}  Content: ${preview}...${X}`);
 
 					if (injection) {
@@ -316,8 +320,12 @@ async function main() {
 	// ── Summary ──────────────────────────────────────────────────────
 
 	const allowed = trace.events.filter((e) => e.decision.verdict === "allow").length;
-	const denied = trace.events.filter((e) => e.decision.verdict === "deny" && e.capabilityGranted !== false).length;
-	const blockedByQuarantine = trace.events.filter((e) => e.capabilityGranted === false && e.decision.verdict === "deny").length;
+	const denied = trace.events.filter(
+		(e) => e.decision.verdict === "deny" && e.capabilityGranted !== false,
+	).length;
+	const blockedByQuarantine = trace.events.filter(
+		(e) => e.capabilityGranted === false && e.decision.verdict === "deny",
+	).length;
 
 	console.log(`${C}${B}${"=".repeat(64)}${X}`);
 	console.log(`${C}${B}  Results${X}`);
