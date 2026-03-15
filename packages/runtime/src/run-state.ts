@@ -610,10 +610,54 @@ export function isSuspiciousGetExfil(url: string): boolean {
 			return true;
 		}
 
+		// Hostname-based exfil: data encoded in subdomains (e.g. "stolen-data.attacker.com")
+		if (isSuspiciousHostname(parsed.hostname)) return true;
+
 		return false;
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Detect data exfiltration via DNS subdomain encoding.
+ * Catches patterns like: `secret-data-chunk123.attacker.com` or
+ * `4d7953656372657456616c.evil.tld` where stolen data is encoded
+ * in subdomain labels that are resolved via DNS before the HTTP request.
+ *
+ * Heuristics:
+ * - Subdomain labels with hex/base32/base64 encoded content (16+ chars)
+ * - High-entropy subdomain labels (32+ chars, entropy > 0.7)
+ * - Excessive subdomain depth (>4 labels total, e.g. a.b.c.d.e.attacker.com)
+ */
+function isSuspiciousHostname(hostname: string): boolean {
+	const labels = hostname.split(".");
+	// Need at least a subdomain + domain + TLD (3 labels) for subdomain exfil
+	if (labels.length < 3) return false;
+
+	// Excessive subdomain depth: >4 total labels is unusual and suggests chunked exfil
+	if (labels.length > 5) return true;
+
+	// Check subdomain labels (all except the last 2: domain + TLD)
+	const subdomainLabels = labels.slice(0, -2);
+	let cumulativeEncodedBytes = 0;
+
+	for (const label of subdomainLabels) {
+		// Long high-entropy label
+		if (label.length >= MIN_SUSPICIOUS_SEGMENT_LENGTH && normalizedEntropy(label) > 0.7) {
+			return true;
+		}
+		// Encoded payload in subdomain label
+		const encLen = encodedPathSegmentLength(label);
+		if (encLen > 0) {
+			if (encLen >= 24) return true;
+			cumulativeEncodedBytes += encLen;
+		}
+	}
+
+	if (cumulativeEncodedBytes > MAX_CUMULATIVE_PATH_PAYLOAD) return true;
+
+	return false;
 }
 
 // ── Low-entropy encoding detection ───────────────────────────────

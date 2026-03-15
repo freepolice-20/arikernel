@@ -43,8 +43,14 @@ export async function handleDecision(
 		return jsonResponse(res, 400, { error: (e as Error).message });
 	}
 
-	// Request-level replay protection: reject duplicate requestNonces
-	if (decReq.requestNonce && requestNonceStore) {
+	// Request-level replay protection: requestNonce is mandatory to prevent
+	// decision replay attacks (attacker stripping nonce to get unbound signatures).
+	if (!decReq.requestNonce) {
+		return jsonResponse(res, 400, {
+			error: "requestNonce is required — decisions must be bound to the originating request",
+		});
+	}
+	if (requestNonceStore) {
 		if (!requestNonceStore.claim(decReq.requestNonce)) {
 			return jsonResponse(res, 409, {
 				error: "Duplicate requestNonce — request already processed",
@@ -265,7 +271,7 @@ function validateDecisionRequest(body: unknown): DecisionRequest {
 		taintLabels: Array.isArray(raw.taintLabels) ? (raw.taintLabels as TaintLabel[]) : [],
 		runId: raw.runId as string,
 		timestamp: raw.timestamp as string,
-		requestNonce: typeof raw.requestNonce === "string" ? raw.requestNonce : undefined,
+		requestNonce: typeof raw.requestNonce === "string" ? raw.requestNonce : "",
 	};
 }
 

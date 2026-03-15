@@ -17,7 +17,7 @@ export interface CP3Config {
 }
 
 export interface CorrelatorConfig {
-	/** Time window for correlation in milliseconds. Default: 60000 (60s). */
+	/** Time window for correlation in milliseconds. Default: 300000 (5 min). */
 	windowMs?: number;
 	/** Max events buffered per principal. Default: 50. */
 	maxEventsPerPrincipal?: number;
@@ -137,7 +137,7 @@ export class CrossPrincipalCorrelator {
 	private readonly cp3FiredHosts = new Map<string, number>();
 
 	constructor(config?: CorrelatorConfig) {
-		this.windowMs = config?.windowMs ?? 60_000;
+		this.windowMs = config?.windowMs ?? 300_000;
 		this.maxEvents = config?.maxEventsPerPrincipal ?? 50;
 		this.quarantineOnAlert = config?.quarantineOnAlert ?? false;
 		this.cp3AllowHosts = new Set((config?.cp3?.allowHosts ?? []).map((h) => h.toLowerCase()));
@@ -359,8 +359,10 @@ export class CrossPrincipalCorrelator {
 		const distinctPrincipals = new Set(active.map((e) => e.principalId));
 		if (distinctPrincipals.size < 2) return;
 
-		// Already fired for this host in dedup window?
-		if (this.cp3FiredHosts.has(hostname)) return;
+		// Dedup by (hostname + sorted principal set) so alerts fire again when
+		// a NEW set of principals converges on the same host.
+		const dedupKey = `${hostname}:${Array.from(distinctPrincipals).sort().join(",")}`;
+		if (this.cp3FiredHosts.has(dedupKey)) return;
 
 		// At least one principal must have a recent sensitive read
 		const principalsWithSensitiveRead: string[] = [];
@@ -384,7 +386,7 @@ export class CrossPrincipalCorrelator {
 		// Skip suppressed hosts (still tracked, no alert emitted)
 		if (this.cp3SuppressHosts.has(hostname.toLowerCase())) return;
 
-		this.cp3FiredHosts.set(hostname, Date.now());
+		this.cp3FiredHosts.set(dedupKey, Date.now());
 
 		// Build event list from active entries
 		const alertEvents = active.map((e) => ({
