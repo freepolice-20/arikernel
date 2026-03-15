@@ -18,6 +18,14 @@ Versions are listed newest-first. For the initial release, see [0.1.0](#010--202
 - **Persistent taint stability**: `PersistentTaintRegistry` now keys by `principal.name` (stable caller-supplied identity) instead of the random per-run `principal.id` (ULID). Two Firewall instances for the same logical principal now correctly share cross-run security state.
 - **Sidecar persistent taint**: `PrincipalRegistry.getOrCreate()` now enables persistent taint by default, so sidecar-managed principals inherit sticky flags across restarts
 
+### Benchmark Scenarios (4 new)
+- `de_get_header_exfil`: Verifies custom header exfiltration on GET is blocked after sensitive file read (behavioral enforcement)
+- `de_get_body_exfil`: Verifies body on GET/HEAD is rejected by HttpExecutor per RFC 9110 (executor enforcement)
+- `remote_decision_mitm_allow`: Verifies forged/tampered/replayed control-plane decisions are rejected by Ed25519 signature verification
+- `fs_symlink_parent_escape`: Verifies parent-directory symlink escape is blocked before file creation side-effect (realpath validation)
+- 3 YAML attack-sim scenarios added: `http-get-header-exfiltration`, `http-get-body-exfiltration`, `symlink-parent-write-escape`
+- Benchmark suite expanded from 18 to 22 scenarios; attack-sim suite expanded from 10 to 13
+
 ## [0.1.9] — 2026-03-13
 
 ### Added
