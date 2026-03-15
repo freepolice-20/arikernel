@@ -61,8 +61,10 @@ const DB_WRITE_ACTIONS = ["write", "insert", "update", "create", "exec", "mutate
  * Build a database resource key that includes both database and table identity.
  * This prevents cross-database collisions where table names overlap.
  * Format: "db:<database>.<table>" or "db:<table>" if no database specified.
+ *
+ * Exported so the correlator can reuse the same canonical key format.
  */
-function buildDbResourceKey(database: string | undefined, table: string): string {
+export function buildDbResourceKey(database: string | undefined, table: string): string {
 	if (database) {
 		return `db:${database}.${table}`;
 	}

@@ -213,6 +213,13 @@ export interface SidecarConfig {
 	 */
 	controlPlaneTimeoutMs?: number;
 	/**
+	 * Hex-encoded Ed25519 public key of the control plane (64 hex chars / 32 bytes).
+	 * When provided, the sidecar verifies Ed25519 signatures and nonces on every
+	 * decision receipt from the control plane. Invalid or replayed receipts cause
+	 * fail-closed denial. Strongly recommended for production deployments.
+	 */
+	controlPlanePublicKey?: string;
+	/**
 	 * Path to TLS certificate file (PEM format). When both tlsCert and
 	 * tlsKey are provided, the sidecar serves HTTPS instead of HTTP.
 	 */

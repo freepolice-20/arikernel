@@ -20,7 +20,7 @@ import {
 } from "@arikernel/core";
 import type { PolicyEngine } from "@arikernel/policy-engine";
 import type { TaintTracker } from "@arikernel/taint-tracker";
-import type { ExecutorRegistry } from "@arikernel/tool-executors";
+import { type ExecutorRegistry, SAFE_GET_HEADERS } from "@arikernel/tool-executors";
 import { applyBehavioralRule, evaluateBehavioralRules } from "./behavioral-rules.js";
 import { validateCommand } from "./command-security.js";
 import type { SecurityMode } from "./config.js";
@@ -214,6 +214,44 @@ export class Pipeline {
 								? "behavioral rule triggered by suspicious GET exfiltration"
 								: "behavioral rule triggered by egress attempt",
 						);
+					}
+				}
+
+				// After a sensitive read or in a tainted run, custom headers on GET/HEAD
+				// are a potential exfil vector (secrets smuggled in X-Data, X-Payload, etc.).
+				// Only standard browser/HTTP headers are permitted.
+				if (
+					!isWriteEgress &&
+					(toolCall.action === "get" || toolCall.action === "head") &&
+					this.runState.sensitiveReadObserved
+				) {
+					const headers = toolCall.parameters.headers as
+						| Record<string, string>
+						| undefined;
+					if (headers) {
+						const customHeaders = Object.keys(headers).filter(
+							(h) => !SAFE_GET_HEADERS.has(h.toLowerCase()),
+						);
+						if (customHeaders.length > 0) {
+							this.runState.recordEgressAttempt();
+							this.runState.pushEvent({
+								timestamp: toolCall.timestamp,
+								type: "egress_attempt",
+								toolClass: toolCall.toolClass,
+								action: toolCall.action,
+								metadata: {
+									url: toolCall.parameters.url,
+									customHeaders,
+									reason: "custom headers on GET/HEAD after sensitive read",
+								},
+							});
+							this.denyQuarantinedAction(
+								toolCall,
+								`Custom headers on HTTP ${toolCall.action.toUpperCase()} blocked in security-sensitive context. ` +
+									`Non-standard headers [${customHeaders.join(", ")}] can exfiltrate data. ` +
+									`Only standard headers are allowed after sensitive reads.`,
+							);
+						}
 					}
 				}
 			}

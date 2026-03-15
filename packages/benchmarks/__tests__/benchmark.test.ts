@@ -23,8 +23,8 @@ afterEach(() => {
 });
 
 describe("SCENARIOS registry", () => {
-	it("exports 18 scenarios", () => {
-		expect(SCENARIOS).toHaveLength(18);
+	it("exports 22 scenarios", () => {
+		expect(SCENARIOS).toHaveLength(22);
 	});
 
 	it("each scenario has unique id", () => {
@@ -49,13 +49,13 @@ describe("SCENARIOS registry", () => {
 });
 
 describe("benchmark — all attacks blocked", () => {
-	it("blocks or mitigates all 18 attack scenarios", async () => {
+	it("blocks or mitigates all 22 attack scenarios", async () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
 		const { results, summary } = await benchmark(dir);
 
-		expect(results).toHaveLength(18);
+		expect(results).toHaveLength(22);
 
 		for (const r of results) {
 			expect(["BLOCKED", "PARTIAL"]).toContain(r.verdict);
@@ -66,7 +66,7 @@ describe("benchmark — all attacks blocked", () => {
 
 		// No attacks should be fully allowed
 		expect(summary.attacksAllowed).toBe(0);
-		expect(summary.attacksBlocked + summary.attacksPartial).toBe(18);
+		expect(summary.attacksBlocked + summary.attacksPartial).toBe(22);
 	});
 
 	it("reports correct enforcement mechanisms", async () => {
@@ -196,5 +196,49 @@ describe("individual scenarios", () => {
 		expect(["BLOCKED", "PARTIAL"]).toContain(result.verdict);
 		expect(result.wasQuarantined).toBe(true);
 		expect(result.enforcementMechanism).toBe("behavioral");
+	});
+
+	it("GET custom header exfil blocked after sensitive read", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
+		const scenario = SCENARIOS.find((s) => s.id === "de_get_header_exfil")!;
+		const result = await scenario.run(join(dir, "get_header.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("behavioral");
+	});
+
+	it("GET body exfil blocked by executor RFC 9110 check", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
+		const scenario = SCENARIOS.find((s) => s.id === "de_get_body_exfil")!;
+		const result = await scenario.run(join(dir, "get_body.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("capability");
+	});
+
+	it("remote decision MITM forged allow rejected by signature verification", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
+		const scenario = SCENARIOS.find((s) => s.id === "remote_decision_mitm_allow")!;
+		const result = await scenario.run(join(dir, "mitm.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("capability");
+	});
+
+	it("symlink parent write escape blocked by realpath validation", async () => {
+		const dir = tempDir();
+		dirs.push(dir);
+
+		// biome-ignore lint/style/noNonNullAssertion: scenario ID is a known constant
+		const scenario = SCENARIOS.find((s) => s.id === "fs_symlink_parent_escape")!;
+		const result = await scenario.run(join(dir, "symlink.db"));
+		expect(result.verdict).toBe("BLOCKED");
+		expect(result.enforcementMechanism).toBe("capability");
 	});
 });

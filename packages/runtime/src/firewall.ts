@@ -148,11 +148,14 @@ export class Firewall {
 		this._hooks = options.hooks ?? {};
 		this._runState = new RunStateTracker(options.runStatePolicy);
 
-		// Initialize persistent cross-run taint tracking
+		// Initialize persistent cross-run taint tracking.
+		// Key by principal.name (the stable caller-supplied identity) rather than
+		// principal.id (a random ULID generated per Firewall instance). This ensures
+		// that two runs for the same logical principal share persistent state.
 		if (options.persistentTaint?.enabled) {
 			this._persistentTaint = new PersistentTaintRegistry(
 				this.auditStore,
-				this.principal.id,
+				this.principal.name,
 				options.persistentTaint,
 			);
 			// Restore sticky flags from prior runs for this principal

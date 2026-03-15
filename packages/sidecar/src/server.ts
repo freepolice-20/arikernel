@@ -84,6 +84,7 @@ export class SidecarServer {
 				controlPlaneUrl: config.controlPlaneUrl,
 				controlPlaneAuthToken: config.controlPlaneAuthToken,
 				controlPlaneTimeoutMs: config.controlPlaneTimeoutMs,
+				controlPlanePublicKey: config.controlPlanePublicKey,
 			});
 		}
 

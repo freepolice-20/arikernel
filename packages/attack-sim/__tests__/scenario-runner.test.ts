@@ -69,9 +69,9 @@ describe("ACTION_MAP", () => {
 // ── Scenario loading ─────────────────────────────────────────────────
 
 describe("loadBuiltinScenarios", () => {
-	it("loads all 5 built-in scenarios", () => {
+	it("loads all built-in scenarios", () => {
 		const scenarios = loadBuiltinScenarios();
-		expect(scenarios.length).toBe(10);
+		expect(scenarios.length).toBe(13);
 	});
 
 	it("each scenario has name, steps, and expected outcome", () => {
@@ -98,7 +98,7 @@ describe("loadScenarioFile", () => {
 describe("loadScenarioDirectory", () => {
 	it("loads all YAML files from the built-in directory", () => {
 		const scenarios = loadScenarioDirectory(BUILTIN_SCENARIOS_DIR);
-		expect(scenarios.length).toBe(10);
+		expect(scenarios.length).toBe(13);
 	});
 });
 
@@ -116,10 +116,12 @@ describe("runScenarioFile", () => {
 describe("runScenarioDirectory", () => {
 	it("executes all built-in scenarios", async () => {
 		const results = await runScenarioDirectory(BUILTIN_SCENARIOS_DIR);
-		expect(results.length).toBe(10);
+		expect(results.length).toBe(13);
 		// All policy-enforced scenarios should be blocked by safe-defaults.
 		// path_ambiguity_bypass requires file executor path constraints (not sim-enforced).
-		const policyEnforced = results.filter((r) => r.scenario.name !== "path_ambiguity_bypass");
+		// http_get_body_exfiltration requires executor-level enforcement (not policy).
+		const notPolicyEnforced = new Set(["path_ambiguity_bypass", "http_get_body_exfiltration"]);
+		const policyEnforced = results.filter((r) => !notPolicyEnforced.has(r.scenario.name));
 		for (const r of policyEnforced) {
 			expect(r.blocked).toBe(true);
 		}

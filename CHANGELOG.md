@@ -5,6 +5,19 @@ Versions are listed newest-first. For the initial release, see [0.1.0](#010--202
 
 ---
 
+## [0.1.10] — 2026-03-15
+
+### Security Hardening
+- **Sidecar receipt verification**: `DecisionDelegate` now verifies Ed25519 signatures and response nonces on every control-plane decision receipt when `controlPlanePublicKey` is configured. Invalid signatures, tampered fields, and replayed nonces cause fail-closed denial.
+- Added `controlPlanePublicKey` config to `SidecarConfig` and `RemoteDecisionConfig`
+- `RemoteDecision` interface now includes `decisionId`, `policyHash`, and `kernelBuild` fields
+- Wired existing `DecisionVerifier` and `NonceStore` from `@arikernel/control-plane` into the sidecar
+- **HTTP GET/HEAD body rejection**: `HttpExecutor` now rejects GET/HEAD requests carrying a request body (RFC 9110 §9.3.1/§9.3.2). Bodies on bodyless methods are a semantic violation and a potential exfiltration vector.
+- **Custom header exfiltration prevention**: After a confirmed sensitive file read, GET/HEAD requests with non-standard headers (X-*, custom) are denied. Standard browser headers (Accept, User-Agent, Cache-Control, etc.) remain allowed. Prevents secret smuggling via custom header values.
+- Exported `SAFE_GET_HEADERS` allowlist from `@arikernel/tool-executors` for reuse in pipeline enforcement
+- **Persistent taint stability**: `PersistentTaintRegistry` now keys by `principal.name` (stable caller-supplied identity) instead of the random per-run `principal.id` (ULID). Two Firewall instances for the same logical principal now correctly share cross-run security state.
+- **Sidecar persistent taint**: `PrincipalRegistry.getOrCreate()` now enables persistent taint by default, so sidecar-managed principals inherit sticky flags across restarts
+
 ## [0.1.9] — 2026-03-13
 
 ### Added
@@ -77,7 +90,7 @@ Versions are listed newest-first. For the initial release, see [0.1.0](#010--202
 
 ### Security Hardening
 - **Canonicalized shared resource keys**: SharedTaintRegistry and CrossPrincipalCorrelator now normalize file paths (NFKC + resolve) and database identifiers (lowercase) to prevent case/path mismatch bypass in cross-principal taint tracking
-- **Structured database parameters required**: DatabaseExecutor rejects raw SQL queries without explicit `table` field, preventing shared-store taint tracking bypass
+- **Structured database parameters required**: DatabaseExecutor (MVP stub) rejects calls without explicit `table` field, preventing shared-store taint tracking bypass. The executor validates and audits but does not connect to real databases.
 - **CP-3 noise reduction**: Added `cp3.allowHosts`, `cp3.suppressHosts`, and `cp3.dedupeWindowMs` config to reduce false positives on shared APIs; enriched CP-3 alerts with hostname and sensitive-read metadata
 - **Safe-regex validation at policy load**: Policy rules with nested-quantifier regex patterns (ReDoS risk) are rejected at load time via `validatePolicyRegexSafety()`
 - **Recursive DLP scanning**: Output filter now traverses nested objects, arrays, and structured tool results — not just top-level strings

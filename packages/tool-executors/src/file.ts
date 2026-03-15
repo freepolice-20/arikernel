@@ -137,6 +137,29 @@ export class FileExecutor implements ToolExecutor {
 						throw new Error(`Path traversal blocked: ${filePath} is outside allowed root`);
 					}
 
+					// SECURITY: Validate the parent directory's realpath BEFORE open/create.
+					// O_CREAT creates the file as a side effect of open(). If a parent
+					// directory component is a symlink that escapes the allowed root, we
+					// must refuse before the kernel creates anything.
+					const parentDir = path.dirname(resolved);
+					try {
+						const realParent = await realpath(parentDir);
+						const realRoot = await realpath(allowedRoot);
+						if (!realParent.startsWith(realRoot + path.sep) && realParent !== realRoot) {
+							throw new Error(
+								`Parent directory escapes allowed root via symlink: ${filePath}`,
+							);
+						}
+					} catch (err) {
+						if (
+							err instanceof Error &&
+							err.message.startsWith("Parent directory escapes")
+						) {
+							throw err;
+						}
+						// Parent doesn't exist — open() will fail with ENOENT, which is fine
+					}
+
 					const handle = await open(resolved, writeFlags, 0o644);
 					try {
 						// Post-open validation: same checks as secureOpen (read path)

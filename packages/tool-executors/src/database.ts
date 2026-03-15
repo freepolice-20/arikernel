@@ -3,10 +3,15 @@ import type { ToolExecutor } from "./base.js";
 import { makeResult } from "./base.js";
 
 /**
- * SECURITY: Require structured database parameters (table, database) rather than
- * allowing raw SQL strings. Raw SQL bypasses cross-principal shared-store tracking
- * because the SharedTaintRegistry relies on explicit table/database fields to
- * identify shared resources. Without structured params, taint propagation fails.
+ * MVP stub database executor.
+ *
+ * Validates structured parameters and audits intent but does NOT connect to
+ * real databases or execute queries. Production deployments must implement a
+ * custom executor with actual database adapters.
+ *
+ * SECURITY: Requires an explicit `table` parameter on every call so the
+ * cross-principal SharedTaintRegistry can build canonical resource keys.
+ * Without `table`, taint propagation across principals is impossible.
  */
 
 export class DatabaseExecutor implements ToolExecutor {
@@ -21,31 +26,30 @@ export class DatabaseExecutor implements ToolExecutor {
 			connectionString?: string;
 		};
 
-		// SECURITY: Require explicit table field for cross-principal taint tracking.
-		// Raw SQL-only queries bypass SharedTaintRegistry resource key extraction.
+		// Require explicit table — the minimum structured metadata for safe scoping.
+		// database-only or query-only calls are ambiguous and bypass taint tracking.
 		if (!table) {
-			if (query && !database) {
-				const result = makeResult(
-					toolCall.id,
-					false,
-					start,
-					undefined,
-					"Database calls require an explicit 'table' parameter for cross-principal " +
-						"taint tracking. Raw SQL without structured metadata is rejected. " +
-						"Provide { table: 'name', ... } in parameters.",
-				);
-				return { ...result, taintLabels: [] };
-			}
+			const result = makeResult(
+				toolCall.id,
+				false,
+				start,
+				undefined,
+				"Database calls require an explicit 'table' parameter. " +
+					"The stub executor uses structured metadata (table, database) for " +
+					"cross-principal taint tracking and policy scoping. " +
+					"Raw SQL or database-only calls without 'table' are rejected.",
+			);
+			return { ...result, taintLabels: [] };
 		}
 
-		// MVP: stub executor that logs intent but does not connect
-		// Real implementation will support SQLite, Postgres via adapters
+		// MVP stub: logs intent, does not connect or execute
 		const result = makeResult(toolCall.id, true, start, {
 			table,
-			database,
+			database: database ?? undefined,
 			query: query ?? undefined,
 			connectionString: connectionString ? "[redacted]" : undefined,
-			note: "Database executor is a stub in MVP. Query was validated but not executed.",
+			note: "Database executor is a stub — query was validated and audited but not executed. " +
+				"Implement a custom executor for real database connectivity.",
 			rows: [],
 		});
 

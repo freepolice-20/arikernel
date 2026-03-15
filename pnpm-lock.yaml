@@ -154,6 +154,9 @@ importers:
       '@arikernel/audit-log':
         specifier: workspace:*
         version: link:../audit-log
+      '@arikernel/control-plane':
+        specifier: workspace:*
+        version: link:../control-plane
       '@arikernel/core':
         specifier: workspace:*
         version: link:../core
@@ -312,6 +315,9 @@ importers:
 
   packages/sidecar:
     dependencies:
+      '@arikernel/control-plane':
+        specifier: workspace:*
+        version: link:../control-plane
       '@arikernel/core':
         specifier: workspace:*
         version: link:../core

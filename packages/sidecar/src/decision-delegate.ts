@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
 import type { DecisionVerdict, TaintLabel, ToolClass } from "@arikernel/core";
+import {
+	DecisionVerifier,
+	NonceStore,
+	type DecisionResponse,
+} from "@arikernel/control-plane";
 
 /**
  * Decision mode: local evaluation (default) or remote via control plane.
@@ -15,6 +20,9 @@ export interface RemoteDecision {
 	signature: string;
 	nonce: string;
 	policyVersion: string;
+	decisionId: string;
+	policyHash: string;
+	kernelBuild: string;
 	taintLabels: TaintLabel[];
 }
 
@@ -28,6 +36,13 @@ export interface RemoteDecisionConfig {
 	controlPlaneAuthToken?: string;
 	/** Request timeout in milliseconds. Default: 5000 */
 	controlPlaneTimeoutMs?: number;
+	/**
+	 * Hex-encoded Ed25519 public key of the control plane (64 hex chars / 32 bytes).
+	 * When provided, the delegate verifies the Ed25519 signature and nonce on every
+	 * decision receipt. Verification failure causes the request to fail closed (return null).
+	 * Strongly recommended for production deployments.
+	 */
+	controlPlanePublicKey?: string;
 }
 
 /**
@@ -35,11 +50,14 @@ export interface RemoteDecisionConfig {
  *
  * Called by the sidecar router before local execution when decisionMode is 'remote'.
  * If the control plane denies the call, the sidecar short-circuits without executing.
+ * When a public key is configured, every response is verified before being trusted.
  */
 export class DecisionDelegate {
 	private readonly endpoint: string;
 	private readonly headers: Record<string, string>;
 	private readonly timeoutMs: number;
+	private readonly verifier: DecisionVerifier | undefined;
+	private readonly nonceStore: NonceStore | undefined;
 
 	constructor(config: RemoteDecisionConfig) {
 		this.endpoint = config.controlPlaneUrl.replace(/\/$/, "");
@@ -48,11 +66,20 @@ export class DecisionDelegate {
 		if (config.controlPlaneAuthToken) {
 			this.headers.Authorization = `Bearer ${config.controlPlaneAuthToken}`;
 		}
+		if (config.controlPlanePublicKey) {
+			this.verifier = new DecisionVerifier(config.controlPlanePublicKey);
+			this.nonceStore = new NonceStore();
+		}
 	}
 
 	/**
 	 * Request a policy decision from the remote control plane.
-	 * Returns null if the control plane is unreachable (fail-open is caller's choice).
+	 *
+	 * When a public key is configured, the response is verified against the
+	 * Ed25519 signature and nonce before being returned. Verification failure
+	 * returns null (fail closed — caller treats as unreachable).
+	 *
+	 * Returns null if the control plane is unreachable or verification fails.
 	 */
 	async requestDecision(params: {
 		principalId: string;
@@ -79,8 +106,27 @@ export class DecisionDelegate {
 				return null;
 			}
 
-			const data = (await res.json()) as RemoteDecision;
-			return data;
+			const data = (await res.json()) as DecisionResponse;
+
+			// Verify receipt integrity when public key is configured
+			if (this.verifier) {
+				const valid = this.verifier.verify(data, this.nonceStore);
+				if (!valid) {
+					return null;
+				}
+			}
+
+			return {
+				verdict: data.decision,
+				reason: data.reason,
+				signature: data.signature,
+				nonce: data.nonce,
+				policyVersion: data.policyVersion,
+				decisionId: data.decisionId,
+				policyHash: data.policyHash,
+				kernelBuild: data.kernelBuild,
+				taintLabels: data.taintLabels,
+			};
 		} catch {
 			// Control plane unreachable — caller decides whether to fail open or closed
 			return null;
