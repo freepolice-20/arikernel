@@ -207,6 +207,7 @@ export class PrincipalRegistry {
 			securityMode: this.securityMode,
 			hooks,
 			tokenStore,
+			persistentTaint: { enabled: true },
 		});
 
 		attachExecutors(firewall);

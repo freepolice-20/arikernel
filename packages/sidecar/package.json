@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@arikernel/core": "workspace:*",
+		"@arikernel/control-plane": "workspace:*",
 		"@arikernel/runtime": "workspace:*",
 		"@arikernel/tool-executors": "workspace:*",
 		"@arikernel/policy-engine": "workspace:*"

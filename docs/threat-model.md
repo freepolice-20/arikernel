@@ -112,7 +112,7 @@ Mitigated by: per-principal and global rate limiting, concurrent execution limit
 | **Filesystem secrets** (SSH keys, `.env`, credentials) | Path constraints (`allowedPaths`), symlink resolution (O_NOFOLLOW + fstat + realpath), sensitive path detection triggering behavioral rules |
 | **API credentials** | Behavioral rule `secret_access_then_any_egress` detects credential access followed by egress; quarantine blocks exfiltration |
 | **Internal network access** | Host constraints (`allowedHosts`), SSRF mitigation in HTTP executor (private IP blocking, redirect validation) |
-| **Database contents** | Database constraints (`allowedDatabases`), taint-aware `tainted_database_write` rule blocks injection from untrusted input |
+| **Database contents** | Database constraints (`allowedDatabases`) scope tool-call-level access; `tainted_database_write` behavioral rule blocks tainted mutations before they reach the executor. **Note:** The DB executor is an MVP stub — it validates and audits but does not connect to real databases. No row-level, table-level, or query-level enforcement exists yet. |
 | **Outbound egress channels** | Capability scoping (separate read/write grants), behavioral rules detect staging-then-exfil patterns |
 | **Audit integrity** | SHA-256 hash chain provides local tamper evidence; chain break detected on replay |
 | **Policy integrity** | Policy loaded at initialization; no runtime API for agents to modify policy rules; sidecar mode process-isolates policy state |
@@ -202,7 +202,7 @@ The following attack patterns are within Ari Kernel's defensive scope:
 | Shell abuse through mediated executors | `allowedCommands` constraint; metacharacter rejection; direct spawn (`shell: false`) |
 | Path traversal / symlink TOCTOU | O_NOFOLLOW at open + fstat validation + realpath check after open |
 | Capability misuse within enforcement boundary | Token scoping (time, usage, principal binding); constraint intersection on delegation |
-| SQL injection from untrusted input | Behavioral rule `tainted_database_write` blocks tainted DB mutations |
+| SQL injection from untrusted input | Behavioral rule `tainted_database_write` blocks tainted DB mutations at the tool-call level (before executor). Does not inspect SQL queries — real SQL injection prevention requires a production DB adapter. |
 | Privilege escalation probing | Behavioral rule `denied_capability_then_escalation` → quarantine |
 | Credential theft + exfiltration | Behavioral rule `secret_access_then_any_egress` → quarantine |
 | Sidecar principal spoofing | API key → principalId binding; mismatched body `principalId` rejected |

@@ -1,6 +1,7 @@
 import { normalize, resolve } from "node:path";
 import type { AuditEvent } from "@arikernel/core";
 import { generateId, now } from "@arikernel/core";
+import { buildDbResourceKey } from "./shared-taint-registry.js";
 
 /**
  * Configuration for the cross-principal correlator.
@@ -77,6 +78,9 @@ const SHARED_READ_ACTIONS = new Set(["query", "read", "select", "get"]);
 /**
  * Extract a canonical resource key from a tool event for correlation.
  * Returns null if the event doesn't target an identifiable shared resource.
+ *
+ * Database keys use buildDbResourceKey (shared with SharedTaintRegistry) so that
+ * db1.users and db2.users are treated as different resources everywhere.
  */
 function extractResourceKey(
 	toolClass: string,
@@ -85,8 +89,13 @@ function extractResourceKey(
 ): string | null {
 	if (toolClass === "database") {
 		const table = params?.table as string | undefined;
-		if (table) return `db:${table.normalize("NFKC").toLowerCase()}`;
 		const database = params?.database as string | undefined;
+		if (table) {
+			const key = buildDbResourceKey(database, table);
+			// Canonicalize: NFKC + lowercase (matches SharedTaintRegistry's canonicalizeResourceKey)
+			return `db:${key.slice(3).normalize("NFKC").toLowerCase()}`;
+		}
+		// No table — key by database alone (fallback for schema-level operations)
 		if (database) return `db:${database.normalize("NFKC").toLowerCase()}`;
 	}
 	if (toolClass === "file") {

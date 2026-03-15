@@ -30,11 +30,14 @@ function startCaptureServer(port: number): Promise<{
 				res.writeHead(200, { "Content-Type": "application/json" });
 				res.end(
 					JSON.stringify({
-						verdict: "allow",
+						decision: "allow",
 						reason: "test",
 						signature: "a".repeat(128),
 						nonce: "b".repeat(32),
 						policyVersion: "1.0.0",
+						decisionId: "dec-test-00000000",
+						policyHash: "0000000000000000",
+						kernelBuild: "test",
 						taintLabels: [],
 					}),
 				);

@@ -572,7 +572,7 @@ Six rules evaluated after every security event push. No DSL, no graph engine —
 | `web_taint_sensitive_probe` | Web/rag/email taint → sensitive read, shell exec, or egress | Prompt injection → credential theft |
 | `denied_capability_then_escalation` | Denied capability → request for riskier class (risk: http=1 < database=2 < file=3 < shell=5) | Automated privilege escalation |
 | `sensitive_read_then_egress` | Sensitive file read → outbound POST/PUT/PATCH | Data exfiltration sequences |
-| `tainted_database_write` | Web/rag/email taint → database write/exec/mutate | Tainted SQL injection |
+| `tainted_database_write` | Web/rag/email taint → database write/exec/mutate | Tainted DB mutation (tool-call-level block; DB executor is MVP stub) |
 | `tainted_shell_with_data` | Web/rag/email taint → shell exec with long command string (>100 chars) | Data piping via shell arguments |
 | `secret_access_then_any_egress` | Secret/credential resource access (DB queries to secrets tables, HTTP to vault endpoints) → any egress | Credential theft |
 

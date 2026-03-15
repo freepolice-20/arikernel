@@ -14,7 +14,8 @@
 	"dependencies": {
 		"@arikernel/core": "workspace:*",
 		"@arikernel/runtime": "workspace:*",
-		"@arikernel/audit-log": "workspace:*"
+		"@arikernel/audit-log": "workspace:*",
+		"@arikernel/control-plane": "workspace:*"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.2",

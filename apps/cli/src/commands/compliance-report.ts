@@ -2,12 +2,22 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+/**
+ * Protection status reflects actual enforcement state, not just package presence.
+ *
+ * - "enabled"        — always-on code path, no configuration needed
+ * - "configured"     — config detected that activates this protection
+ * - "not-configured" — protection requires configuration that was not found
+ * - "unavailable"    — required package/infrastructure not present
+ */
+export type ProtectionStatus = "enabled" | "configured" | "not-configured" | "unavailable";
+
 export interface ComplianceReport {
 	generatedAt: string;
 	kernelVersion: string;
 	deployment: {
 		mode: string;
-		controlPlaneEnabled: boolean;
+		controlPlaneConfigured: boolean;
 		sidecarAuthMode: string;
 	};
 	policy: {
@@ -16,16 +26,16 @@ export interface ComplianceReport {
 		hash: string | null;
 	};
 	protections: {
-		taintTracking: boolean;
-		behavioralRules: boolean;
-		auditLogging: boolean;
-		signedReceipts: boolean;
-		replayProtection: boolean;
-		outputFiltering: boolean;
-		ssrfProtection: boolean;
-		pathTraversal: boolean;
-		capabilityTokens: boolean;
-		quarantine: boolean;
+		taintTracking: ProtectionStatus;
+		behavioralRules: ProtectionStatus;
+		auditLogging: ProtectionStatus;
+		signedReceipts: ProtectionStatus;
+		replayProtection: ProtectionStatus;
+		outputFiltering: ProtectionStatus;
+		ssrfProtection: ProtectionStatus;
+		pathTraversal: ProtectionStatus;
+		capabilityTokens: ProtectionStatus;
+		quarantine: ProtectionStatus;
 	};
 	benchmarkSummary: {
 		available: boolean;
@@ -39,16 +49,6 @@ export interface ComplianceReport {
 		scenariosFound: number;
 	};
 }
-
-const PROTECTION_PACKAGES = [
-	"@arikernel/core",
-	"@arikernel/runtime",
-	"@arikernel/policy-engine",
-	"@arikernel/taint-tracker",
-	"@arikernel/audit-log",
-	"@arikernel/control-plane",
-	"@arikernel/sidecar",
-];
 
 function findPolicyFiles(basePath: string): string[] {
 	const candidates = [
@@ -65,7 +65,8 @@ function hashFile(path: string): string {
 	return createHash("sha256").update(content).digest("hex").slice(0, 16);
 }
 
-function detectDeploymentMode(basePath: string): string {
+/** Read config file content, returning null if not found. */
+function readConfigContent(basePath: string): string | null {
 	const configFiles = [
 		resolve(basePath, "arikernel.config.json"),
 		resolve(basePath, "arikernel.config.yaml"),
@@ -73,31 +74,24 @@ function detectDeploymentMode(basePath: string): string {
 	for (const f of configFiles) {
 		if (existsSync(f)) {
 			try {
-				const content = readFileSync(f, "utf-8");
-				if (content.includes('"secure"') || content.includes("secure")) return "secure";
+				return readFileSync(f, "utf-8");
 			} catch {
 				/* ignore */
 			}
 		}
+	}
+	return null;
+}
+
+function detectDeploymentMode(configContent: string | null): string {
+	if (configContent) {
+		if (configContent.includes('"secure"') || configContent.includes("secure")) return "secure";
 	}
 	return "dev";
 }
 
-function detectSidecarAuth(basePath: string): string {
-	const configFiles = [
-		resolve(basePath, "arikernel.config.json"),
-		resolve(basePath, "arikernel.config.yaml"),
-	];
-	for (const f of configFiles) {
-		if (existsSync(f)) {
-			try {
-				const content = readFileSync(f, "utf-8");
-				if (content.includes("authToken")) return "bearer-token";
-			} catch {
-				/* ignore */
-			}
-		}
-	}
+function detectSidecarAuth(configContent: string | null): string {
+	if (configContent && configContent.includes("authToken")) return "bearer-token";
 	return "none (dev mode)";
 }
 
@@ -114,10 +108,67 @@ function countAttackScenarios(basePath: string): number {
 	}
 }
 
+/**
+ * Detect whether the control plane is actually configured for use,
+ * not just whether the package exists in the monorepo.
+ */
+function detectControlPlaneConfigured(configContent: string | null): boolean {
+	if (!configContent) return false;
+	// Look for actual CP configuration: signing key, control plane URL, or public key
+	return (
+		configContent.includes("signingKey") ||
+		configContent.includes("controlPlaneUrl") ||
+		configContent.includes("controlPlanePublicKey")
+	);
+}
+
+/**
+ * Detect whether signed receipt verification is configured.
+ * Requires both a signing key (CP side) and public key (sidecar side),
+ * or at minimum one of them in the config.
+ */
+function detectSignedReceipts(configContent: string | null): ProtectionStatus {
+	if (!configContent) return "not-configured";
+	const hasSigningKey = configContent.includes("signingKey");
+	const hasPublicKey = configContent.includes("controlPlanePublicKey");
+	if (hasSigningKey && hasPublicKey) return "configured";
+	if (hasSigningKey || hasPublicKey) return "configured";
+	return "not-configured";
+}
+
+/**
+ * Detect whether behavioral rules are configured.
+ * Requires runStatePolicy with behavioralRules enabled.
+ */
+function detectBehavioralRules(configContent: string | null): ProtectionStatus {
+	if (!configContent) return "not-configured";
+	if (configContent.includes("behavioralRules")) return "configured";
+	// Presets may enable behavioral rules implicitly
+	if (configContent.includes("preset")) return "configured";
+	return "not-configured";
+}
+
+/**
+ * Detect capability token enforcement mode.
+ * Requires securityMode: "secure" or a signingKey.
+ */
+function detectCapabilityTokens(configContent: string | null): ProtectionStatus {
+	if (!configContent) return "not-configured";
+	if (
+		configContent.includes('"secure"') ||
+		configContent.includes("securityMode: secure") ||
+		configContent.includes("signingKey")
+	) {
+		return "configured";
+	}
+	return "not-configured";
+}
+
 export function generateComplianceReport(basePath: string): ComplianceReport {
 	const policyFiles = findPolicyFiles(basePath);
-	const mode = detectDeploymentMode(basePath);
-	const sidecarAuth = detectSidecarAuth(basePath);
+	const configContent = readConfigContent(basePath);
+	const mode = detectDeploymentMode(configContent);
+	const sidecarAuth = detectSidecarAuth(configContent);
 
 	let policyHash: string | null = null;
 	let policyVersion: string | null = null;
@@ -145,12 +196,17 @@ export function generateComplianceReport(basePath: string): ComplianceReport {
 		/* ignore */
 	}
 
+	// Signed receipts and replay protection require both CP package and config
+	const signedReceiptsStatus: ProtectionStatus = cpPkgExists
+		? detectSignedReceipts(configContent)
+		: "unavailable";
+
 	return {
 		generatedAt: new Date().toISOString(),
 		kernelVersion,
 		deployment: {
 			mode,
-			controlPlaneEnabled: cpPkgExists,
+			controlPlaneConfigured: detectControlPlaneConfigured(configContent),
 			sidecarAuthMode: sidecarAuth,
 		},
 		policy: {
@@ -159,16 +215,19 @@ export function generateComplianceReport(basePath: string): ComplianceReport {
 			hash: policyHash,
 		},
 		protections: {
-			taintTracking: true,
-			behavioralRules: true,
-			auditLogging: true,
-			signedReceipts: cpPkgExists,
-			replayProtection: cpPkgExists,
-			outputFiltering: true,
-			ssrfProtection: true,
-			pathTraversal: true,
-			capabilityTokens: true,
-			quarantine: true,
+			// Always-on: these are hardcoded in the executor/pipeline code paths
+			taintTracking: "enabled",
+			auditLogging: "enabled",
+			ssrfProtection: "enabled",
+			pathTraversal: "enabled",
+
+			// Config-dependent: require explicit setup
+			behavioralRules: detectBehavioralRules(configContent),
+			signedReceipts: signedReceiptsStatus,
+			replayProtection: signedReceiptsStatus, // tied to signed receipts
+			outputFiltering: "not-configured", // requires hooks.onOutputFilter registration
+			capabilityTokens: detectCapabilityTokens(configContent),
+			quarantine: detectBehavioralRules(configContent), // quarantine requires behavioral rules
 		},
 		benchmarkSummary: {
 			available: benchmarkPkgExists,
@@ -186,7 +245,18 @@ export function generateComplianceReport(basePath: string): ComplianceReport {
 
 function formatMarkdown(report: ComplianceReport): string {
 	const p = report.protections;
-	const check = (v: boolean) => (v ? "Yes" : "No");
+	const status = (v: ProtectionStatus) => {
+		switch (v) {
+			case "enabled":
+				return "Enabled (always-on)";
+			case "configured":
+				return "Configured";
+			case "not-configured":
+				return "Not configured";
+			case "unavailable":
+				return "Unavailable";
+		}
+	};
 
 	return `# AriKernel Compliance Report
 
@@ -198,7 +268,7 @@ Kernel Version: ${report.kernelVersion}
 | Setting | Value |
 |---------|-------|
 | Mode | ${report.deployment.mode} |
-| Control Plane | ${check(report.deployment.controlPlaneEnabled)} |
+| Control Plane | ${report.deployment.controlPlaneConfigured ? "Configured" : "Not configured"} |
 | Sidecar Auth | ${report.deployment.sidecarAuthMode} |
 
 ## Policy
@@ -211,24 +281,28 @@ Kernel Version: ${report.kernelVersion}
 
 ## Security Protections
 
-| Protection | Enabled |
-|------------|---------|
-| Taint Tracking | ${check(p.taintTracking)} |
-| Behavioral Rules | ${check(p.behavioralRules)} |
-| Audit Logging | ${check(p.auditLogging)} |
-| Signed Receipts | ${check(p.signedReceipts)} |
-| Replay Protection | ${check(p.replayProtection)} |
-| Output Filtering (DLP) | ${check(p.outputFiltering)} |
-| SSRF Protection | ${check(p.ssrfProtection)} |
-| Path Traversal Protection | ${check(p.pathTraversal)} |
-| Capability Tokens | ${check(p.capabilityTokens)} |
-| Quarantine | ${check(p.quarantine)} |
+| Protection | Status |
+|------------|--------|
+| Taint Tracking | ${status(p.taintTracking)} |
+| Behavioral Rules | ${status(p.behavioralRules)} |
+| Audit Logging | ${status(p.auditLogging)} |
+| Signed Receipts | ${status(p.signedReceipts)} |
+| Replay Protection | ${status(p.replayProtection)} |
+| Output Filtering (DLP) | ${status(p.outputFiltering)} |
+| SSRF Protection | ${status(p.ssrfProtection)} |
+| Path Traversal Protection | ${status(p.pathTraversal)} |
+| Capability Tokens | ${status(p.capabilityTokens)} |
+| Quarantine | ${status(p.quarantine)} |
+
+> **Note:** Protections marked "Enabled (always-on)" are hardcoded in executor/pipeline code.
+> Protections marked "Configured" were detected in your deployment configuration.
+> "Not configured" means the feature requires explicit setup. See deployment docs.
 
 ## Benchmark Coverage
 
 | Metric | Value |
 |--------|-------|
-| Available | ${check(report.benchmarkSummary.available)} |
+| Available | ${report.benchmarkSummary.available ? "Yes" : "No"} |
 | Total Scenarios | ${report.benchmarkSummary.totalScenarios ?? "—"} |
 | Blocked | ${report.benchmarkSummary.blocked ?? "—"} |
 | Partial | ${report.benchmarkSummary.partial ?? "—"} |
@@ -238,7 +312,7 @@ Kernel Version: ${report.kernelVersion}
 
 | Metric | Value |
 |--------|-------|
-| Available | ${check(report.attackSimulation.available)} |
+| Available | ${report.attackSimulation.available ? "Yes" : "No"} |
 | Scenarios Found | ${report.attackSimulation.scenariosFound} |
 `;
 }
@@ -262,7 +336,30 @@ export function runComplianceReport(options: {
 
 	// Default: human-readable summary
 	const p = report.protections;
-	const check = (v: boolean) => (v ? "✓" : "✗");
+	const icon = (v: ProtectionStatus) => {
+		switch (v) {
+			case "enabled":
+				return "✓";
+			case "configured":
+				return "✓";
+			case "not-configured":
+				return "○";
+			case "unavailable":
+				return "✗";
+		}
+	};
+	const label = (v: ProtectionStatus) => {
+		switch (v) {
+			case "enabled":
+				return "(always-on)";
+			case "configured":
+				return "(configured)";
+			case "not-configured":
+				return "(not configured)";
+			case "unavailable":
+				return "(unavailable)";
+		}
+	};
 
 	console.log("=== AriKernel Compliance Report ===\n");
 	console.log(`Kernel Version:    ${report.kernelVersion}`);
@@ -271,7 +368,7 @@ export function runComplianceReport(options: {
 	console.log("\n--- Deployment ---");
 	console.log(`Mode:              ${report.deployment.mode}`);
 	console.log(
-		`Control Plane:     ${report.deployment.controlPlaneEnabled ? "enabled" : "disabled"}`,
+		`Control Plane:     ${report.deployment.controlPlaneConfigured ? "configured" : "not configured"}`,
 	);
 	console.log(`Sidecar Auth:      ${report.deployment.sidecarAuthMode}`);
 
@@ -287,16 +384,16 @@ export function runComplianceReport(options: {
 	}
 
 	console.log("\n--- Security Protections ---");
-	console.log(`  ${check(p.taintTracking)} Taint Tracking`);
-	console.log(`  ${check(p.behavioralRules)} Behavioral Rules`);
-	console.log(`  ${check(p.auditLogging)} Audit Logging`);
-	console.log(`  ${check(p.signedReceipts)} Signed Receipts`);
-	console.log(`  ${check(p.replayProtection)} Replay Protection`);
-	console.log(`  ${check(p.outputFiltering)} Output Filtering (DLP)`);
-	console.log(`  ${check(p.ssrfProtection)} SSRF Protection`);
-	console.log(`  ${check(p.pathTraversal)} Path Traversal Protection`);
-	console.log(`  ${check(p.capabilityTokens)} Capability Tokens`);
-	console.log(`  ${check(p.quarantine)} Quarantine`);
+	console.log(`  ${icon(p.taintTracking)} Taint Tracking ${label(p.taintTracking)}`);
+	console.log(`  ${icon(p.behavioralRules)} Behavioral Rules ${label(p.behavioralRules)}`);
+	console.log(`  ${icon(p.auditLogging)} Audit Logging ${label(p.auditLogging)}`);
+	console.log(`  ${icon(p.signedReceipts)} Signed Receipts ${label(p.signedReceipts)}`);
+	console.log(`  ${icon(p.replayProtection)} Replay Protection ${label(p.replayProtection)}`);
+	console.log(`  ${icon(p.outputFiltering)} Output Filtering (DLP) ${label(p.outputFiltering)}`);
+	console.log(`  ${icon(p.ssrfProtection)} SSRF Protection ${label(p.ssrfProtection)}`);
+	console.log(`  ${icon(p.pathTraversal)} Path Traversal Protection ${label(p.pathTraversal)}`);
+	console.log(`  ${icon(p.capabilityTokens)} Capability Tokens ${label(p.capabilityTokens)}`);
+	console.log(`  ${icon(p.quarantine)} Quarantine ${label(p.quarantine)}`);
 
 	console.log("\n--- Benchmark Coverage ---");
 	console.log(`  Available: ${report.benchmarkSummary.available ? "yes" : "no"}`);

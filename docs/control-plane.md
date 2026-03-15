@@ -215,10 +215,16 @@ const sidecar = new SidecarServer({
   controlPlaneUrl: "http://localhost:9090",
   controlPlaneAuthToken: "shared-secret",
   controlPlaneTimeoutMs: 5000,
+  controlPlanePublicKey: "<64-hex-char-ed25519-public-key>",
 });
 ```
 
-**Fail-closed behavior:** If the control plane is unreachable within the timeout window, the sidecar returns HTTP 503 and does not execute the tool call.
+**Receipt verification:** When `controlPlanePublicKey` is configured, the sidecar verifies the Ed25519 signature and response nonce on every decision receipt before trusting it. Invalid signatures, tampered fields, and replayed nonces all cause fail-closed denial. Strongly recommended for production deployments.
+
+**Fail-closed behavior:** The sidecar returns HTTP 503 and does not execute the tool call when:
+- The control plane is unreachable within the timeout window
+- Receipt signature verification fails (when public key is configured)
+- A replayed response nonce is detected
 
 ## Deployment
 

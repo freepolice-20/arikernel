@@ -447,8 +447,10 @@ Six built-in rules evaluate patterns against the event window after every pipeli
   Rule: tainted_database_write
   ─────────────────────────────
   taint_observed(web|rag|email)  ──►  database.{exec|mutate}
-  Detects: Tainted data written to database — SQL injection from
-           untrusted input.
+  Detects: Tainted data flowing toward database mutation — blocks the
+           tool call before it reaches the executor. This is a behavioral
+           heuristic, not SQL-level injection prevention. The DB executor
+           is an MVP stub; real query inspection requires a production adapter.
 
   Rule: tainted_shell_with_data
   ──────────────────────────────

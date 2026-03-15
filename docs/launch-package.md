@@ -62,9 +62,9 @@ pnpm ari replay --latest --verbose --db ./demo-audit.db
 
 Every event, every decision, every quarantine trigger — cryptographically chained and verified.
 
-### Post 4: Roadmap and Limitations
+### Post 4: What Ships Today
 
-Known limitations: in-memory token store, single-process embedded mode. Auto-taint covers HTTP, RAG, and MCP paths; other sources require manual labeling. Sidecar mode is implemented for mandatory enforcement with process isolation. The roadmap includes persistent tokens, TLS for the sidecar, and encrypted audit logs.
+Ari Kernel ships with sidecar mode for mandatory process-isolated enforcement, a centralized control plane with Ed25519-signed decision receipts, request replay protection, and persistent SQLite audit logs. Auto-taint covers HTTP, RAG, and MCP paths; other sources require manual labeling. The control plane supports multi-sidecar deployments with global taint correlation across agents. A benchmark suite validates 18 attack scenarios are blocked, and `arikernel compliance-report` generates evidence reports for security review.
 
 The core thesis: AI agents should never execute with ambient authority. Every tool call must pass through an enforcement boundary that validates capability tokens, checks data provenance, evaluates behavioral patterns, and logs a tamper-evident decision — before anything executes.
 

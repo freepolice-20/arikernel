@@ -93,7 +93,7 @@ For process-isolated enforcement, use [sidecar mode](#sidecar-mode-recommended-f
 
 ## Known Limitations in v0.1.0
 
-- **Database executor is a stub** — validates and audits calls but does not connect to real databases; cross-principal taint tracking for database tools works at the policy level but not end-to-end
+- **Database executor is an MVP stub** — validates structured parameters (`table` required) and audits calls but does not connect to real databases or execute queries. Cross-principal taint tracking works at the policy/metadata level. No row-level, table-level, or SQL-level enforcement exists. Production database protection requires implementing a custom executor.
 - **GlobalTaintRegistry has no TTL eviction** — taint entries persist via SQLite but accumulate without bound under high principal churn; not recommended for very high-volume deployments without periodic purging
 - **`path_ambiguity_bypass` benchmark scenario** — uses a stub executor and does not fully exercise `FileExecutor` path canonicalization end-to-end; documents the expected threat model
 

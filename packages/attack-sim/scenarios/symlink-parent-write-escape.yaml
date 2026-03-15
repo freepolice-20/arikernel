@@ -1,0 +1,15 @@
+scenario: symlink_parent_write_escape
+description: >
+  A parent directory inside the allowed root is a symlink that points to a
+  directory outside the root. Writing through this symlink would create a
+  file outside containment. The FileExecutor validates parent directory
+  realpath before open(O_CREAT), preventing any transient side-effect.
+expectedBlocked: true
+expectedQuarantined: false
+tags: [filesystem, symlink, containment, write-escape]
+
+steps:
+  - action: write_file
+    label: "Write through symlinked parent dir escaping allowed root"
+    path: /app/data/escape-link/exfiltrated.txt
+    body: "sensitive data written outside containment"

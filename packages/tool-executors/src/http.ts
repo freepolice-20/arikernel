@@ -13,6 +13,34 @@ const MAX_URL_LENGTH = 2048;
 /** Maximum number of redirects to follow. */
 const MAX_REDIRECTS = 5;
 
+/** HTTP methods that must not carry a request body (RFC 9110 §9.3.1, §9.3.2). */
+const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
+
+/**
+ * Headers safe to send on GET/HEAD requests in any context.
+ * Non-standard or custom headers (X-*, etc.) are potential exfil vectors
+ * and are stripped when the run is in a security-sensitive state.
+ */
+export const SAFE_GET_HEADERS = new Set([
+	"accept",
+	"accept-encoding",
+	"accept-language",
+	"authorization",
+	"cache-control",
+	"connection",
+	"cookie",
+	"host",
+	"if-match",
+	"if-modified-since",
+	"if-none-match",
+	"if-range",
+	"if-unmodified-since",
+	"range",
+	"referer",
+	"te",
+	"user-agent",
+]);
+
 /** Canonical mapping from tool action to HTTP method. */
 const ACTION_TO_METHOD: Record<string, string> = {
 	get: "GET",
@@ -88,6 +116,20 @@ export class HttpExecutor implements ToolExecutor {
 
 		const httpMethod = canonicalMethod;
 		const taintLabels = [webTaintLabel(url)];
+
+		// GET and HEAD must not carry a request body (RFC 9110 §9.3.1, §9.3.2).
+		// A body on these methods is a semantic violation and a potential exfil vector —
+		// secrets could be smuggled in a JSON body that bypasses query-string checks.
+		if (BODYLESS_METHODS.has(httpMethod) && body !== undefined && body !== null) {
+			const result = makeResult(
+				toolCall.id,
+				false,
+				start,
+				undefined,
+				`HTTP ${httpMethod} must not carry a request body. Bodies on GET/HEAD are a potential data exfiltration vector.`,
+			);
+			return { ...result, taintLabels };
+		}
 
 		try {
 			const response = await ssrfSafeRequest(
