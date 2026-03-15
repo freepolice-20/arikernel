@@ -431,7 +431,23 @@ export class Pipeline {
 			throw new ToolCallDeniedError(toolCall, noExecDecision);
 		}
 
-		let result = await executor.execute(toolCall);
+		let result: ToolResult;
+		try {
+			result = await executor.execute(toolCall);
+		} catch (execError) {
+			// Fail closed: executor crashes must never silently allow a call.
+			// Audit-log the failure and update run-state so behavioral rules stay accurate.
+			const execFailDecision: Decision = {
+				verdict: "deny",
+				matchedRule: null,
+				reason: `Executor error (${toolCall.toolClass}): ${execError instanceof Error ? execError.message : String(execError)}`,
+				taintLabels: inputTaints,
+				timestamp: now(),
+			};
+			this.runState?.recordDeniedAction();
+			this.logEvent(toolCall, execFailDecision);
+			throw new ToolCallDeniedError(toolCall, execFailDecision);
+		}
 
 		// Step 5.5: Content-based taint detection — scan tool output for injection patterns.
 		// This derives taint from actual malicious content rather than relying on agent annotation.

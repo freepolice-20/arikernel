@@ -1,5 +1,6 @@
 {
 	"name": "@arikernel/mcp-adapter",
+	"private": true,
 	"version": "0.1.0",
 	"description": "MCP adapter for AriKernel — mediate MCP tool calls through the enforcement pipeline",
 	"type": "module",

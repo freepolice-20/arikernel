@@ -10,7 +10,7 @@
  * RunStateTracker with the appropriate sticky flags.
  */
 
-import type { AuditStore } from "@arikernel/audit-log";
+import type { AuditStore, PersistentTaintEventRow } from "@arikernel/audit-log";
 import type { RunStateTracker } from "./run-state.js";
 
 /** Persistent taint event types recorded across runs. */
@@ -19,13 +19,13 @@ export type PersistentEventType = "sensitive_read" | "secret_access" | "egress" 
 export interface PersistentTaintConfig {
 	/** Whether cross-run taint persistence is enabled. Default: false */
 	enabled?: boolean;
-	/** Retention window in milliseconds. Events older than this are ignored. Default: 1 hour */
+	/** Retention window in milliseconds. Events older than this are ignored. Default: 24 hours */
 	retentionWindowMs?: number;
 	/** How often to purge expired events, in milliseconds. Default: 10 minutes */
 	purgeIntervalMs?: number;
 }
 
-const DEFAULT_RETENTION_MS = 60 * 60 * 1000; // 1 hour
+const DEFAULT_RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours — short TTLs allow split-run attacks
 
 export class PersistentTaintRegistry {
 	private readonly auditStore: AuditStore;
@@ -83,7 +83,18 @@ export class PersistentTaintRegistry {
 	 * a clean Run 2 and exfiltrate without triggering behavioral rules.
 	 */
 	initializeRunState(runState: RunStateTracker): void {
-		const events = this.queryRecentEvents();
+		let events: PersistentTaintEventRow[];
+		try {
+			events = this.queryRecentEvents();
+		} catch (err) {
+			// Fail open with warning: if the audit DB is unavailable, the run starts
+			// without persistent taint. This is logged so operators can detect the gap.
+			const msg = err instanceof Error ? err.message : String(err);
+			console.error(
+				`[AriKernel] Failed to load persistent taint for principal '${this.principalId}': ${msg}. Run will start without cross-run taint history.`,
+			);
+			return;
+		}
 		if (events.length === 0) return;
 
 		for (const event of events) {
