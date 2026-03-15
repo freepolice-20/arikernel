@@ -1,5 +1,6 @@
 {
 	"name": "@arikernel/control-plane",
+	"private": true,
 	"version": "0.1.0",
 	"description": "Centralized policy decision service for AriKernel — remote enforcement, signed decisions, global audit",
 	"type": "module",

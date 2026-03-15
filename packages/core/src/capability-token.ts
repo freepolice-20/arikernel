@@ -176,9 +176,10 @@ export function verifyCapabilityToken(
 		return { valid: false, reason: "Invalid signature: token may have been forged or modified" };
 	}
 
-	// Step 3: Verify expiry
+	// Step 3: Verify expiry (with 10s clock-skew tolerance for multi-node deployments)
+	const CLOCK_SKEW_MS = 10_000;
 	const expiresAt = new Date(token.grant.lease.expiresAt).getTime();
-	if (Date.now() > expiresAt) {
+	if (Date.now() - CLOCK_SKEW_MS > expiresAt) {
 		return { valid: false, reason: `Token expired at ${token.grant.lease.expiresAt}` };
 	}
 

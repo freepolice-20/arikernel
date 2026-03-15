@@ -109,6 +109,19 @@ function validateExecuteRequest(
 	if (typeof req.params !== "object" || req.params === null || Array.isArray(req.params)) {
 		throw new Error("params must be a JSON object");
 	}
+	// Guard against deeply nested params that could cause stack overflow during processing
+	const MAX_PARAMS_DEPTH = 20;
+	function checkDepth(obj: unknown, depth: number): void {
+		if (depth > MAX_PARAMS_DEPTH) {
+			throw new Error(`params exceeds maximum nesting depth (${MAX_PARAMS_DEPTH})`);
+		}
+		if (typeof obj === "object" && obj !== null) {
+			for (const v of Object.values(obj)) {
+				checkDepth(v, depth + 1);
+			}
+		}
+	}
+	checkDepth(req.params, 0);
 	if (req.taint !== undefined && !Array.isArray(req.taint)) {
 		throw new Error("taint must be an array of TaintLabel objects if provided");
 	}

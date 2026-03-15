@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import {
 	BUILTIN_SCENARIOS_DIR,
 	formatTimeline,
@@ -19,9 +19,9 @@ export async function runAttackSimulate(scenarioPath: string, policyPath?: strin
 	const policies = policyPath ? loadPolicies(policyPath) : undefined;
 
 	console.log(`\n${CYAN}${BOLD}Attack Simulation${RESET}`);
-	console.log(`${DIM}Scenario: ${abs}${RESET}`);
+	console.log(`${DIM}Scenario: ${relative(process.cwd(), abs)}${RESET}`);
 	if (policyPath) {
-		console.log(`${DIM}Policy:   ${resolve(policyPath)}${RESET}`);
+		console.log(`${DIM}Policy:   ${relative(process.cwd(), resolve(policyPath))}${RESET}`);
 	}
 	console.log("");
 
@@ -49,7 +49,7 @@ export async function runAttackSimulate(scenarioPath: string, policyPath?: strin
 
 export async function runAttackList(): Promise<void> {
 	console.log(`\n${CYAN}${BOLD}Built-in Attack Scenarios${RESET}`);
-	console.log(`${DIM}Location: ${BUILTIN_SCENARIOS_DIR}${RESET}\n`);
+	console.log(`${DIM}Location: ${relative(process.cwd(), BUILTIN_SCENARIOS_DIR)}${RESET}\n`);
 
 	const scenarios = loadBuiltinScenarios();
 	for (const s of scenarios) {

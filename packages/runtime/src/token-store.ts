@@ -123,9 +123,10 @@ export class TokenStore implements ITokenStore {
 			return { valid: false, reason: `Grant revoked: ${grantId}` };
 		}
 
+		const CLOCK_SKEW_MS = 10_000;
 		const now = Date.now();
 		const expiresAt = new Date(grant.lease.expiresAt).getTime();
-		if (now > expiresAt) {
+		if (now - CLOCK_SKEW_MS > expiresAt) {
 			return { valid: false, reason: `Grant expired at ${grant.lease.expiresAt}` };
 		}
 
