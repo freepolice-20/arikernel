@@ -16,6 +16,15 @@ export interface StoredToken {
 /**
  * Common interface for token stores. Both the in-memory TokenStore and
  * the SQLite-backed SqliteTokenStore implement this interface.
+ *
+ * **Multi-instance scope:** Grant consumption (`consume()`) is atomic within
+ * a single ITokenStore instance. In horizontally scaled deployments where
+ * multiple sidecar replicas each have their own store, the same signed grant
+ * can be consumed independently on each replica (double-spend). To prevent
+ * this, back all replicas with a shared ITokenStore implementation (shared
+ * SQLite WAL file, Redis, Postgres) so that `consume()` is globally atomic.
+ * Revocation has the same scope — `revoke()` on one store does not propagate
+ * to independent stores.
  */
 export interface ITokenStore {
 	store(grant: CapabilityGrant, signature?: string, algorithm?: SigningAlgorithm): void;
