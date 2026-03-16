@@ -73,7 +73,7 @@ describe("CP-1 database resource key includes database name", () => {
 
 	afterEach(() => {
 		if (origFileRoot === undefined) {
-			delete process.env.FILE_EXECUTOR_ROOT;
+			process.env.FILE_EXECUTOR_ROOT = undefined;
 		} else {
 			process.env.FILE_EXECUTOR_ROOT = origFileRoot;
 		}
