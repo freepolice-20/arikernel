@@ -2,7 +2,28 @@
 	"name": "@arikernel/policy-engine",
 	"version": "0.1.0",
 	"description": "Policy evaluation engine for AriKernel",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/policy-engine"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"policy",
+		"rules",
+		"capability",
+		"access-control"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],

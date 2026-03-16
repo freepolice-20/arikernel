@@ -1,8 +1,30 @@
 {
 	"name": "@arikernel/adapters",
-	"version": "0.1.1",
+	"version": "0.1.0",
 	"description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/adapters"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"langchain",
+		"openai",
+		"crewai",
+		"vercel-ai",
+		"framework"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],

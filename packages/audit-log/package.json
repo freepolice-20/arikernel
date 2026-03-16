@@ -1,8 +1,29 @@
 {
 	"name": "@arikernel/audit-log",
-	"version": "0.1.1",
+	"version": "0.1.0",
 	"description": "SHA-256 hash-chained audit logging for AriKernel (tamper-evident, not tamper-proof)",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/audit-log"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"audit",
+		"hash-chain",
+		"tamper-evident",
+		"sqlite"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],

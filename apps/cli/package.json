@@ -1,6 +1,6 @@
 {
 	"name": "@arikernel/cli",
-	"version": "0.1.1",
+	"version": "0.1.0",
 	"description": "CLI for Ari Kernel — enforces security policy at the AI agent tool execution boundary",
 	"type": "module",
 	"license": "Apache-2.0",

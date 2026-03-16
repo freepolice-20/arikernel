@@ -64,7 +64,7 @@ AriKernel is a security tool. Contributions that affect enforcement behavior req
 - **Policy evaluation**: Priority ordering must be deterministic and documented.
 - **Sidecar changes**: The server must default to `127.0.0.1` binding. Network exposure requires explicit opt-in.
 
-If you find a security vulnerability, **do not open a public issue**. See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
+If you find a security vulnerability, **do not open a public issue**. Email [security@arikernel.dev](mailto:security@arikernel.dev) or see [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
 
 ## Pull Request Guidelines
 
@@ -76,3 +76,9 @@ If you find a security vulnerability, **do not open a public issue**. See [SECUR
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [Apache License 2.0](LICENSE).
+
+## Contact
+
+- General questions: [contact@arikernel.dev](mailto:contact@arikernel.dev)
+- Maintainers: [maintainers@arikernel.dev](mailto:maintainers@arikernel.dev)
+- Security issues: [security@arikernel.dev](mailto:security@arikernel.dev)

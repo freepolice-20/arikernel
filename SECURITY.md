@@ -14,7 +14,7 @@ If you discover a security vulnerability in AriKernel, please report it responsi
 
 ### How to Report
 
-1. Email: Send details to the maintainers via the email listed in the repository's GitHub profile, or use [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability).
+1. **Email**: Send details to [security@arikernel.dev](mailto:security@arikernel.dev), or use [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability).
 2. Include:
    - Description of the vulnerability
    - Steps to reproduce

@@ -2,7 +2,29 @@
 	"name": "@arikernel/middleware",
 	"version": "0.1.0",
 	"description": "Drop-in middleware wrappers for securing AI agents with Ari Kernel",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/middleware"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"middleware",
+		"langchain",
+		"openai",
+		"crewai",
+		"drop-in"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],
