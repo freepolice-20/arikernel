@@ -162,7 +162,7 @@ export class FileExecutor implements ToolExecutor {
 						if (stat.isSymbolicLink()) {
 							throw new Error(`Symlink rejected: ${filePath}`);
 						}
-						if (!stat.isFile() && stat.size > 0) {
+						if (!stat.isFile()) {
 							throw new Error(`Not a regular file: ${filePath}`);
 						}
 

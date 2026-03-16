@@ -5,9 +5,14 @@ import type { PersistentTaintConfig } from "./persistent-taint-registry.js";
 import type { RunStatePolicy } from "./run-state.js";
 
 /**
- * Security mode controls whether capability tokens are required.
- * - 'dev': tokens are optional (backward compatible, no signing key needed)
+ * Security mode controls capability token signing requirements.
+ * - 'dev': tokens are required for protected actions but NOT cryptographically signed
+ *   (no signing key needed; grants are still enforced via the token store)
  * - 'secure': tokens are required and must be cryptographically signed
+ *
+ * In both modes, protected actions (writes, shell exec, etc.) require a valid
+ * capability grant obtained via requestCapability(). The difference is whether
+ * grants are cryptographically signed (secure) or unsigned (dev).
  */
 export type SecurityMode = "dev" | "secure";
 
@@ -63,8 +68,8 @@ export interface FirewallOptions {
 	signingKey?: SigningKey;
 	/**
 	 * Security mode. Default: 'dev' if no signingKey, 'secure' if signingKey is provided.
-	 * In 'secure' mode, all tool invocations require a valid signed capability token.
-	 * In 'dev' mode, tokens are optional for backward compatibility.
+	 * In 'secure' mode, capability grants must be cryptographically signed.
+	 * In 'dev' mode, grants are still required for protected actions but are unsigned.
 	 */
 	securityMode?: SecurityMode;
 	/**
