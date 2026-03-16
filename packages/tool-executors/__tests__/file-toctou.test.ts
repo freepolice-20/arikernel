@@ -60,9 +60,9 @@ describe("FileExecutor TOCTOU mitigation", () => {
 			// symlink creation may fail on Windows without privileges — skip
 			return;
 		}
-		await expect(
-			executor.execute(makeToolCall("read", { path: linkPath })),
-		).rejects.toThrow(/symlink rejected|ELOOP|path escapes/i);
+		await expect(executor.execute(makeToolCall("read", { path: linkPath }))).rejects.toThrow(
+			/symlink rejected|ELOOP|path escapes/i,
+		);
 	});
 
 	it("rejects writes outside allowed root", async () => {

@@ -67,9 +67,7 @@ describe("FileExecutor write: parent symlink escape prevention", () => {
 		const outsideTarget = path.join(outsideDir, "pwned.txt");
 
 		await expect(
-			executor.execute(
-				makeToolCall("write", { path: escapedTarget, content: "exfiltrated" }),
-			),
+			executor.execute(makeToolCall("write", { path: escapedTarget, content: "exfiltrated" })),
 		).rejects.toThrow(/parent directory escapes|path escapes|symlink/i);
 
 		// Critical assertion: no file should have been created outside root

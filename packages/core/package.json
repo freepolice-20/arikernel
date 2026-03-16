@@ -13,16 +13,7 @@
 	"bugs": {
 		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
 	},
-	"keywords": [
-		"ai",
-		"agent",
-		"security",
-		"llm",
-		"tool-use",
-		"capability",
-		"types",
-		"schema"
-	],
+	"keywords": ["ai", "agent", "security", "llm", "tool-use", "capability", "types", "schema"],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],
