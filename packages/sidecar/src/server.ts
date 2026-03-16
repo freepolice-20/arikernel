@@ -44,7 +44,10 @@ export class SidecarServer {
 		const principals = config.principals;
 
 		// Dev mode = no `principals` configured; clients supply their own principalId.
-		// This is unsafe in production — fail fast so misconfigurations are caught at startup.
+		// This is unsafe in production — multiple layers of defense prevent misuse:
+		// 1. NODE_ENV=production → hard error
+		// 2. Non-loopback bind → hard error (prevents network exposure)
+		// 3. Loud startup warning for local use
 		if (!principals) {
 			if (process.env.NODE_ENV === "production") {
 				throw new Error(
@@ -52,8 +55,17 @@ export class SidecarServer {
 						"Configure `principals` with per-principal API keys for production deployments.",
 				);
 			}
+			if (!isLoopback(this.host)) {
+				throw new Error(
+					`AriKernel: dev mode cannot bind to '${this.host}'. ` +
+						"Without authentication, only loopback addresses (127.0.0.1, ::1, localhost) are allowed. " +
+						"Configure `principals` with per-principal API keys to bind to non-loopback interfaces.",
+				);
+			}
 			console.warn(
-				"[AriKernel] DEV MODE active: authentication is relaxed. " + "Do not use in production.",
+				"[AriKernel] ⚠ DEV MODE — no authentication. " +
+					"Restricted to loopback interface. " +
+					"Configure `principals` for production use.",
 			);
 		}
 
@@ -201,4 +213,10 @@ export class SidecarServer {
 
 export function createSidecarServer(config: SidecarConfig): SidecarServer {
 	return new SidecarServer(config);
+}
+
+/** Check whether a host string resolves to a loopback-only interface. */
+function isLoopback(host: string): boolean {
+	const h = host.trim().toLowerCase();
+	return h === "127.0.0.1" || h === "::1" || h === "localhost" || h === "";
 }
