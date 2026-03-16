@@ -41,6 +41,21 @@ const INJECTION_PATTERNS: Array<{
 		confidence: 0.95,
 		label: "instruction-override",
 	},
+	// Indirect instruction override (softer phrasing)
+	{
+		regex:
+			/(?:forget|override|bypass|skip|drop)\s+(?:all\s+)?(?:(?:previous|prior|above|existing|your)\s+)*(?:instructions?|rules?|constraints?|guidelines?)/i,
+		source: "content-scan",
+		confidence: 0.9,
+		label: "instruction-override",
+	},
+	// "New instructions" / "updated instructions" phrasing
+	{
+		regex: /(?:new|updated|revised|replacement)\s+(?:system\s+)?instructions?\s*:/i,
+		source: "content-scan",
+		confidence: 0.85,
+		label: "instruction-override",
+	},
 	// Command injection via content
 	{
 		regex:
@@ -49,12 +64,28 @@ const INJECTION_PATTERNS: Array<{
 		confidence: 0.9,
 		label: "exfiltration-instruction",
 	},
+	// Broader exfil phrasing: "access", "retrieve", "fetch", "get", "grab", "copy"
+	{
+		regex:
+			/(?:access|retrieve|fetch|get|grab|copy|extract|download)\s+.*(?:\.ssh|id_rsa|credentials|\.env|passwd|shadow|secret|token|api.?key|private.?key)/i,
+		source: "content-scan",
+		confidence: 0.85,
+		label: "exfiltration-instruction",
+	},
 	// System prompt extraction
 	{
 		regex:
 			/(?:print|output|reveal|show|display)\s+.*(?:system\s*prompt|instructions|initial\s*prompt)/i,
 		source: "content-scan",
 		confidence: 0.85,
+		label: "prompt-extraction",
+	},
+	// Broader prompt extraction: "what are your instructions", "repeat your prompt"
+	{
+		regex:
+			/(?:what\s+are\s+your|repeat\s+your|tell\s+me\s+your|share\s+your)\s+(?:system\s+)?(?:instructions?|prompt|rules?|guidelines?)/i,
+		source: "content-scan",
+		confidence: 0.8,
 		label: "prompt-extraction",
 	},
 	// Role hijacking
@@ -71,12 +102,26 @@ const INJECTION_PATTERNS: Array<{
 		confidence: 0.9,
 		label: "exfiltration-instruction",
 	},
+	// Broader exfil: "upload to", "forward to", "pipe to", "write to" + URL
+	{
+		regex: /(?:upload|forward|pipe|transmit|relay|write)\s+.*to\s+https?:\/\//i,
+		source: "content-scan",
+		confidence: 0.85,
+		label: "exfiltration-instruction",
+	},
 	// Hidden instruction markers
 	{
 		regex: /\[SYSTEM\]|\[ADMIN\]|\[OVERRIDE\]|<\s*system\s*>|<\s*instruction\s*>/i,
 		source: "content-scan",
 		confidence: 0.85,
 		label: "fake-system-marker",
+	},
+	// Invisible / zero-width character sequences (used to hide instructions)
+	{
+		regex: /(?:\u200B|\u200C|\u200D|\u2060|\uFEFF){3,}/,
+		source: "content-scan",
+		confidence: 0.8,
+		label: "invisible-text",
 	},
 	// Base64/encoded payload indicators
 	{
@@ -85,6 +130,13 @@ const INJECTION_PATTERNS: Array<{
 		source: "content-scan",
 		confidence: 0.85,
 		label: "code-execution-instruction",
+	},
+	// Multi-line delimiter injection (```system, ---SYSTEM---, ===INSTRUCTIONS===)
+	{
+		regex: /(?:```|---+|===+)\s*(?:system|admin|instruction|override|hidden)/i,
+		source: "content-scan",
+		confidence: 0.8,
+		label: "delimiter-injection",
 	},
 ];
 
