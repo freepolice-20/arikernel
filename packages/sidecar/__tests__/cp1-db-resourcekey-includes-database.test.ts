@@ -59,16 +59,24 @@ describe("CP-1 database resource key includes database name", () => {
 	let alerts: CrossPrincipalAlert[];
 	let fileRoot: string;
 	let sshKey: string;
+	let origFileRoot: string | undefined;
 
 	beforeEach(() => {
 		dir = tempDir();
 		const fileInfo = createSensitiveFileRoot();
 		fileRoot = fileInfo.root;
 		sshKey = fileInfo.sshKey;
+		origFileRoot = process.env.FILE_EXECUTOR_ROOT;
+		process.env.FILE_EXECUTOR_ROOT = fileRoot;
 		alerts = [];
 	});
 
 	afterEach(() => {
+		if (origFileRoot === undefined) {
+			delete process.env.FILE_EXECUTOR_ROOT;
+		} else {
+			process.env.FILE_EXECUTOR_ROOT = origFileRoot;
+		}
 		registry?.closeAll();
 		try {
 			rmSync(dir, { recursive: true, force: true });
