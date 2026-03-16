@@ -804,7 +804,13 @@ See [Python README](python/README.md) for installation and usage.
 
 ## Security
 
-To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not open a public issue for security vulnerabilities.
+To report a vulnerability, email [security@arikernel.dev](mailto:security@arikernel.dev) or see [SECURITY.md](SECURITY.md). Do not open a public issue for security vulnerabilities.
+
+## Contact
+
+- General inquiries: [contact@arikernel.dev](mailto:contact@arikernel.dev)
+- Security reports: [security@arikernel.dev](mailto:security@arikernel.dev)
+- Maintainers: [maintainers@arikernel.dev](mailto:maintainers@arikernel.dev)
 
 ## License
 

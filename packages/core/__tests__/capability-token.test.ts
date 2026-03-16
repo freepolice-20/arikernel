@@ -101,7 +101,8 @@ describe("Signed Capability Tokens — HMAC-SHA256", () => {
 	});
 
 	it("rejects an expired token", () => {
-		const past = new Date(Date.now() - 10_000);
+		// Expire 30s ago — well beyond the 10s clock-skew tolerance to avoid flaky timing
+		const past = new Date(Date.now() - 30_000);
 		const grant = makeGrant({
 			lease: {
 				issuedAt: new Date(past.getTime() - 60_000).toISOString(),

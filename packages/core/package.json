@@ -2,7 +2,27 @@
 	"name": "@arikernel/core",
 	"version": "0.1.0",
 	"description": "Core domain types and schemas for AriKernel",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/core"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"capability",
+		"types",
+		"schema"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],

@@ -2,7 +2,29 @@
 	"name": "@arikernel/taint-tracker",
 	"version": "0.1.0",
 	"description": "Taint label tracking and propagation for AriKernel",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "packages/taint-tracker"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
+	"keywords": [
+		"ai",
+		"agent",
+		"security",
+		"llm",
+		"tool-use",
+		"taint",
+		"tracking",
+		"propagation",
+		"data-flow",
+		"provenance"
+	],
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": ["dist"],

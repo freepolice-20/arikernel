@@ -2,7 +2,17 @@
 	"name": "@arikernel/server",
 	"version": "0.1.0",
 	"description": "HTTP decision server for AriKernel",
+	"license": "Apache-2.0",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"directory": "apps/server"
+	},
+	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"bugs": {
+		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+	},
 	"scripts": {
 		"build": "tsup src/main.ts --format esm --dts",
 		"start": "node dist/main.js",
