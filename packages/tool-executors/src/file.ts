@@ -201,9 +201,27 @@ export class FileExecutor implements ToolExecutor {
 				}
 			}
 		} catch (err) {
+			// Security violations must propagate to the pipeline for proper
+			// audit logging, quarantine, and denial tracking. Only operational
+			// errors (ENOENT, EACCES, etc.) are returned as failed results.
+			if (err instanceof Error && isSecurityError(err)) {
+				throw err;
+			}
 			const error = err instanceof Error ? err.message : String(err);
 			const result = makeResult(toolCall.id, false, start, undefined, error);
 			return { ...result, taintLabels: [] };
 		}
 	}
+}
+
+const SECURITY_PREFIXES = [
+	"Path traversal blocked:",
+	"Parent directory escapes",
+	"Path escapes allowed root",
+	"Symlink rejected:",
+	"Not a regular file:",
+];
+
+function isSecurityError(err: Error): boolean {
+	return SECURITY_PREFIXES.some((p) => err.message.startsWith(p));
 }

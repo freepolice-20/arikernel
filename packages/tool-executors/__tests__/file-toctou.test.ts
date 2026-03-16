@@ -45,11 +45,11 @@ describe("FileExecutor TOCTOU mitigation", () => {
 	});
 
 	it("rejects path traversal via ../", async () => {
-		const result = await executor.execute(
-			makeToolCall("read", { path: path.join(tmpDir, "..", "..", "etc", "passwd") }),
-		);
-		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/path traversal blocked|outside allowed root/i);
+		await expect(
+			executor.execute(
+				makeToolCall("read", { path: path.join(tmpDir, "..", "..", "etc", "passwd") }),
+			),
+		).rejects.toThrow(/path traversal blocked|outside allowed root/i);
 	});
 
 	it("rejects symlinks pointing outside allowed root", async () => {
@@ -60,20 +60,20 @@ describe("FileExecutor TOCTOU mitigation", () => {
 			// symlink creation may fail on Windows without privileges — skip
 			return;
 		}
-		const result = await executor.execute(makeToolCall("read", { path: linkPath }));
-		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/symlink rejected|ELOOP|path escapes/i);
+		await expect(
+			executor.execute(makeToolCall("read", { path: linkPath })),
+		).rejects.toThrow(/symlink rejected|ELOOP|path escapes/i);
 	});
 
 	it("rejects writes outside allowed root", async () => {
-		const result = await executor.execute(
-			makeToolCall("write", {
-				path: path.join(tmpDir, "..", "escape.txt"),
-				content: "pwned",
-			}),
-		);
-		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/path traversal blocked|outside allowed root/i);
+		await expect(
+			executor.execute(
+				makeToolCall("write", {
+					path: path.join(tmpDir, "..", "escape.txt"),
+					content: "pwned",
+				}),
+			),
+		).rejects.toThrow(/path traversal blocked|outside allowed root/i);
 	});
 
 	it("allows writes inside allowed root", async () => {

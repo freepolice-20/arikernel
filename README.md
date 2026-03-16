@@ -1,8 +1,10 @@
 # Ari Kernel
 
-**Application-layer runtime enforcement for AI agents.** Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the tool execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
+**ARI (Agent Runtime Inspector)** — application-layer runtime enforcement for AI agents. Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the tool execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
 
-Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious instructions, it prevents dangerous actions from executing — regardless of what the model decided.
+## Threat Model
+
+Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary — regardless of what the model decided.
 
 > **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call routed through it and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 

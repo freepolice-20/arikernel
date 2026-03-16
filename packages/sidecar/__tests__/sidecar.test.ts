@@ -944,8 +944,9 @@ describe("POST /execute — allowed vs success decoupling", () => {
 
 	it("allowed but tool fails returns 200 with allowed=true, success=false", async () => {
 		// File read is allowed by policy, but file does not exist → tool failure
+		// Path must be inside the allowed root (cwd) so it's not a security denial
 		const result = await client.execute("file", "read", {
-			path: "/nonexistent/path/that/does/not/exist.txt",
+			path: "./nonexistent-file-that-does-not-exist.txt",
 		});
 		expect(result.allowed).toBe(true);
 		expect(result.success).toBe(false);
