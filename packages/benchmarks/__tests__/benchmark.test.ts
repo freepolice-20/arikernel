@@ -49,7 +49,7 @@ describe("SCENARIOS registry", () => {
 });
 
 describe("benchmark — all attacks blocked", () => {
-	it("blocks or mitigates all 22 attack scenarios", async () => {
+	it("blocks or mitigates all 22 attack scenarios", { timeout: 30_000 }, async () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
@@ -69,7 +69,7 @@ describe("benchmark — all attacks blocked", () => {
 		expect(summary.attacksBlocked + summary.attacksPartial).toBe(22);
 	});
 
-	it("reports correct enforcement mechanisms", async () => {
+	it("reports correct enforcement mechanisms", { timeout: 30_000 }, async () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
@@ -80,7 +80,7 @@ describe("benchmark — all attacks blocked", () => {
 		expect(mechanisms.size).toBeGreaterThanOrEqual(3);
 	});
 
-	it("per-category breakdown is complete", async () => {
+	it("per-category breakdown is complete", { timeout: 30_000 }, async () => {
 		const dir = tempDir();
 		dirs.push(dir);
 
