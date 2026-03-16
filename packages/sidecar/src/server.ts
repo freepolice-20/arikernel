@@ -57,9 +57,7 @@ export class SidecarServer {
 			}
 			if (!isLoopback(this.host)) {
 				throw new Error(
-					`AriKernel: dev mode cannot bind to '${this.host}'. ` +
-						"Without authentication, only loopback addresses (127.0.0.1, ::1, localhost) are allowed. " +
-						"Configure `principals` with per-principal API keys to bind to non-loopback interfaces.",
+					`AriKernel: dev mode cannot bind to '${this.host}'. Without authentication, only loopback addresses (127.0.0.1, ::1, localhost) are allowed. Configure \`principals\` with per-principal API keys to bind to non-loopback interfaces.`,
 				);
 			}
 			console.warn(
@@ -101,6 +99,12 @@ export class SidecarServer {
 				throw new Error("controlPlaneUrl is required when decisionMode is 'remote'");
 			}
 			if (!config.controlPlanePublicKey) {
+				if (process.env.NODE_ENV === "production") {
+					throw new Error(
+						"AriKernel: controlPlanePublicKey is required in production when decisionMode is 'remote'. " +
+							"Without Ed25519 signature verification, remote decisions are vulnerable to tampering.",
+					);
+				}
 				console.warn(
 					"[AriKernel] WARNING: controlPlanePublicKey is not configured. " +
 						"Without signature verification, remote decisions are vulnerable to tampering. " +

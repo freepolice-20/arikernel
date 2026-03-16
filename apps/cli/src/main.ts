@@ -301,7 +301,7 @@ const complianceReport = defineCommand({
 });
 
 const main = defineCommand({
-	meta: { name: "arikernel", version: "0.1.7", description: "Security runtime for AI agents" },
+	meta: { name: "arikernel", version: "0.1.0", description: "Security runtime for AI agents" },
 	subCommands: {
 		attack,
 		benchmark: benchmarkCmd,

@@ -414,6 +414,19 @@ export class Pipeline {
 					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by database operation");
 				}
 			}
+			if (toolCall.toolClass === "http") {
+				const url = String(toolCall.parameters.url ?? "");
+				this.runState.pushEvent({
+					timestamp: toolCall.timestamp,
+					type: "tool_call_allowed",
+					toolClass: toolCall.toolClass,
+					action: toolCall.action,
+					metadata: { url },
+				});
+				if (this.checkBehavioralRules(toolCall)) {
+					this.denyQuarantinedAction(toolCall, "behavioral rule triggered by HTTP operation");
+				}
+			}
 		}
 
 		// Step 5: Execute
