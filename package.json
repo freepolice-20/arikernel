@@ -4,7 +4,7 @@
 	"version": "0.1.0",
 	"description": "Runtime security policy enforcement for AI agent tool calls",
 	"type": "module",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"engines": {
 		"node": ">=20.0.0"
 	},

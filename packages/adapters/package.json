@@ -2,7 +2,7 @@
 	"name": "@arikernel/adapters",
 	"version": "0.1.0",
 	"description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
 	"repository": {
 		"type": "git",

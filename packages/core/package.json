@@ -2,7 +2,7 @@
 	"name": "@arikernel/core",
 	"version": "0.1.0",
 	"description": "Core domain types and schemas for AriKernel",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
 	"repository": {
 		"type": "git",

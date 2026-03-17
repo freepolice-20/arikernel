@@ -2,7 +2,7 @@
 	"name": "@arikernel/attack-sim",
 	"version": "0.1.0",
 	"description": "Attack simulation pack for AriKernel",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
 	"repository": {
 		"type": "git",

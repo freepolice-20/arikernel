@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.1.0",
 	"description": "Centralized policy decision service for AriKernel — remote enforcement, signed decisions, global audit",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
 	"repository": {
 		"type": "git",

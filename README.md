@@ -1,5 +1,11 @@
 # Ari Kernel
 
+Ari Kernel is a runtime security layer for AI agents. It enforces policy on every tool call — blocking prompt injection, data exfiltration, and unsafe actions in real time.
+
+Install and run locally in minutes.
+
+[![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **ARI (Agent Runtime Inspector)** — application-layer runtime enforcement for AI agents. Ari Kernel sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — and enforces capability policies, taint tracking, and behavioral rules at the tool execution boundary. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
 
 ## Threat Model
@@ -9,8 +15,6 @@ Ari Kernel assumes prompt injection will succeed. Instead of trying to filter ma
 > **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call routed through it and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 
 Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
-
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
 
@@ -816,4 +820,6 @@ To report a vulnerability, email [security@arikernel.dev](mailto:security@ariker
 
 ## License
 
-[Apache-2.0](LICENSE)
+This project is publicly available. See [LICENSE.md](LICENSE.md) for usage terms.
+
+For commercial use, contact: [contact@arikernel.dev](mailto:contact@arikernel.dev)
