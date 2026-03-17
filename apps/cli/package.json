@@ -19,15 +19,15 @@
 	},
 	"keywords": [
 		"ai",
-		"agent",
-		"security",
-		"firewall",
-		"llm",
-		"tool-use",
-		"capability",
-		"audit",
+		"ai-agents",
+		"ai-security",
+		"agent-security",
+		"prompt-injection",
+		"runtime-security",
+		"tool-safety",
 		"taint-tracking",
-		"reference-monitor"
+		"sandbox",
+		"llm"
 	],
 	"publishConfig": {
 		"access": "public"
