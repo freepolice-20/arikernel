@@ -1,12 +1,16 @@
 # Ari Kernel
 
-Ari Kernel is a runtime security layer for AI agents. It enforces policy on every tool call — blocking prompt injection, data exfiltration, and unsafe actions in real time.
+**Ari Kernel blocks prompt injection and data exfiltration in AI agents at runtime.**
 
-Install and run locally in minutes.
+One line. Zero config. Every tool call goes through the kernel.
+
+```typescript
+const kernel = createKernel({ preset: "safe" })
+```
 
 [![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**ARI (Agent Runtime Inspector)** sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — enforcing capability policies, taint tracking, and behavioral rules at execution time. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
+**ARI** = **A**gent **R**untime **I**nspector. It sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — enforcing capability policies, taint tracking, and behavioral rules at execution time. Designed for teams where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module.
 
 ---
 
@@ -76,6 +80,16 @@ Draws on the reference monitor concept from OS security (Anderson, 1972), adapte
 ```bash
 npm install @arikernel/middleware
 ```
+
+Pick a preset — get protection immediately:
+
+```typescript
+import { createKernel } from "@arikernel/runtime"
+
+const kernel = createKernel({ preset: "safe" })  // zero-config defaults
+```
+
+Presets: `safe` (production default), `strict` (enterprise), `safe-research`, `rag-reader`, `workspace-assistant`, `automation-agent`, `research`, `anti-collusion`.
 
 Minimal sidecar deployment (recommended for production — requires building from source):
 
