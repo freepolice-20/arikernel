@@ -39,8 +39,8 @@ arikernel replay --latest --step
 ### npx (no install)
 
 ```bash
-npx arikernel --help
-npx arikernel init
+npx @arikernel/cli --help
+npx @arikernel/cli init
 ```
 
 ### Local dev
