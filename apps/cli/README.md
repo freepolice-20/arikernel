@@ -18,7 +18,7 @@ arikernel simulate prompt-injection
            Run in restricted mode. Egress denied.
 ```
 
-[GitHub](https://github.com/petermanrique101-sys/AriKernel) — if this is useful, consider giving it a star.
+[GitHub](https://github.com/AriKernel/arikernel) — if this is useful, consider giving it a star.
 
 ## Install
 
@@ -46,7 +46,7 @@ npx @arikernel/cli init
 ### Local dev
 
 ```bash
-git clone https://github.com/petermanrique101-sys/AriKernel.git
+git clone https://github.com/AriKernel/arikernel.git
 cd AriKernel
 pnpm install
 pnpm build

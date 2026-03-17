@@ -1,6 +1,6 @@
 # Ari Kernel — Python Runtime
 
-Python runtime for [Ari Kernel](https://github.com/petermanrique101-sys/AriKernel). Delegates **all security decisions and tool execution** to the TypeScript sidecar process, providing process-boundary isolation for mediated tool calls.
+Python runtime for [Ari Kernel](https://github.com/AriKernel/arikernel). Delegates **all security decisions and tool execution** to the TypeScript sidecar process, providing process-boundary isolation for mediated tool calls.
 
 ## Architecture: Sidecar-First by Design
 

@@ -13,7 +13,7 @@ Install and run locally in minutes.
 ## 1-Minute Demo
 
 ```bash
-git clone https://github.com/petermanrique101-sys/AriKernel.git
+git clone https://github.com/AriKernel/arikernel.git
 cd AriKernel
 pnpm install && pnpm build
 pnpm example:quickstart
@@ -462,7 +462,7 @@ Most tools validate or monitor. Ari Kernel **enforces** — it sits in the execu
 ## Quick Start (from source)
 
 ```bash
-git clone https://github.com/petermanrique101-sys/AriKernel.git
+git clone https://github.com/AriKernel/arikernel.git
 cd AriKernel
 pnpm install && pnpm build
 
