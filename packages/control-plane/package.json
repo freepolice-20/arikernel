@@ -1,7 +1,7 @@
 {
 	"name": "@arikernel/control-plane",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Centralized policy decision service for AriKernel — remote enforcement, signed decisions, global audit",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",

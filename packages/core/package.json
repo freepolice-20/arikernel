@@ -1,6 +1,6 @@
 {
 	"name": "@arikernel/core",
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Core domain types and schemas for AriKernel",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",

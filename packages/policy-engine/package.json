@@ -1,6 +1,6 @@
 {
 	"name": "@arikernel/policy-engine",
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Policy evaluation engine for AriKernel",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",

@@ -1,7 +1,7 @@
 {
 	"name": "@arikernel/benchmarks-agentdojo",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "AgentDojo-aligned attack benchmark harness for AriKernel",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",

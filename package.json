@@ -1,7 +1,7 @@
 {
 	"name": "arikernel",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Runtime security layer for AI agents — enforces policy on every tool call",
 	"type": "module",
 	"license": "SEE LICENSE IN LICENSE.md",
