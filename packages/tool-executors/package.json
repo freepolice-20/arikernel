@@ -1,6 +1,6 @@
 {
 	"name": "@arikernel/tool-executors",
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Tool class executors for AriKernel",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",

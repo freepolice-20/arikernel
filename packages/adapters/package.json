@@ -1,6 +1,6 @@
 {
 	"name": "@arikernel/adapters",
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"description": "Framework adapters for AriKernel — protect agents built with LangChain, CrewAI, OpenAI, and more",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
