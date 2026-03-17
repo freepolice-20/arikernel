@@ -158,7 +158,7 @@ jobs:
         run: |
           node -e "
             import('@arikernel/sidecar').then(m => {
-              const server = m.createSidecarServer({ devMode: true });
+              const server = m.createSidecarServer({ preset: 'safe' });
               server.listen().then(() => console.log('Sidecar listening on port 8787'));
             });
           " &

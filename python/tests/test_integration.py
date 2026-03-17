@@ -63,7 +63,7 @@ def sidecar():
         [
             "node", "-e",
             "import('@arikernel/sidecar').then(m => "
-            "m.createSidecarServer({devMode:true}).listen().then(() => "
+            "m.createSidecarServer({preset:'safe'}).listen().then(() => "
             "console.log('Sidecar listening')))"
         ],
         stdout=subprocess.PIPE,
