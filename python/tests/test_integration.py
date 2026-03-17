@@ -245,7 +245,7 @@ def test_execute_allowed_but_failed(kernel):
     result = kernel.execute_tool(
         tool_class="file",
         action="read",
-        parameters={"path": "/nonexistent/path/that/does/not/exist.txt"},
+        parameters={"path": "./data/nonexistent-file-that-does-not-exist.txt"},
     )
     assert result["verdict"] == "allow"
     assert result["success"] is False
