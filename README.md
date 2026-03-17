@@ -112,9 +112,9 @@ See [examples/](examples/) for runnable demos, [Middleware docs](docs/middleware
 Run 13 built-in attack scenarios against the kernel and watch them get blocked:
 
 ```bash
-npx arikernel attack list                          # see all scenarios
-npx arikernel attack simulate prompt-injection     # run one
-npx arikernel policy-test ./my-policy.yaml         # test your policy
+npx @arikernel/cli attack list                          # see all scenarios
+npx @arikernel/cli attack simulate prompt-injection     # run one
+npx @arikernel/cli policy-test ./my-policy.yaml         # test your policy
 ```
 
 Or from the repo:
@@ -145,7 +145,7 @@ Scenario: prompt_injection_exfiltration
 Test your own policy against all attack scenarios:
 
 ```bash
-npx arikernel policy-test ./policies/safe.yaml --scenarios ./packages/attack-sim/scenarios/
+npx @arikernel/cli policy-test ./policies/safe.yaml --scenarios ./packages/attack-sim/scenarios/
 
 Policy Test Report
   Policy:    ./policies/safe.yaml
@@ -162,7 +162,7 @@ Use this as a CI gate:
 
 ```yaml
 # .github/workflows/security.yml
-- run: npx arikernel policy-test ./policy.yaml --scenarios ./scenarios/
+- run: npx @arikernel/cli policy-test ./policy.yaml --scenarios ./scenarios/
 ```
 
 Every PR shows exactly which attacks your policy stops — and which it doesn't.
