@@ -21,4 +21,5 @@ __pycache__/
 *trace*.json
 test-report.md
 benchmarks/results/
-.claude/settings.local.json
+# Local IDE/tool settings
+.claude/
