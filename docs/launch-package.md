@@ -14,7 +14,7 @@ Everything needed to announce the project publicly.
 
 ## 2. Short Announcement Post
 
-> Releasing Ari Kernel v0.1.0 — runtime security enforcement for AI agents (TypeScript / Node.js). Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail.
+> Releasing Ari Kernel v0.1.2 — runtime security enforcement for AI agents (TypeScript / Node.js). Every tool call passes through an enforcement boundary: capability tokens, taint tracking, behavioral sequence detection, and run-level quarantine. Tamper-evident audit trail.
 
 (250 characters)
 
@@ -42,7 +42,7 @@ Ari Kernel is an enforcement layer that sits between the agent and its tools, dr
 4. **Run-level behavioral quarantine** — when a rule matches, the run enters restricted mode. Only read-only actions pass for the rest of the session.
 5. **Tamper-evident audit evidence** — SHA-256 hash-chained event store. Quarantine events are first-class audit records.
 
-TypeScript / Node.js. Library-first. Available to use — see LICENSE.md for terms. (Python runtime is experimental and deferred from v0.1.0.)
+TypeScript / Node.js. Library-first. Available to use — see LICENSE.md for terms. (Python runtime is experimental and deferred from v0.1.2.)
 
 ### Post 3: The Demo
 

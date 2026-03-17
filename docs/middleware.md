@@ -4,7 +4,7 @@ Ari Kernel middleware provides single-function wrappers that secure any AI agent
 
 > See also: [Security Model](security-model.md) | [Architecture](../ARCHITECTURE.md)
 
-> **Note:** Python middleware wrappers shown below are experimental and not part of the v0.1.0 release. See the main [README](../README.md#python-status) for known issues.
+> **Note:** Python middleware wrappers shown below are experimental and not part of the v0.1.2 release. See the main [README](../README.md#python-runtime) for known issues.
 
 ## Quickstart
 
@@ -27,7 +27,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ### Python
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 from arikernel.middleware import protect_langchain_agent
 
 agent = protect_langchain_agent(agent, preset="safe")
@@ -73,7 +73,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ### Python
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 from arikernel.middleware import protect_langchain_agent
 
 agent = protect_langchain_agent(agent, preset="safe-research")
@@ -109,7 +109,7 @@ const { tools, firewall } = protectOpenAIAgent(agentTools, {
 ### Python
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 from arikernel.middleware import protect_openai_agent
 
 result = protect_openai_agent(tools, preset="safe-research")
@@ -141,7 +141,7 @@ await execute("web_search", { url: "https://example.com" })  // Enforced
 ### Python
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 from arikernel.middleware import protect_crewai_agent
 
 result = protect_crewai_agent({
@@ -177,7 +177,7 @@ await execute("run_shell", { cmd: "whoami" })    // BLOCKED
 ### Python
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 from arikernel.middleware import protect_autogen_agent
 
 result = protect_autogen_agent({
@@ -248,7 +248,7 @@ const { agent, firewall } = protectLangChainAgent(myAgent, {
 ```
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 # Python — any middleware wrapper
 agent = protect_langchain_agent(agent, preset="safe")
 ```
@@ -285,7 +285,7 @@ firewall.close()
 ```
 
 ```python
-# EXPERIMENTAL — Python runtime is not part of v0.1.0 release
+# EXPERIMENTAL — Python runtime is not part of v0.1.2 release
 agent = protect_langchain_agent(agent, preset="safe-research")
 
 if agent._arikernel.restricted:
@@ -329,4 +329,4 @@ With `autoTaint` enabled, stub executors derive taint labels from tool parameter
 
 This provides taint-driven behavioral detection (e.g., "web taint then sensitive read → quarantine") without requiring full pipeline integration.
 
-For full taint propagation details, see [Security Model → Taint Propagation Boundaries](security-model.md#taint-propagation-boundaries).
+For full taint propagation details, see [Security Model → Taint Propagation Boundaries](security-model.md#46-taint-propagation-boundaries).

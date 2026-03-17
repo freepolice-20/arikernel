@@ -420,7 +420,7 @@ Ari Kernel focuses on **runtime containment**. Even if an agent is successfully 
 - Policy configuration is controlled by the operator
 - The agent interacts with external systems only through the kernel
 
-If an agent bypasses the kernel and executes tools directly, enforcement is lost. For mandatory enforcement with process isolation, use [sidecar mode](#sidecar-mode).
+If an agent bypasses the kernel and executes tools directly, enforcement is lost. For mandatory enforcement with process isolation, use [sidecar mode](#sidecar-mode-recommended-for-production).
 
 ---
 
@@ -754,7 +754,7 @@ await server.listen();
 
 > **Note:** `X-Forwarded-For` should only be trusted when Ari Kernel is deployed behind a reverse proxy. In the default localhost-only configuration, rate limiting uses the direct socket address and is not spoofable.
 
-The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state. See [Deployment Mode Guarantees](docs/security-model.md#deployment-mode-guarantees) for a comparison of middleware, in-process, and sidecar assurance levels.
+The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state. See [Deployment Mode Comparison](docs/security-model.md#64-deployment-mode-comparison) for a comparison of middleware, in-process, and sidecar assurance levels.
 
 **Optional runtime guard**: To prevent accidental bypass of the sidecar, enable the runtime guard in the agent process. This intercepts `fetch()` and `child_process` calls, routing them through the sidecar's policy engine:
 
@@ -765,7 +765,7 @@ enableSidecarGuard({ client: new SidecarClient({ principalId: "my-agent" }) });
 // fetch() and child_process are now mediated by the sidecar
 ```
 
-See [Sidecar Guard](docs/security-model.md#sidecar-guard-optional-runtime-mediation) for details and limitations. See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
+See [Sidecar Guard](docs/security-model.md#63-sidecar-guard-runtime-mediation) for details and limitations. See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
 
 ---
 
@@ -783,7 +783,7 @@ See [Deterministic Replay](docs/replay.md) for the full API reference.
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
-- **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#taint-propagation-boundaries) for details.
+- **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#46-taint-propagation-boundaries) for details.
 
 See [Known Limitations](docs/known-limitations.md) for the complete list including network mediation gaps, content inspection boundaries, and deployment-mode caveats.
 
