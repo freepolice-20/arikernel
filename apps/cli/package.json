@@ -1,7 +1,7 @@
 {
 	"name": "@arikernel/cli",
 	"version": "0.1.0",
-	"description": "CLI for Ari Kernel — enforces security policy at the AI agent tool execution boundary",
+	"description": "Runtime security layer for AI agents. Enforces policy on tool calls to block prompt injection and unsafe actions.",
 	"type": "module",
 	"license": "SEE LICENSE IN LICENSE.md",
 	"bin": {
