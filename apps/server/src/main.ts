@@ -225,7 +225,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 	// GET /health
 	if (method === "GET" && (req.url === "/health" || req.url === "/")) {
-		json(res, 200, { status: "ok", version: "0.1.0" });
+		json(res, 200, { status: "ok", version: "0.1.2" });
 		return;
 	}
 

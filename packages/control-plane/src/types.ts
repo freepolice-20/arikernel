@@ -95,7 +95,7 @@ export interface ControlPlaneConfig {
 	auditLog?: string;
 	/** Policy version label. Default: '1.0.0' */
 	policyVersion?: string;
-	/** Kernel build label. Default: 'arikernel-cp-0.1.0' */
+	/** Kernel build label. Default: 'arikernel-cp-0.1.2' */
 	kernelBuild?: string;
 	/** Bearer token for authenticating inbound requests from sidecars */
 	authToken?: string;

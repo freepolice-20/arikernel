@@ -2,6 +2,23 @@
 
 All notable changes to Ari Kernel are documented here.
 
+## [0.1.2] — 2026-03-17 — Public Launch
+
+### Changed
+
+- All packages bumped to 0.1.2 for version consistency across npm and source
+- CLI now bundles all `@arikernel/*` dependencies — fully self-contained single-file binary
+- Switched to source-available license (see LICENSE.md)
+- GitHub URLs updated to official `AriKernel/arikernel` organization
+- README restructured with 1-Minute Demo, adoption-optimized positioning
+
+### Fixed
+
+- CLI `--version` now reports correct version from package metadata
+- Version constants in core, server, and control-plane aligned with package versions
+
+---
+
 ## [0.1.0] — 2026-03-15 — Initial Release
 
 > **v0.1.0 is a TypeScript / Node.js release.** The Python runtime (`python/`) is experimental and excluded from this release.

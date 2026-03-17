@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { DEFAULT_HOST, DEFAULT_PORT } from "@arikernel/sidecar";
 import { defineCommand, runMain } from "citty";
 import { runAttackList, runAttackSimulate } from "./commands/attack.js";
@@ -301,7 +300,7 @@ const complianceReport = defineCommand({
 });
 
 const main = defineCommand({
-	meta: { name: "arikernel", version: "0.1.0", description: "Security runtime for AI agents" },
+	meta: { name: "arikernel", version: "0.1.2", description: "Security runtime for AI agents" },
 	subCommands: {
 		attack,
 		benchmark: benchmarkCmd,

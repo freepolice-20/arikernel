@@ -6,7 +6,7 @@ Generated: 2026-03-10T07:18:41.562Z
 
 | Property | Value |
 |----------|-------|
-| AriKernel version | 0.1.0 |
+| AriKernel version | 0.1.2 |
 | Git SHA | `0df787a` |
 | Node.js | v22.20.0 |
 | Platform | win32 |

@@ -56,6 +56,22 @@ importers:
 
   apps/cli:
     dependencies:
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+      citty:
+        specifier: ^0.1.6
+        version: 0.1.6
+      ulid:
+        specifier: ^2.4.0
+        version: 2.4.0
+      yaml:
+        specifier: ^2.8.0
+        version: 2.8.2
+      zod:
+        specifier: ^3.25.0
+        version: 3.25.76
+    devDependencies:
       '@arikernel/attack-sim':
         specifier: workspace:*
         version: link:../../packages/attack-sim
@@ -80,10 +96,6 @@ importers:
       '@arikernel/sidecar':
         specifier: workspace:*
         version: link:../../packages/sidecar
-      citty:
-        specifier: ^0.1.6
-        version: 0.1.6
-    devDependencies:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

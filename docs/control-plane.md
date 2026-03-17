@@ -58,7 +58,7 @@ The `requestNonce` field is optional. When provided, the control plane rejects d
   "reason": "Tainted request blocked",
   "policyVersion": "1.0.0",
   "policyHash": "3f2a7b9c1e4d5a08",
-  "kernelBuild": "arikernel-cp-0.1.0",
+  "kernelBuild": "arikernel-cp-0.1.2",
   "timestamp": "2026-03-10T12:00:00.001Z",
   "nonce": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
   "signature": "ed25519-hex-signature-128-chars...",
