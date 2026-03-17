@@ -7,12 +7,12 @@
 	"type": "module",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/petermanrique101-sys/AriKernel.git",
+		"url": "https://github.com/AriKernel/arikernel.git",
 		"directory": "packages/benchmarks-agentdojo"
 	},
-	"homepage": "https://github.com/petermanrique101-sys/AriKernel#readme",
+	"homepage": "https://github.com/AriKernel/arikernel#readme",
 	"bugs": {
-		"url": "https://github.com/petermanrique101-sys/AriKernel/issues"
+		"url": "https://github.com/AriKernel/arikernel/issues"
 	},
 	"main": "dist/index.js",
 	"scripts": {

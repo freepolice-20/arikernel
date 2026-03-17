@@ -5,7 +5,7 @@ Thank you for your interest in contributing to AriKernel. This document covers g
 ## Getting Started
 
 ```bash
-git clone https://github.com/petermanrique101-sys/AriKernel.git
+git clone https://github.com/AriKernel/arikernel.git
 cd AriKernel
 pnpm install
 pnpm build
