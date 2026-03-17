@@ -2,7 +2,7 @@
 	"name": "@arikernel/tool-executors",
 	"version": "0.1.0",
 	"description": "Tool class executors for AriKernel",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE.md",
 	"type": "module",
 	"repository": {
 		"type": "git",

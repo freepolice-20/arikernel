@@ -54,4 +54,3 @@ These are explicitly not planned for the near term:
 - **Web dashboard or UI** — Ari Kernel is a library and CLI tool
 - **Multi-tenant / multi-process** — the current model is single-process; distributed token validation is a future concern
 - **LLM-layer defenses** — prompt hardening, output filtering, and model-level safety are orthogonal to runtime enforcement
-- **Commercial licensing** — the project is Apache-2.0 and will stay open-source

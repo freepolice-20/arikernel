@@ -92,7 +92,7 @@ kill $SIDECAR_PID
 Verify these files exist and are not stale:
 
 - [ ] `README.md` — quickstart works, links resolve, no broken examples
-- [ ] `LICENSE` — Apache-2.0
+- [ ] `LICENSE.md` — current and accurate
 - [ ] `SECURITY.md` — vulnerability reporting process
 - [ ] `CONTRIBUTING.md` — setup instructions match current tooling
 - [ ] `docs/security-model.md` — matches implemented behavior
