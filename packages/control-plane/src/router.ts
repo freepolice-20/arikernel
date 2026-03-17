@@ -119,7 +119,7 @@ export async function handleDecision(
 		reason: decision.reason,
 		policyVersion: config.policyVersion ?? "1.0.0",
 		policyHash: effectivePolicyHash,
-		kernelBuild: config.kernelBuild ?? "arikernel-cp-0.1.0",
+		kernelBuild: config.kernelBuild ?? "arikernel-cp-0.1.2",
 		timestamp: decision.timestamp,
 		matchedRule: decision.matchedRule ?? undefined,
 		taintLabels: mergedTaints,

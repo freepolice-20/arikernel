@@ -113,9 +113,13 @@ pnpm build
 pnpm test
 ```
 
-### Publish packages in dependency order
+### Publish the CLI
+
+The CLI bundles all `@arikernel/*` packages at build time, so only the CLI itself needs publishing.
+The library packages (`@arikernel/core`, `@arikernel/runtime`, etc.) are published separately for developers who use the runtime API directly.
 
 ```bash
+# Library packages (for developers using the runtime API)
 pnpm --filter @arikernel/core publish --no-git-checks
 pnpm --filter @arikernel/taint-tracker publish --no-git-checks
 pnpm --filter @arikernel/policy-engine publish --no-git-checks
@@ -124,12 +128,14 @@ pnpm --filter @arikernel/audit-log publish --no-git-checks
 pnpm --filter @arikernel/runtime publish --no-git-checks
 pnpm --filter @arikernel/attack-sim publish --no-git-checks
 pnpm --filter @arikernel/adapters publish --no-git-checks
-pnpm --filter @arikernel/mcp-adapter publish --no-git-checks
-pnpm --filter @arikernel/sidecar publish --no-git-checks
+
+# CLI (self-contained, bundles all @arikernel/* deps)
 pnpm --filter @arikernel/cli publish --no-git-checks
 ```
 
-> `--no-git-checks` is needed because pnpm replaces `workspace:*` with real versions at publish time regardless of git state. Remove it once you have a proper release workflow with `changeset` or similar.
+> **Note:** `@arikernel/sidecar`, `@arikernel/control-plane`, `@arikernel/mcp-adapter`, and `@arikernel/benchmarks` are repo-only packages (private). They are bundled into the CLI and not published separately.
+
+> `--no-git-checks` is needed because pnpm replaces `workspace:*` with real versions at publish time regardless of git state.
 
 ### Post-publish verification
 
@@ -137,13 +143,6 @@ pnpm --filter @arikernel/cli publish --no-git-checks
 npm view @arikernel/cli version license description
 npm install -g @arikernel/cli
 arikernel --help
-```
-
-### Deprecate old unscoped package
-
-```bash
-npm deprecate arikernel@"*" "Package renamed to @arikernel/cli. Please install @arikernel/cli instead."
-npm view arikernel version license
 ```
 
 ## License

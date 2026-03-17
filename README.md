@@ -77,7 +77,7 @@ Draws on the reference monitor concept from OS security (Anderson, 1972), adapte
 npm install @arikernel/middleware
 ```
 
-Minimal sidecar deployment (recommended for production):
+Minimal sidecar deployment (recommended for production — requires building from source):
 
 ```typescript
 import { SidecarServer } from "@arikernel/sidecar";
@@ -212,7 +212,7 @@ const kernel = createKernel()
 
 For process-isolated enforcement, use [sidecar mode](#sidecar-mode-recommended-for-production). For OS-level containment, see [Execution Hardening](docs/execution-hardening.md).
 
-## Known Limitations in v0.1.0
+## Known Limitations
 
 - **Database executor is an MVP stub** — validates structured parameters (`table` required) and audits calls but does not connect to real databases or execute queries. Cross-principal taint tracking works at the policy/metadata level. No row-level, table-level, or SQL-level enforcement exists. Production database protection requires implementing a custom executor.
 - **GlobalTaintRegistry has no TTL eviction** — taint entries persist via SQLite but accumulate without bound under high principal churn; not recommended for very high-volume deployments without periodic purging

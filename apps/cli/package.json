@@ -33,12 +33,19 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsup src/main.ts --format esm --dts",
+		"build": "tsup",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc --noEmit",
 		"clean": "rimraf dist"
 	},
 	"dependencies": {
+		"better-sqlite3": "^11.0.0",
+		"citty": "^0.1.6",
+		"ulid": "^2.4.0",
+		"yaml": "^2.8.0",
+		"zod": "^3.25.0"
+	},
+	"devDependencies": {
 		"@arikernel/core": "workspace:*",
 		"@arikernel/runtime": "workspace:*",
 		"@arikernel/policy-engine": "workspace:*",
@@ -47,9 +54,6 @@
 		"@arikernel/benchmarks": "workspace:*",
 		"@arikernel/control-plane": "workspace:*",
 		"@arikernel/sidecar": "workspace:*",
-		"citty": "^0.1.6"
-	},
-	"devDependencies": {
 		"typescript": "^5.7.2"
 	}
 }
