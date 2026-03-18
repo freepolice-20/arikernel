@@ -1,0 +1,35 @@
+{
+  "id": "ari-kernel",
+  "name": "ARI Kernel Security",
+  "description": "Runtime security enforcement for Primal — policy engine, taint tracking, behavioral quarantine, and audit logging via ARI Kernel sidecar.",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "Enable ARI Kernel security enforcement"
+      },
+      "preset": {
+        "type": "string",
+        "enum": ["safe", "strict", "research", "workspace-assistant", "safe-research"],
+        "description": "ARI Kernel security preset"
+      },
+      "port": {
+        "type": "number",
+        "description": "Port for the ARI Kernel sidecar HTTP server"
+      },
+      "auditLogPath": {
+        "type": "string",
+        "description": "Path to the SQLite audit log database"
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": { "label": "Enable ARI Kernel" },
+    "preset": { "label": "Security Preset", "placeholder": "safe" },
+    "port": { "label": "Sidecar Port", "placeholder": "8787" },
+    "auditLogPath": { "label": "Audit Log Path", "placeholder": "~/.openclaw/ari-kernel/audit.db" }
+  }
+}
