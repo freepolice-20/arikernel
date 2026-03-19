@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SidecarClient, SidecarServer } from "../src/index.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ describe("SidecarServer lifecycle", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18787,
@@ -89,8 +89,8 @@ describe("SidecarServer lifecycle", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -113,7 +113,7 @@ describe("POST /execute — validation", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18788,
@@ -123,8 +123,8 @@ describe("POST /execute — validation", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -176,7 +176,7 @@ describe("POST /execute — policy enforcement", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18789,
@@ -186,8 +186,8 @@ describe("POST /execute — policy enforcement", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -210,7 +210,7 @@ describe("POST /execute — allowed execution", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18792,
@@ -220,8 +220,8 @@ describe("POST /execute — allowed execution", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -258,7 +258,7 @@ describe("quarantine via sidecar", () => {
 	let client: SidecarClient;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18793,
@@ -273,8 +273,8 @@ describe("quarantine via sidecar", () => {
 		});
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -298,7 +298,7 @@ describe("POST /status", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18794,
@@ -308,8 +308,8 @@ describe("POST /status", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -354,7 +354,7 @@ describe("SidecarClient", () => {
 	let client: SidecarClient;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18790,
@@ -365,8 +365,8 @@ describe("SidecarClient", () => {
 		client = new SidecarClient({ baseUrl: "http://localhost:18790", principalId: "test-agent" });
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -392,7 +392,7 @@ describe("per-principal isolation", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18791,
@@ -402,8 +402,8 @@ describe("per-principal isolation", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -434,7 +434,7 @@ describe("end-to-end trust boundary", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18795,
@@ -445,8 +445,8 @@ describe("end-to-end trust boundary", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -487,7 +487,7 @@ describe("Bearer token authentication", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18796,
@@ -498,8 +498,8 @@ describe("Bearer token authentication", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -588,7 +588,7 @@ describe("Principal identity binding (API key → principalId)", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18797,
@@ -599,8 +599,8 @@ describe("Principal identity binding (API key → principalId)", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -716,8 +716,8 @@ describe("Rate limiting", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -923,7 +923,7 @@ describe("POST /execute — allowed vs success decoupling", () => {
 	let client: SidecarClient;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18823,
@@ -937,8 +937,8 @@ describe("POST /execute — allowed vs success decoupling", () => {
 		});
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -973,7 +973,7 @@ describe("POST /execute — grantId support", () => {
 	let server: SidecarServer;
 	let dir: string;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		dir = tempDir();
 		server = new SidecarServer({
 			port: 18824,
@@ -983,8 +983,8 @@ describe("POST /execute — grantId support", () => {
 		await server.listen();
 	});
 
-	afterEach(async () => {
-		await server.close();
+	afterAll(async () => {
+		server.closeAllConnections?.(); await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
