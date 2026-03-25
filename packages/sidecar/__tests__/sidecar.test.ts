@@ -90,7 +90,8 @@ describe("SidecarServer lifecycle", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -124,7 +125,8 @@ describe("POST /execute — validation", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -187,7 +189,8 @@ describe("POST /execute — policy enforcement", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -221,7 +224,8 @@ describe("POST /execute — allowed execution", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -274,7 +278,8 @@ describe("quarantine via sidecar", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -309,7 +314,8 @@ describe("POST /status", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -366,7 +372,8 @@ describe("SidecarClient", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -403,7 +410,8 @@ describe("per-principal isolation", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -446,7 +454,8 @@ describe("end-to-end trust boundary", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -499,7 +508,8 @@ describe("Bearer token authentication", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -600,7 +610,8 @@ describe("Principal identity binding (API key → principalId)", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -717,7 +728,8 @@ describe("Rate limiting", () => {
 	let dir: string;
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -938,7 +950,8 @@ describe("POST /execute — allowed vs success decoupling", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -984,7 +997,8 @@ describe("POST /execute — grantId support", () => {
 	});
 
 	afterAll(async () => {
-		server.closeAllConnections?.(); await server.close();
+		server.closeAllConnections?.();
+		await server.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 

@@ -13,7 +13,7 @@ function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
 		action: "get",
 		parameters: {},
 		taintLabels: [],
-		...(overrides as any).toolCall,
+		...(overrides as Record<string, unknown>).toolCall,
 	};
 	return {
 		id: "evt-1",
@@ -54,7 +54,7 @@ function makeEventWithToolCall(
 			parameters,
 			taintLabels: [],
 		},
-	} as any);
+	} as Partial<AuditEvent>);
 }
 
 describe("CrossPrincipalCorrelator", () => {
@@ -187,7 +187,7 @@ describe("CrossPrincipalCorrelator", () => {
 						},
 					],
 				},
-			} as any),
+			} as Partial<AuditEvent>),
 			"agent-C",
 		);
 
@@ -222,7 +222,7 @@ describe("CrossPrincipalCorrelator", () => {
 						},
 					],
 				},
-			} as any),
+			} as Partial<AuditEvent>),
 			"agent-D",
 		);
 
