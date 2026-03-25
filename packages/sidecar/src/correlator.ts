@@ -159,13 +159,13 @@ export class CrossPrincipalCorrelator {
 	ingest(event: AuditEvent, principalId: string): void {
 		// AuditEvent nests tool call data under event.toolCall
 		const tc = event.toolCall;
-		const toolClass = tc?.toolClass ?? (event as any).toolClass ?? "unknown";
-		const action = tc?.action ?? (event as any).action ?? "unknown";
-		const params =
-			tc?.parameters ?? ((event as any).parameters as Record<string, unknown> | undefined);
+		const evt = event as unknown as Record<string, unknown>;
+		const toolClass = tc?.toolClass ?? (evt.toolClass as string) ?? "unknown";
+		const action = tc?.action ?? (evt.action as string) ?? "unknown";
+		const params = tc?.parameters ?? (evt.parameters as Record<string, unknown> | undefined);
 		const taintSources =
-			tc?.taintLabels?.map((t: any) => t.source) ??
-			((event as any).taintSources as string[] | undefined);
+			tc?.taintLabels?.map((t: { source: string }) => t.source) ??
+			(evt.taintSources as string[] | undefined);
 
 		const pe: PrincipalEvent = {
 			principalId,

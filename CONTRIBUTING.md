@@ -75,7 +75,7 @@ If you find a security vulnerability, **do not open a public issue**. Email [sec
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [AriKernel Source-Available License](LICENSE.md).
+By contributing, you agree that your contributions will be licensed under the [Apache License 2.0](LICENSE).
 
 ## Contact
 

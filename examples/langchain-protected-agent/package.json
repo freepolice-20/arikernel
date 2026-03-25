@@ -6,8 +6,8 @@
 		"start": "tsx agent.ts"
 	},
 	"dependencies": {
-		"@arikernel/core": "^0.1.2",
-		"@arikernel/runtime": "^0.1.2"
+		"@arikernel/core": "^0.1.0",
+		"@arikernel/runtime": "^0.1.0"
 	},
 	"devDependencies": {
 		"tsx": "^4.0.0"

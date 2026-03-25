@@ -370,6 +370,10 @@ export async function handleExecute(
 				};
 				return jsonResponse(res, 403, response);
 			}
+			// Log the real error server-side so operators can diagnose issues.
+			// Especially important for native module mismatches (ERR_DLOPEN_FAILED),
+			// missing executors, or unexpected runtime errors that produce opaque 500s.
+			console.error("[AriKernel] Unhandled execute error:", e);
 			return jsonResponse(res, 500, { allowed: false, error: "Internal server error" });
 		}
 	} finally {

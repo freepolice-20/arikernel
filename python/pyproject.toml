@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arikernel"
-version = "0.1.2"
+version = "0.1.0"
 description = "Runtime security layer for AI agents — native Python enforcement with TypeScript-parity semantics"
 readme = "README.md"
 requires-python = ">=3.10"

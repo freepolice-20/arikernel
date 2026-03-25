@@ -63,7 +63,7 @@ def sidecar():
         [
             "node", "-e",
             "import('@arikernel/sidecar').then(m => "
-            "m.createSidecarServer({preset:'safe'}).listen().then(() => "
+            "m.createSidecarServer({devMode:true}).listen().then(() => "
             "console.log('Sidecar listening')))"
         ],
         stdout=subprocess.PIPE,
@@ -245,7 +245,7 @@ def test_execute_allowed_but_failed(kernel):
     result = kernel.execute_tool(
         tool_class="file",
         action="read",
-        parameters={"path": "./data/nonexistent-file-that-does-not-exist.txt"},
+        parameters={"path": "/nonexistent/path/that/does/not/exist.txt"},
     )
     assert result["verdict"] == "allow"
     assert result["success"] is False

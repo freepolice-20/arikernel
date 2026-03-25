@@ -1,0 +1,12 @@
+{
+  "name": "ari-kernel",
+  "version": "1.0.0",
+  "description": "ARI Kernel security plugin for OpenClaw",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  }
+}

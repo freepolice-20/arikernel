@@ -19,8 +19,8 @@
 - [x] Run-level quarantine (behavioral + threshold triggers)
 - [x] Security presets (safe-research, rag-reader, workspace-assistant, automation-agent)
 - [x] AutoScope for automatic preset selection
-- [x] Framework adapters: OpenAI, OpenAI Agents SDK, LangChain, LlamaIndex TS, CrewAI, Vercel AI, MCP, OpenClaw (experimental); AutoGen (Python) and AutoGPT (Python) are experimental — not in v0.1.2
-- [ ] ~~Native Python runtime with same enforcement model~~ — **deferred from v0.1.2** (experimental; `require-approval` semantic divergence and packaging issues block release)
+- [x] Framework adapters: OpenAI, OpenAI Agents SDK, LangChain, LlamaIndex TS, CrewAI, Vercel AI, MCP, OpenClaw (experimental); AutoGen (Python) and AutoGPT (Python) are experimental — not in v0.1.0
+- [ ] ~~Native Python runtime with same enforcement model~~ — **deferred from v0.1.0** (experimental; `require-approval` semantic divergence and packaging issues block release)
 - [x] Sidecar / proxy mode with per-principal isolation, status endpoint, capability grants
 - [x] CLI: init, policy validate, simulate, trace, replay, replay-trace, sidecar
 - [x] Deterministic trace recording and replay with what-if analysis
