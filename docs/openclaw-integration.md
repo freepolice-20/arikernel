@@ -110,6 +110,34 @@ curl http://127.0.0.1:8787/health
 
 Change `preset` in `openclaw.json` under `plugins.entries.ari-kernel.config`.
 
+## Defense in depth — how OpenClaw and ARI Kernel work together
+
+OpenClaw and ARI Kernel protect different layers of the agent pipeline:
+
+- **OpenClaw guards the input** — it wraps external content (web pages, emails, webhooks) in `EXTERNAL_UNTRUSTED_CONTENT` tags before it reaches the model. This stops most prompt injection at the source.
+- **ARI Kernel guards the output/actions** — it blocks the model from executing dangerous actions (shell commands, file writes, data exfiltration) regardless of how the instruction arrived.
+
+They are complementary, not redundant:
+
+```
+Malicious web content arrives     → OpenClaw tags it as untrusted
+Content tells agent to run del /s → ARI Kernel blocks the shell call
+Agent retries 3 times             → ARI Kernel quarantines the agent
+```
+
+OpenClaw's input tagging can be bypassed — a clever injection may not look like instructions, a RAG document may gradually shift behavior over multiple turns, or the agent may be used with a framework that lacks OpenClaw's tagging. ARI Kernel catches the end result regardless of how the agent got there. It enforces policy on **actions**, not **inputs**.
+
+ARI Kernel also provides capabilities OpenClaw does not have on its own:
+
+- **Behavioral quarantine** — detects patterns of escalation attempts
+- **Audit log** — permanent record of every decision for compliance
+- **Multi-agent support** — enforce policy across any AI framework, not just OpenClaw
+- **Enterprise dashboard** — visibility into what is being blocked and why
+
+> **Known gap:** Browser fetch events from OpenClaw currently bypass the sidecar. The dashboard
+> will not show browser-sourced taint events unless the plugin explicitly forwards them to the
+> sidecar. This is planned for a future release.
+
 ## How taint tracking works
 
 ARI Kernel labels data that comes from untrusted sources (`web`, `email`, `rag`).

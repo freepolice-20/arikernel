@@ -1,6 +1,5 @@
 {
 	"name": "@arikernel/benchmarks",
-	"private": true,
 	"version": "0.1.2",
 	"description": "Reproducible attack benchmark suite for AriKernel",
 	"license": "SEE LICENSE IN LICENSE.md",
@@ -14,6 +13,10 @@
 	"bugs": {
 		"url": "https://github.com/AriKernel/arikernel/issues"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": ["dist"],
 	"main": "dist/index.js",
 	"scripts": {
 		"build": "tsup src/index.ts --format esm --dts",
